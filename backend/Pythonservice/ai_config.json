@@ -1,0 +1,6 @@
+{
+  "default_model": "gemini-2.5-flash",
+  "allow_user_change": false,
+  "max_tokens": 3072,
+  "temperature": 0.1
+}

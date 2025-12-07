@@ -6,12 +6,15 @@ import os
 
 # Import routers
 from routes.health import router as health_router
-from routes.gemini import router as gemini_router, load_gemini_models, set_rag_prompt_service as set_gemini_rag_service
+from routes.gemini import router as gemini_router, load_gemini_models, set_rag_prompt_service as set_gemini_rag_service, set_chat_history_service as set_gemini_chat_history
 from routes.chroma import router as chroma_router, set_chroma_client
 from routes.rag import router as rag_router, set_rag_prompt_service
+from routes.chat_history import router as chat_history_router, set_chat_history_service
+from routes.ai_config import router as ai_config_router
 
 # Import services
 from services.rag_prompt_service import RAGPromptService
+from services.chat_history_service import ChatHistoryService
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -46,6 +49,11 @@ rag_prompt_service = RAGPromptService(chroma_client)
 set_rag_prompt_service(rag_prompt_service)
 set_gemini_rag_service(rag_prompt_service)
 
+# Initialize Chat History Service
+chat_history_service = ChatHistoryService(chroma_client)
+set_chat_history_service(chat_history_service)
+set_gemini_chat_history(chat_history_service)
+
 # Load Gemini models
 load_gemini_models()
 
@@ -54,6 +62,8 @@ app.include_router(health_router, prefix="/health", tags=["Health Check"])
 app.include_router(gemini_router, prefix="/gemini", tags=["Gemini AI"])
 app.include_router(chroma_router, prefix="/chroma", tags=["ChromaDB"])
 app.include_router(rag_router, prefix="/rag", tags=["RAG Prompts"])
+app.include_router(chat_history_router, prefix="/chat-history", tags=["Chat History"])
+app.include_router(ai_config_router, prefix="/ai-config", tags=["AI Configuration"])
 
 @app.get("/")
 async def root():

@@ -153,9 +153,9 @@ export default function ProfilePage() {
 
   const getRoleBadge = (role: string) => {
     const badges = {
-      ADMIN: { bg: 'bg-gradient-to-r from-purple-500 to-pink-500', text: 'Quản trị viên', icon: '👑' },
-      BUSINESS: { bg: 'bg-gradient-to-r from-blue-500 to-indigo-500', text: 'Doanh nghiệp', icon: '🏢' },
-      CUSTOMER: { bg: 'bg-gradient-to-r from-green-500 to-emerald-500', text: 'Khách hàng', icon: '👤' },
+      ADMIN: { bg: 'bg-gradient-to-r from-purple-500 to-pink-500', text: 'Quản trị viên', iconPath: 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z' },
+      BUSINESS: { bg: 'bg-gradient-to-r from-blue-500 to-indigo-500', text: 'Doanh nghiệp', iconPath: 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4' },
+      CUSTOMER: { bg: 'bg-gradient-to-r from-green-500 to-emerald-500', text: 'Khách hàng', iconPath: 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z' },
     };
     return badges[role as keyof typeof badges] || badges.CUSTOMER;
   };
@@ -279,7 +279,9 @@ export default function ProfilePage() {
                 <h2 className="text-4xl font-bold mb-3 drop-shadow-lg">{user.username}</h2>
                 <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-4">
                   <span className="px-4 py-1.5 bg-white/30 backdrop-blur-sm rounded-full text-sm font-bold flex items-center gap-2 shadow-lg">
-                    <span>{roleBadge.icon}</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={roleBadge.iconPath} />
+                    </svg>
                     <span>{roleBadge.text}</span>
                   </span>
                   <span className="px-4 py-1.5 bg-white/20 backdrop-blur-sm rounded-full text-sm flex items-center gap-2">
@@ -589,8 +591,11 @@ export default function ProfilePage() {
                           </div>
                           <div className="flex justify-between py-2 border-b border-gray-200 dark:border-gray-700">
                             <span className="text-gray-600 dark:text-gray-400">Vai trò:</span>
-                            <span className={`px-3 py-1 ${roleBadge.bg} text-white rounded-full text-xs font-bold`}>
-                              {roleBadge.icon} {roleBadge.text}
+                            <span className={`px-3 py-1 ${roleBadge.bg} text-white rounded-full text-xs font-bold flex items-center gap-1`}>
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={roleBadge.iconPath} />
+                              </svg>
+                              {roleBadge.text}
                             </span>
                           </div>
                           <div className="flex justify-between py-2">
