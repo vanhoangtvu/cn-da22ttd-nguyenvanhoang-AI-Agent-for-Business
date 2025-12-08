@@ -16,6 +16,7 @@ from routes.chroma import router as chroma_router, set_chroma_client
 from routes.rag import router as rag_router, set_rag_prompt_service
 from routes.chat_history import router as chat_history_router, set_chat_history_service
 from routes.ai_config import router as ai_config_router
+from routes.business_analytics import router as analytics_router, set_chroma_client as set_analytics_chroma_client
 
 # Import services
 from services.rag_prompt_service import RAGPromptService
@@ -50,6 +51,7 @@ chroma_client = chromadb.PersistentClient(path="./chroma_data")
 set_chroma_client(chroma_client)
 set_gemini_chroma_client(chroma_client)  # Set for gemini router to enable semantic search
 set_groq_chroma_client(chroma_client)  # Set for groq router to enable semantic search
+set_analytics_chroma_client(chroma_client)  # Set for analytics router to access data
 
 # Initialize RAG Prompt Service
 rag_prompt_service = RAGPromptService(chroma_client)
@@ -77,6 +79,7 @@ app.include_router(chroma_router, prefix="/chroma", tags=["ChromaDB"])
 app.include_router(rag_router, prefix="/rag", tags=["RAG Prompts"])
 app.include_router(chat_history_router, prefix="/chat-history", tags=["Chat History"])
 app.include_router(ai_config_router, prefix="/ai-config", tags=["AI Configuration"])
+app.include_router(analytics_router, prefix="/analytics", tags=["Business Analytics"])
 
 @app.get("/")
 async def root():
