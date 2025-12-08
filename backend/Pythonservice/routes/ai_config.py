@@ -1,6 +1,7 @@
 """
 AI Configuration Routes
 Allows admin to configure default AI model for users
+Also stores user-specific AI provider preferences
 """
 
 from fastapi import APIRouter, HTTPException
@@ -11,8 +12,9 @@ import os
 
 router = APIRouter()
 
-# Config file path
+# Config file paths
 CONFIG_FILE = "./ai_config.json"
+USER_PREFERENCES_FILE = "./user_ai_preferences.json"
 
 # Available models
 AVAILABLE_MODELS = [
@@ -82,6 +84,34 @@ class AIConfigUpdate(BaseModel):
     allow_user_change: Optional[bool] = None
     max_tokens: Optional[int] = None
     temperature: Optional[float] = None
+
+
+class UserAIPreference(BaseModel):
+    user_id: str
+    provider: str  # 'gemini' or 'groq'
+    model: str  # model name/id
+
+
+def load_user_preferences() -> dict:
+    """Load user preferences from file"""
+    try:
+        if os.path.exists(USER_PREFERENCES_FILE):
+            with open(USER_PREFERENCES_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+    except Exception as e:
+        print(f"Error loading user preferences: {e}")
+    return {}
+
+
+def save_user_preferences(preferences: dict) -> bool:
+    """Save user preferences to file"""
+    try:
+        with open(USER_PREFERENCES_FILE, 'w', encoding='utf-8') as f:
+            json.dump(preferences, f, indent=2, ensure_ascii=False)
+        return True
+    except Exception as e:
+        print(f"Error saving user preferences: {e}")
+        return False
 
 
 @router.get("/models")
@@ -162,3 +192,71 @@ async def reset_ai_config():
         }
     else:
         raise HTTPException(status_code=500, detail="Failed to reset configuration")
+
+
+# User Preference Endpoints
+@router.get("/user-preference/{user_id}")
+async def get_user_preference(user_id: str):
+    """Get user's AI provider preference"""
+    preferences = load_user_preferences()
+    user_pref = preferences.get(user_id)
+    
+    if user_pref:
+        return {
+            "user_id": user_id,
+            "provider": user_pref.get("provider", "gemini"),
+            "model": user_pref.get("model", "gemini-2.0-flash")
+        }
+    else:
+        # Return default
+        return {
+            "user_id": user_id,
+            "provider": "gemini",
+            "model": "gemini-2.0-flash"
+        }
+
+
+@router.post("/user-preference")
+async def save_user_preference(pref: UserAIPreference):
+    """Save user's AI provider preference"""
+    preferences = load_user_preferences()
+    
+    # Validate provider
+    if pref.provider not in ['gemini', 'groq']:
+        raise HTTPException(status_code=400, detail="Provider must be 'gemini' or 'groq'")
+    
+    # Save preference
+    preferences[pref.user_id] = {
+        "provider": pref.provider,
+        "model": pref.model
+    }
+    
+    if save_user_preferences(preferences):
+        return {
+            "success": True,
+            "message": "User preference saved",
+            "preference": preferences[pref.user_id]
+        }
+    else:
+        raise HTTPException(status_code=500, detail="Failed to save user preference")
+
+
+@router.delete("/user-preference/{user_id}")
+async def delete_user_preference(user_id: str):
+    """Delete user's AI provider preference (revert to default)"""
+    preferences = load_user_preferences()
+    
+    if user_id in preferences:
+        del preferences[user_id]
+        if save_user_preferences(preferences):
+            return {
+                "success": True,
+                "message": "User preference deleted"
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to delete user preference")
+    else:
+        return {
+            "success": True,
+            "message": "User preference does not exist"
+        }

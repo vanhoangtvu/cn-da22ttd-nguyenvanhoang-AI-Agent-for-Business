@@ -81,13 +81,14 @@ interface SystemAnalyticsData {
 }
 
 export default function AIServicePage() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'prompts' | 'history' | 'collections' | 'settings' | 'rag-data' | 'test-chat'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'prompts' | 'history' | 'collections' | 'settings' | 'rag-data'>('overview');
   const [serviceHealth, setServiceHealth] = useState<ServiceHealth | null>(null);
   const [ragStats, setRagStats] = useState<RAGStats | null>(null);
   const [chatStats, setChatStats] = useState<ChatStats | null>(null);
   const [prompts, setPrompts] = useState<RAGPrompt[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [isMounted, setIsMounted] = useState(false);
 
   // AI Config state
   const [aiConfig, setAiConfig] = useState<AIConfig | null>(null);
@@ -98,6 +99,11 @@ export default function AIServicePage() {
   const [loadingModels, setLoadingModels] = useState(false);
   const [modelsLoaded, setModelsLoaded] = useState(false);
   const [testingModel, setTestingModel] = useState<string | null>(null);
+
+  // AI Provider state
+  const [aiProvider, setAiProvider] = useState<'gemini' | 'groq'>('gemini');
+  const [groqModels, setGroqModels] = useState<any[]>([]);
+  const [selectedGroqModel, setSelectedGroqModel] = useState<string>('llama-3.3-70b-versatile');
   const [modelTestResults, setModelTestResults] = useState<Record<string, 'success' | 'error' | 'testing'>>({});
 
   // Form states
@@ -129,6 +135,7 @@ export default function AIServicePage() {
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<string>('');
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle');
+  const [showSuggestedPrompts, setShowSuggestedPrompts] = useState(false);
 
   // Test Chat state
   const [chatMessages, setChatMessages] = useState<Array<{role: 'user' | 'assistant', content: string}>>([]);
@@ -142,14 +149,45 @@ export default function AIServicePage() {
   const [loadingChatModels, setLoadingChatModels] = useState(false);
 
   useEffect(() => {
+    setIsMounted(true);
     loadData();
     loadAvailableModels();
+    loadUserPreference(); // Load user preference from database
+    
+    // Cleanup function to reset modal state when component unmounts
+    return () => {
+      setIsMounted(false);
+      setShowSuggestedPrompts(false);
+    };
   }, []);
 
   // Auto scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
+
+  // Load user's AI provider preference from database
+  const loadUserPreference = async () => {
+    try {
+      const userData = apiClient.getUserData();
+      const userId = userData?.userId?.toString() || 'anonymous';
+      
+      const response = await fetch(`${AI_SERVICE_URL}/ai-config/user-preference/${userId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setAiProvider(data.provider);
+        
+        if (data.provider === 'groq') {
+          setSelectedGroqModel(data.model);
+          await loadGroqModels();
+        } else {
+          setSelectedModel(data.model);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load user preference:', error);
+    }
+  };
 
   // Auto load analytics when switching to rag-data tab
   useEffect(() => {
@@ -237,6 +275,169 @@ export default function AIServicePage() {
     }
   };
 
+  // Load Groq models
+  const loadGroqModels = async () => {
+    try {
+      const response = await fetch(`${AI_SERVICE_URL}/groq/models`);
+      if (response.ok) {
+        const models = await response.json();
+        // Format display names for better readability
+        const formattedModels = models.map((model: any) => ({
+          ...model,
+          display_name: formatModelName(model.name || model.display_name)
+        }));
+        setGroqModels(formattedModels);
+      }
+    } catch (err) {
+      console.error('Error loading Groq models:', err);
+    }
+  };
+
+  // Helper function to format model names
+  const formatModelName = (name: string): string => {
+    // Convert model ID to readable name
+    const nameMap: Record<string, string> = {
+      // Llama models
+      'llama-3.3-70b-versatile': 'Llama 3.3 70B Versatile',
+      'llama-3.1-70b-versatile': 'Llama 3.1 70B Versatile',
+      'llama-3.1-8b-instant': 'Llama 3.1 8B Instant',
+      'llama3-70b-8192': 'Llama 3 70B',
+      'llama3-8b-8192': 'Llama 3 8B',
+      'meta-llama/llama-4-scout-17b-16e-instruct': 'Llama 4 Scout 17B',
+      'meta-llama/llama-4-maverick-17b-128e-instruct': 'Llama 4 Maverick 17B',
+      
+      // Mixtral
+      'mixtral-8x7b-32768': 'Mixtral 8x7B',
+      
+      // Gemma
+      'gemma-7b-it': 'Gemma 7B IT',
+      'gemma2-9b-it': 'Gemma 2 9B IT',
+      
+      // Other providers
+      'openai/gpt-oss-120b': 'GPT OSS 120B',
+      'openai/gpt-oss-20b': 'GPT OSS 20B',
+      'moonshotai/kimi-k2-instruct-0905': 'Kimi K2 Instruct (0905)',
+      'moonshotai/kimi-k2-instruct': 'Kimi K2 Instruct',
+      'qwen/qwen3-32b': 'Qwen 3 32B',
+      'groq/compound': 'Groq Compound',
+      'groq/compound-mini': 'Groq Compound Mini',
+      'allam-2-7b': 'Allam 2 7B',
+    };
+    
+    // Return mapped name or format the original
+    if (nameMap[name]) {
+      return nameMap[name];
+    }
+    
+    // Try to format unknown names
+    const parts = name.split('/');
+    const modelName = parts[parts.length - 1];
+    
+    // Capitalize and format
+    return modelName
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
+  // Load saved AI provider preference
+  useEffect(() => {
+    const savedProvider = localStorage.getItem('ai_provider') as 'gemini' | 'groq' | null;
+    if (savedProvider) {
+      setAiProvider(savedProvider);
+    }
+    
+    // Load saved Groq model
+    const savedGroqModel = localStorage.getItem('selected_groq_model');
+    if (savedGroqModel) {
+      setSelectedGroqModel(savedGroqModel);
+    }
+    
+    if (savedProvider === 'groq') {
+      loadGroqModels();
+    }
+  }, []);
+
+  // Handle provider change
+  const handleProviderChange = async (provider: 'gemini' | 'groq') => {
+    console.log('[Admin] 🔄 Provider change requested:', provider);
+    console.log('[Admin] Current state - aiProvider:', aiProvider, 'selectedGroqModel:', selectedGroqModel, 'selectedModel:', selectedModel);
+    
+    setAiProvider(provider);
+    
+    // Save to database
+    const userData = apiClient.getUserData();
+    const userId = userData?.userId?.toString() || 'anonymous';
+    
+    const model = provider === 'groq' ? selectedGroqModel : selectedModel;
+    
+    console.log('[Admin] 💾 Saving preference:', { userId, provider, model });
+    
+    try {
+      const response = await fetch(`${AI_SERVICE_URL}/ai-config/user-preference`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          provider: provider,
+          model: model
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('[Admin] ✅ Provider preference saved successfully:', result);
+      } else {
+        console.error('[Admin] ❌ Failed to save provider preference, status:', response.status);
+      }
+    } catch (error) {
+      console.error('[Admin] ❌ Error saving provider preference:', error);
+    }
+    
+    if (provider === 'groq') {
+      await loadGroqModels();
+    }
+  };
+
+  // Handle Groq model selection
+  const handleGroqModelSelect = async (modelName: string) => {
+    console.log('[Admin] 🎯 Groq model selected:', modelName);
+    setSelectedGroqModel(modelName);
+    
+    // Also update provider to groq if not already
+    if (aiProvider !== 'groq') {
+      console.log('[Admin] 🔄 Auto-switching provider to groq');
+      setAiProvider('groq');
+    }
+    
+    // Save to database
+    const userData = apiClient.getUserData();
+    const userId = userData?.userId?.toString() || 'anonymous';
+    
+    console.log('[Admin] 💾 Saving Groq model preference:', { userId, provider: 'groq', model: modelName });
+    
+    try {
+      const response = await fetch(`${AI_SERVICE_URL}/ai-config/user-preference`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: userId,
+          provider: 'groq',
+          model: modelName
+        })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('[Admin] ✅ Groq model saved successfully:', result);
+      } else {
+        console.error('[Admin] ❌ Failed to save Groq model, status:', response.status);
+      }
+    } catch (error) {
+      console.error('[Admin] ❌ Error saving Groq model preference:', error);
+    }
+  };
+
   // Add new prompt
   const handleAddPrompt = async () => {
     if (!newPrompt.prompt.trim()) {
@@ -261,6 +462,104 @@ export default function AIServicePage() {
         loadData();
       } else {
         alert('Không thể thêm prompt');
+      }
+    } catch (err) {
+      alert('Lỗi kết nối');
+    }
+  };
+
+  // Create 5 sample prompts quickly
+  const handleCreateSamplePrompts = async () => {
+    if (!confirm('Tạo 5 prompts mẫu để hướng dẫn AI? Các prompts cũ sẽ không bị xóa.')) {
+      return;
+    }
+
+    const samplePrompts = [
+      {
+        prompt: `Khi người dùng hỏi về sản phẩm (ví dụ: "có sản phẩm gì", "tìm điện thoại", "giá bao nhiêu"), hãy tìm kiếm trong collection "products" của ChromaDB. 
+
+Các thông tin sản phẩm bao gồm:
+- Tên sản phẩm, mô tả
+- Giá bán (đơn vị VNĐ)
+- Tồn kho, số lượng đã bán
+- Danh mục, người bán
+- Doanh thu
+
+Luôn trả lời bằng tiếng Việt, thân thiện và đưa ra gợi ý phù hợp. Nếu không tìm thấy, hãy đề xuất sản phẩm tương tự hoặc hỏi thêm thông tin.`,
+        category: 'product_search',
+        tags: ['product', 'search', 'ecommerce']
+      },
+      {
+        prompt: `Khi người dùng hỏi về đơn hàng (ví dụ: "đơn hàng của tôi", "kiểm tra đơn", "tình trạng giao hàng"), hãy tìm trong collection "orders".
+
+Thông tin đơn hàng gồm:
+- Mã đơn hàng, trạng thái (PENDING, CONFIRMED, PROCESSING, SHIPPING, DELIVERED, CANCELLED)
+- Tên khách hàng, tổng tiền
+- Danh sách sản phẩm trong đơn
+- Ngày đặt hàng
+
+Giải thích trạng thái đơn hàng rõ ràng và cập nhật thời gian giao hàng dự kiến nếu có thể.`,
+        category: 'order_inquiry',
+        tags: ['order', 'tracking', 'support']
+      },
+      {
+        prompt: `Khi được hỏi về thống kê doanh nghiệp (ví dụ: "doanh thu", "bán được bao nhiêu", "top sản phẩm"), hãy sử dụng collection "business" và "system_stats".
+
+Cung cấp thông tin:
+- Tổng doanh thu (theo ngày/tuần/tháng)
+- Số đơn hàng, giá trị trung bình
+- Top sản phẩm bán chạy
+- Hiệu suất từng doanh nghiệp
+
+Trình bày số liệu một cách trực quan, dễ hiểu.`,
+        category: 'business_analytics',
+        tags: ['analytics', 'business', 'statistics']
+      },
+      {
+        prompt: `Khi khách hàng hỏi về chính sách (ví dụ: "đổi trả", "bảo hành", "thanh toán", "giao hàng"), hãy:
+
+1. Chính sách đổi trả: 7 ngày kể từ ngày nhận hàng, sản phẩm còn nguyên vẹn, có hóa đơn
+2. Thanh toán: COD (thanh toán khi nhận hàng), chuyển khoản ngân hàng
+3. Giao hàng: 2-5 ngày trong nội thành, 3-7 ngày ngoại thành
+4. Bảo hành: Theo chính sách nhà sản xuất (thường 12-24 tháng)
+
+Luôn lịch sự, hỗ trợ nhiệt tình và hỏi thêm thông tin nếu cần.`,
+        category: 'customer_service',
+        tags: ['policy', 'support', 'service']
+      },
+      {
+        prompt: `Bạn là AI Agent hỗ trợ khách hàng của cửa hàng thương mại điện tử. Nhiệm vụ của bạn:
+
+1. Tư vấn sản phẩm dựa trên dữ liệu thực tế trong ChromaDB
+2. Hỗ trợ tra cứu đơn hàng, theo dõi giao hàng
+3. Giải đáp chính sách mua hàng, đổi trả
+4. Cung cấp thống kê cho admin/business khi được yêu cầu
+
+Luôn sử dụng dữ liệu từ ChromaDB collections (products, orders, users, categories, business, system_stats) để trả lời chính xác.
+Nếu không tìm thấy thông tin, hãy thông báo rõ ràng và đề xuất cách khác.
+
+Giọng điệu: Thân thiện, chuyên nghiệp, hữu ích.`,
+        category: 'general',
+        tags: ['guidance', 'role', 'instructions']
+      }
+    ];
+
+    try {
+      let successCount = 0;
+      for (const promptData of samplePrompts) {
+        const res = await fetch(`${AI_SERVICE_URL}/rag/prompts`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(promptData),
+        });
+        if (res.ok) successCount++;
+      }
+
+      if (successCount > 0) {
+        alert(`Đã tạo ${successCount}/5 prompts mẫu thành công!`);
+        loadData();
+      } else {
+        alert('Không thể tạo prompts mẫu');
       }
     } catch (err) {
       alert('Lỗi kết nối');
@@ -517,11 +816,13 @@ export default function AIServicePage() {
     setSyncProgress('Đang chuẩn bị đồng bộ...');
 
     try {
-      // Step 1: Sync Products to 'products' collection
+      // Step 1: Sync Products to 'products' collection (with images)
       setSyncProgress('Đang đồng bộ sản phẩm vào collection "products"...');
-      const productDocs = systemAnalytics.products?.map((p: any) => 
-        `Sản phẩm ID ${p.id}: ${p.name}. Giá: ${(p.price / 1000).toFixed(0)}K VNĐ. ${p.description}. Danh mục: ${p.categoryName}. Người bán: ${p.sellerUsername}. Tồn kho: ${p.quantity}. Đã bán: ${p.totalSold || 0}. Doanh thu: ${(p.totalRevenue / 1000000).toFixed(2)}M VNĐ. Trạng thái: ${p.status}.`
-      ) || [];
+      const productDocs = systemAnalytics.products?.map((p: any) => {
+        const imageUrlsArray = p.imageUrls ? JSON.parse(p.imageUrls) : [];
+        const firstImageUrl = imageUrlsArray[0] || '';
+        return `Sản phẩm ID ${p.id}: ${p.name}. Giá: ${(p.price / 1000).toFixed(0)}K VNĐ. ${p.description}. Danh mục: ${p.categoryName}. Người bán: ${p.sellerUsername}. Tồn kho: ${p.quantity}. Đã bán: ${p.totalSold || 0}. Doanh thu: ${(p.totalRevenue / 1000000).toFixed(2)}M VNĐ. Trạng thái: ${p.status}.${firstImageUrl ? ` Hình ảnh: ${firstImageUrl}` : ''}`;
+      }) || [];
 
       const productMetas = systemAnalytics.products?.map((p: any) => ({
         id: p.id.toString(),
@@ -531,6 +832,7 @@ export default function AIServicePage() {
         seller: p.sellerUsername,
         quantity: p.quantity,
         totalSold: p.totalSold || 0,
+        imageUrls: p.imageUrls || '[]',
         type: 'product'
       })) || [];
 
@@ -684,8 +986,14 @@ export default function AIServicePage() {
         }),
       });
 
-      setSyncProgress('Hoàn thành đồng bộ!');
+      setSyncProgress('✓ Đã đồng bộ thống kê hệ thống');
+      setSyncProgress('✅ Hoàn thành đồng bộ dữ liệu!');
       setSyncStatus('success');
+      
+      // Show suggested prompts modal after sync - only if component is still mounted
+      if (isMounted) {
+        setShowSuggestedPrompts(true);
+      }
       
       // Reload data
       setTimeout(() => {
@@ -919,7 +1227,6 @@ export default function AIServicePage() {
           <div className="flex gap-2 overflow-x-auto">
             {[
               { id: 'overview', label: 'Tổng quan', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
-              { id: 'test-chat', label: 'Test Chat', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' },
               { id: 'settings', label: 'Cài đặt Model', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z' },
               { id: 'rag-data', label: 'RAG Data', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' },
               { id: 'prompts', label: 'RAG Prompts', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
@@ -1176,72 +1483,233 @@ export default function AIServicePage() {
                   </button>
                 </div>
 
-                {/* Current Model Selection */}
+                {/* AI Provider Selection */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                  <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Chọn AI Provider
+                  </h3>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
+                    Chuyển đổi giữa Gemini và Groq để tránh giới hạn rate limit
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Gemini Provider */}
+                    <div
+                      onClick={() => handleProviderChange('gemini')}
+                      className={`p-6 rounded-xl border-2 cursor-pointer transition-all ${
+                        aiProvider === 'gemini'
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <h4 className="font-bold text-xl">Google Gemini</h4>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            Gemini AI từ Google
+                          </p>
+                        </div>
+                        {aiProvider === 'gemini' && (
+                          <span className="px-3 py-1 bg-blue-600 text-white text-xs rounded-full font-semibold">
+                            ĐÃ CHỌN
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <span className="px-2 py-1 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 rounded text-xs font-medium">
+                          Chất lượng cao
+                        </span>
+                        <span className="px-2 py-1 bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 rounded text-xs font-medium">
+                          Rate limit thấp
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Groq Provider */}
+                    <div
+                      onClick={() => handleProviderChange('groq')}
+                      className={`p-6 rounded-xl border-2 cursor-pointer transition-all ${
+                        aiProvider === 'groq'
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <h4 className="font-bold text-xl">Groq</h4>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            Llama & Mixtral siêu nhanh
+                          </p>
+                        </div>
+                        {aiProvider === 'groq' && (
+                          <span className="px-3 py-1 bg-blue-600 text-white text-xs rounded-full font-semibold">
+                            ĐÃ CHỌN
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <span className="px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded text-xs font-medium">
+                          Cực nhanh
+                        </span>
+                        <span className="px-2 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded text-xs font-medium">
+                          Rate limit cao
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Current Model Selection - Dynamic based on provider */}
                 <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
                   <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                     <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                     </svg>
-                    Chọn Model AI
+                    Chọn Model {aiProvider === 'groq' ? 'Groq' : 'Gemini'}
                   </h3>
                   <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
-                    Model này sẽ được sử dụng cho tất cả người dùng khi chat với AI Agent
+                    {aiProvider === 'groq' 
+                      ? 'Chọn model Groq để sử dụng cho chat'
+                      : 'Model này sẽ được sử dụng cho tất cả người dùng khi chat với AI Agent'
+                    }
                   </p>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {aiConfig?.available_models?.map((model) => (
-                      <div
-                        key={model.id}
-                        onClick={() => !savingConfig && handleUpdateConfig({ default_model: model.id })}
-                        className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                          aiConfig.default_model === model.id
-                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
-                            : 'border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-700'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <h4 className="font-bold text-lg">{model.name}</h4>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{model.description}</p>
+                  {/* Show Groq Models when Groq is selected */}
+                  {aiProvider === 'groq' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {groqModels.length === 0 ? (
+                        <div className="col-span-2 text-center py-8 text-gray-500 dark:text-gray-400">
+                          <p>Đang tải Groq models...</p>
+                        </div>
+                      ) : (
+                        groqModels.map((model: any) => (
+                          <div
+                            key={model.name}
+                            onClick={() => handleGroqModelSelect(model.name)}
+                            className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                              selectedGroqModel === model.name
+                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-700'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <h4 className="font-bold text-base">{model.display_name}</h4>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                  {model.owned_by}
+                                </p>
+                              </div>
+                              {selectedGroqModel === model.name && (
+                                <span className="px-2 py-1 bg-blue-600 text-white text-xs rounded-full font-semibold">
+                                  Đang dùng
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex gap-2 mt-3">
+                              <span className="px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded text-xs font-medium">
+                                {model.context_window.toLocaleString()} tokens
+                              </span>
+                              {model.context_window >= 131072 && (
+                                <span className="px-2 py-1 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 rounded text-xs font-medium">
+                                  Long Context
+                                </span>
+                              )}
+                            </div>
                           </div>
-                          {aiConfig.default_model === model.id && (
-                            <span className="px-2 py-1 bg-purple-600 text-white text-xs rounded-full font-semibold">
-                              Đang dùng
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  {/* Show Gemini Models (ai-config) when Gemini is selected */}
+                  {aiProvider === 'gemini' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {aiConfig?.available_models?.map((model) => (
+                        <div
+                          key={model.id}
+                          onClick={async () => {
+                            if (savingConfig) return;
+                            
+                            // Save to user preference instead of global config
+                            const userData = apiClient.getUserData();
+                            const userId = userData?.userId?.toString() || 'anonymous';
+                            
+                            try {
+                              console.log('[Admin] Saving Gemini preference:', { userId, provider: 'gemini', model: model.id });
+                              const response = await fetch(`${AI_SERVICE_URL}/ai-config/user-preference`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  user_id: userId,
+                                  provider: 'gemini',
+                                  model: model.id
+                                })
+                              });
+                              
+                              if (response.ok) {
+                                const result = await response.json();
+                                console.log('[Admin] Saved successfully:', result);
+                                setSelectedModel(model.id);
+                              } else {
+                                console.error('[Admin] Failed to save:', response.status);
+                              }
+                            } catch (error) {
+                              console.error('Failed to save Gemini model preference:', error);
+                            }
+                          }}
+                          className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                            selectedModel === model.id
+                              ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                              : 'border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-700'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h4 className="font-bold text-lg">{model.name}</h4>
+                              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{model.description}</p>
+                            </div>
+                            {selectedModel === model.id && (
+                              <span className="px-2 py-1 bg-purple-600 text-white text-xs rounded-full font-semibold">
+                                Đang dùng
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex gap-2 mt-3">
+                            <span className={`px-2 py-1 rounded text-xs font-medium flex items-center gap-1 ${
+                              model.speed === 'fast' 
+                                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                            }`}>
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={model.speed === 'fast' ? 'M13 10V3L4 14h7v7l9-11h-7z' : 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'} />
+                              </svg>
+                              {model.speed === 'fast' ? 'Nhanh' : 'Trung bình'}
                             </span>
-                          )}
+                            <span className={`px-2 py-1 rounded text-xs font-medium flex items-center gap-1 ${
+                              model.quality === 'highest' 
+                                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                : model.quality === 'high'
+                                ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                                : model.quality === 'experimental'
+                                ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                                : 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400'
+                            }`}>
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={model.quality === 'highest' ? 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z' : model.quality === 'high' ? 'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z' : model.quality === 'experimental' ? 'M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z' : 'M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5'} />
+                              </svg>
+                              {model.quality === 'highest' ? 'Cao nhất' 
+                                : model.quality === 'high' ? 'Cao'
+                                : model.quality === 'experimental' ? 'Thử nghiệm'
+                                : 'Tốt'}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex gap-2 mt-3">
-                          <span className={`px-2 py-1 rounded text-xs font-medium flex items-center gap-1 ${
-                            model.speed === 'fast' 
-                              ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                              : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                          }`}>
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={model.speed === 'fast' ? 'M13 10V3L4 14h7v7l9-11h-7z' : 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15'} />
-                            </svg>
-                            {model.speed === 'fast' ? 'Nhanh' : 'Trung bình'}
-                          </span>
-                          <span className={`px-2 py-1 rounded text-xs font-medium flex items-center gap-1 ${
-                            model.quality === 'highest' 
-                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                              : model.quality === 'high'
-                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
-                              : model.quality === 'experimental'
-                              ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
-                              : 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400'
-                          }`}>
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={model.quality === 'highest' ? 'M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z' : model.quality === 'high' ? 'M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z' : model.quality === 'experimental' ? 'M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z' : 'M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5'} />
-                            </svg>
-                            {model.quality === 'highest' ? 'Cao nhất' 
-                              : model.quality === 'high' ? 'Cao'
-                              : model.quality === 'experimental' ? 'Thử nghiệm'
-                              : 'Tốt'}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Gemini Models from API */}
@@ -1480,15 +1948,26 @@ export default function AIServicePage() {
                 {/* Add Prompt Button */}
                 <div className="flex justify-between items-center">
                   <h2 className="text-xl font-bold">Quản lý RAG Prompts</h2>
-                  <button
-                    onClick={() => setShowAddForm(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Thêm Prompt
-                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleCreateSamplePrompts}
+                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      Tạo nhanh 5 prompts mẫu
+                    </button>
+                    <button
+                      onClick={() => setShowAddForm(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Thêm Prompt
+                    </button>
+                  </div>
                 </div>
 
                 {/* Add Form Modal */}
@@ -1652,13 +2131,41 @@ export default function AIServicePage() {
                       </svg>
                     </div>
                     <h3 className="text-xl font-bold mb-2">Chưa có RAG Prompts</h3>
-                    <p className="text-gray-500 dark:text-gray-400 mb-4">Thêm prompts để hướng dẫn AI trả lời theo cách bạn muốn</p>
-                    <button
-                      onClick={() => setShowAddForm(true)}
-                      className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all"
-                    >
-                      Thêm Prompt đầu tiên
-                    </button>
+                    <p className="text-gray-500 dark:text-gray-400 mb-6">Prompts sẽ hướng dẫn AI cách sử dụng dữ liệu trong ChromaDB để trả lời chính xác</p>
+                    
+                    <div className="flex flex-col sm:flex-row gap-3 justify-center items-center max-w-md mx-auto">
+                      <button
+                        onClick={handleCreateSamplePrompts}
+                        className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all w-full sm:w-auto"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Tạo nhanh 5 prompts mẫu
+                      </button>
+                      <span className="text-gray-400">hoặc</span>
+                      <button
+                        onClick={() => setShowAddForm(true)}
+                        className="flex items-center gap-2 px-6 py-3 border-2 border-purple-600 text-purple-600 dark:text-purple-400 dark:border-purple-400 rounded-xl font-semibold hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all w-full sm:w-auto"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        Tạo prompt tùy chỉnh
+                      </button>
+                    </div>
+
+                    <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 text-left max-w-2xl mx-auto">
+                      <div className="flex gap-3">
+                        <svg className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div className="text-sm text-blue-800 dark:text-blue-200">
+                          <p className="font-semibold mb-1">💡 Gợi ý</p>
+                          <p>Nếu bạn đã đồng bộ dữ liệu vào ChromaDB (tab RAG Data), hãy tạo prompts để AI biết cách tìm kiếm và sử dụng dữ liệu đó!</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -2514,143 +3021,154 @@ export default function AIServicePage() {
                 )}
               </div>
             )}
-
-            {/* Test Chat Tab */}
-            {activeTab === 'test-chat' && (
-              <div className="max-w-6xl mx-auto">
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
-                  {/* Chat Header */}
-                  <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h2 className="text-2xl font-bold text-white mb-2">Test Chat AI</h2>
-                        <p className="text-purple-100">Kiểm tra tính năng chatbot với RAG</p>
-                      </div>
-                      <button
-                        onClick={handleClearTestChat}
-                        className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-lg transition-colors flex items-center gap-2"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        Xóa chat
-                      </button>
-                    </div>
-                    
-                    {/* Controls */}
-                    <div className="mt-4 flex items-center gap-6">
-                      <label className="flex items-center gap-2 text-white cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={useRag}
-                          onChange={(e) => setUseRag(e.target.checked)}
-                          className="w-5 h-5 rounded"
-                        />
-                        <span className="font-medium">Sử dụng RAG</span>
-                      </label>
-                      
-                      <select
-                        value={selectedModel}
-                        onChange={(e) => setSelectedModel(e.target.value)}
-                        disabled={loadingChatModels}
-                        className="px-4 py-2 bg-white/20 text-white rounded-lg border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50 disabled:opacity-50"
-                      >
-                        {loadingChatModels ? (
-                          <option>Đang tải models...</option>
-                        ) : availableModels.length > 0 ? (
-                          availableModels.map((model) => (
-                            <option key={model.name} value={model.name}>
-                              {model.display_name}
-                            </option>
-                          ))
-                        ) : (
-                          <>
-                            <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
-                            <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-                          </>
-                        )}
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Messages Area */}
-                  <div className="h-[500px] overflow-y-auto p-6 bg-gray-50 dark:bg-gray-900">
-                    {chatMessages.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-full text-center">
-                        <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center mb-4">
-                          <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                          </svg>
-                        </div>
-                        <h3 className="text-xl font-bold text-gray-700 dark:text-gray-300 mb-2">
-                          Bắt đầu cuộc trò chuyện
-                        </h3>
-                        <p className="text-gray-500 dark:text-gray-400">
-                          Gửi tin nhắn để test chatbot AI
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        {chatMessages.map((msg, idx) => (
-                          <div
-                            key={idx}
-                            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                          >
-                            <div
-                              className={`max-w-[70%] rounded-2xl px-6 py-3 ${
-                                msg.role === 'user'
-                                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white'
-                                  : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white shadow-md'
-                              }`}
-                            >
-                              <p className="whitespace-pre-wrap">{msg.content || '...'}</p>
-                            </div>
-                          </div>
-                        ))}
-                        <div ref={messagesEndRef} />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Input Area */}
-                  <div className="p-6 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
-                    <div className="flex gap-3">
-                      <input
-                        type="text"
-                        value={chatInput}
-                        onChange={(e) => setChatInput(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && handleSendTestChat()}
-                        placeholder="Nhập tin nhắn..."
-                        disabled={chatLoading}
-                        className="flex-1 px-6 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
-                      />
-                      <button
-                        onClick={handleSendTestChat}
-                        disabled={chatLoading || !chatInput.trim()}
-                        className="px-8 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold hover:from-purple-700 hover:to-pink-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                      >
-                        {chatLoading ? (
-                          <>
-                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                            Đang gửi...
-                          </>
-                        ) : (
-                          <>
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                            </svg>
-                            Gửi
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </>
         )}
       </main>
+
+      {/* Suggested Prompts Modal - Hiển thị sau khi đồng bộ dữ liệu */}
+      {isMounted && showSuggestedPrompts && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-gradient-to-r from-purple-600 to-pink-600 text-white p-6 rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold">✅ Đồng bộ dữ liệu thành công!</h2>
+                  <p className="text-purple-100 mt-1">Bây giờ hãy tạo RAG Prompts để hướng dẫn AI sử dụng dữ liệu</p>
+                </div>
+                <button
+                  onClick={() => setShowSuggestedPrompts(false)}
+                  className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                <div className="flex gap-3">
+                  <svg className="w-6 h-6 text-blue-600 dark:text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div>
+                    <p className="font-semibold text-blue-800 dark:text-blue-200">Prompts mẫu gợi ý - Bạn cần tự tạo qua tab RAG Prompts</p>
+                    <p className="text-sm text-blue-600 dark:text-blue-300 mt-1">
+                      Dưới đây là các prompts đề xuất. Bạn có thể sao chép và chỉnh sửa theo doanh nghiệp của mình.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="font-bold text-lg">📝 5 Prompts mẫu được đề xuất:</h3>
+                
+                {/* Prompt 1: Product Search */}
+                <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="bg-purple-600 text-white w-7 h-7 rounded-lg flex items-center justify-center font-bold text-sm">1</div>
+                    <div className="font-bold text-purple-900 dark:text-purple-200">Tìm kiếm sản phẩm</div>
+                    <span className="px-2 py-1 bg-purple-600 text-white text-xs rounded-full">product_search</span>
+                  </div>
+                  <div className="text-gray-700 dark:text-gray-300 text-sm bg-white dark:bg-gray-800 rounded p-3 font-mono">
+                    Khi người dùng hỏi về sản phẩm (ví dụ: &quot;có sản phẩm gì&quot;, &quot;tìm điện thoại&quot;, &quot;giá bao nhiêu&quot;), hãy tìm kiếm trong collection &quot;products&quot; của ChromaDB. Luôn trả lời bằng tiếng Việt, thân thiện và đưa ra gợi ý phù hợp.
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500">Tags: product, search, ecommerce</div>
+                </div>
+
+                {/* Prompt 2: Order Inquiry */}
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="bg-blue-600 text-white w-7 h-7 rounded-lg flex items-center justify-center font-bold text-sm">2</div>
+                    <div className="font-bold text-blue-900 dark:text-blue-200">Tra cứu đơn hàng</div>
+                    <span className="px-2 py-1 bg-blue-600 text-white text-xs rounded-full">order_inquiry</span>
+                  </div>
+                  <div className="text-gray-700 dark:text-gray-300 text-sm bg-white dark:bg-gray-800 rounded p-3 font-mono">
+                    Khi người dùng hỏi về đơn hàng (ví dụ: &quot;đơn hàng của tôi&quot;, &quot;kiểm tra đơn&quot;), hãy tìm trong collection &quot;orders&quot;. Giải thích trạng thái đơn hàng rõ ràng (PENDING, CONFIRMED, PROCESSING, SHIPPING, DELIVERED, CANCELLED).
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500">Tags: order, tracking, support</div>
+                </div>
+
+                {/* Prompt 3: Business Analytics */}
+                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="bg-green-600 text-white w-7 h-7 rounded-lg flex items-center justify-center font-bold text-sm">3</div>
+                    <div className="font-bold text-green-900 dark:text-green-200">Thống kê doanh nghiệp</div>
+                    <span className="px-2 py-1 bg-green-600 text-white text-xs rounded-full">business_analytics</span>
+                  </div>
+                  <div className="text-gray-700 dark:text-gray-300 text-sm bg-white dark:bg-gray-800 rounded p-3 font-mono">
+                    Khi được hỏi về thống kê (ví dụ: &quot;doanh thu&quot;, &quot;bán được bao nhiêu&quot;), hãy sử dụng collection &quot;business&quot; và &quot;system_stats&quot;. Cung cấp tổng doanh thu, số đơn hàng, top sản phẩm bán chạy.
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500">Tags: analytics, business, statistics</div>
+                </div>
+
+                {/* Prompt 4: Customer Service */}
+                <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="bg-orange-600 text-white w-7 h-7 rounded-lg flex items-center justify-center font-bold text-sm">4</div>
+                    <div className="font-bold text-orange-900 dark:text-orange-200">Chính sách hỗ trợ</div>
+                    <span className="px-2 py-1 bg-orange-600 text-white text-xs rounded-full">customer_service</span>
+                  </div>
+                  <div className="text-gray-700 dark:text-gray-300 text-sm bg-white dark:bg-gray-800 rounded p-3 font-mono">
+                    Khi hỏi về chính sách (đổi trả, thanh toán, giao hàng, bảo hành), hãy trả lời theo chính sách công ty. Ví dụ: Đổi trả 7 ngày, COD và chuyển khoản, giao hàng 2-5 ngày, bảo hành 12-24 tháng.
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500">Tags: policy, support, service</div>
+                </div>
+
+                {/* Prompt 5: General */}
+                <div className="bg-gray-50 dark:bg-gray-900/20 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="bg-gray-600 text-white w-7 h-7 rounded-lg flex items-center justify-center font-bold text-sm">5</div>
+                    <div className="font-bold text-gray-900 dark:text-gray-200">Hướng dẫn chung cho AI</div>
+                    <span className="px-2 py-1 bg-gray-600 text-white text-xs rounded-full">general</span>
+                  </div>
+                  <div className="text-gray-700 dark:text-gray-300 text-sm bg-white dark:bg-gray-800 rounded p-3 font-mono">
+                    Bạn là AI Agent hỗ trợ khách hàng. Nhiệm vụ: Tư vấn sản phẩm, tra đơn hàng, giải đáp chính sách. Luôn sử dụng dữ liệu từ ChromaDB (products, orders, users, categories, business, system_stats) để trả lời chính xác. Giọng điệu: Thân thiện, chuyên nghiệp.
+                  </div>
+                  <div className="mt-2 text-xs text-gray-500">Tags: guidance, role, instructions</div>
+                </div>
+              </div>
+
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4">
+                <div className="flex gap-3">
+                  <svg className="w-6 h-6 text-yellow-600 dark:text-yellow-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  <div>
+                    <p className="font-semibold text-yellow-800 dark:text-yellow-200">Lưu ý quan trọng</p>
+                    <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-1">
+                      Những prompts trên chỉ là MẪU GỢI Ý. Bạn cần vào tab &quot;RAG Prompts&quot; để TỰ TẠO prompts phù hợp với doanh nghiệp của bạn. 
+                      Có thể chỉnh sửa nội dung, category, tags theo ý muốn.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => {
+                    setShowSuggestedPrompts(false);
+                    setActiveTab('prompts');
+                  }}
+                  className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all flex items-center justify-center gap-2"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Đi tới tạo RAG Prompts
+                </button>
+                <button
+                  onClick={() => setShowSuggestedPrompts(false)}
+                  className="px-6 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl font-semibold hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Để sau
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

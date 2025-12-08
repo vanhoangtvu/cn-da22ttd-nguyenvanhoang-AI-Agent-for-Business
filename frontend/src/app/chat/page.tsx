@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api';
 
@@ -28,22 +28,78 @@ export default function ChatPage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [selectedModel, setSelectedModel] = useState('gemini-2.0-flash');
   const [allowModelChange, setAllowModelChange] = useState(false);
+  const [userGreeting, setUserGreeting] = useState('Trợ lý thông minh cho doanh nghiệp');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [aiProvider, setAiProvider] = useState<'gemini' | 'groq'>('gemini');
+  const [userId, setUserId] = useState<string>('anonymous');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Get user info
   const userData = apiClient.getUserData();
-  const userId = userData?.userId?.toString() || 'anonymous';
   const sessionId = `user_${userId}_session`; // Mỗi user chỉ có 1 session duy nhất
 
-  // Load AI config from server
+  // Load AI model preference from admin (userId=1)
+  // Note: We always use admin's model selection for all users
+  // But we still track actual userId for chat history and data access
+  const loadAdminModelPreference = async () => {
+    try {
+      const url = `${AI_SERVICE_URL}/ai-config/user-preference/1`;
+      
+      const response = await fetch(url);
+      
+      if (response.ok) {
+        const data = await response.json();
+        setAiProvider(data.provider);
+        setSelectedModel(data.model);
+      }
+    } catch (error) {
+      console.error('[Chat] Error loading admin model preference:', error);
+      // Fallback to default
+      setAiProvider('gemini');
+      setSelectedModel('gemini-2.0-flash');
+    }
+  };
+
+  // Set mounted and auth state after mount to avoid hydration mismatch
+  useEffect(() => {
+    setMounted(true);
+    setIsAuthenticated(apiClient.isAuthenticated());
+    
+    // Get and set actual userId (for chat history and data access)
+    const userData = apiClient.getUserData();
+    const currentUserId = userData?.userId?.toString() || 'anonymous';
+    setUserId(currentUserId);
+    
+    if (userData) {
+      setUserGreeting(`Xin chào, ${userData.username || userData.email}`);
+    }
+    
+    // Load model preference from admin (not from user)
+    loadAdminModelPreference();
+  }, []);
+
+  // Poll for admin model preference changes (every 3 seconds)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadAdminModelPreference();
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Load AI config from server (only for Gemini)
   useEffect(() => {
     const loadAIConfig = async () => {
+      // Only load server config for Gemini provider
+      if (aiProvider !== 'gemini') return;
+      
       try {
         const res = await fetch(`${AI_SERVICE_URL}/ai-config/user-config`);
         if (res.ok) {
           const config = await res.json();
-          setSelectedModel(config.model);
+          // Don't override user preference, just get allow_change setting
           setAllowModelChange(config.allow_change);
         }
       } catch (err) {
@@ -51,7 +107,7 @@ export default function ChatPage() {
       }
     };
     loadAIConfig();
-  }, []);
+  }, [aiProvider]);
 
   // Load user's single conversation from localStorage
   useEffect(() => {
@@ -146,12 +202,16 @@ export default function ChatPage() {
       // Try streaming first
       let streamingSuccess = false;
       
+      // Determine API endpoint based on provider
+      const apiEndpoint = aiProvider === 'groq' 
+        ? `${AI_SERVICE_URL}/groq/chat/rag/stream`
+        : `${AI_SERVICE_URL}/gemini/chat/rag/stream`;
+      
       try {
-        const response = await fetch(`${AI_SERVICE_URL}/gemini/chat/rag/stream`, {
+        const response = await fetch(apiEndpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Accept': 'text/event-stream',
           },
           body: JSON.stringify({
             message: userMessage.content,
@@ -165,7 +225,6 @@ export default function ChatPage() {
           throw new Error('Streaming failed');
         }
 
-        // Create assistant message placeholder
         const assistantMessage: Message = {
           id: (Date.now() + 1).toString(),
           role: 'assistant',
@@ -232,9 +291,14 @@ export default function ChatPage() {
         console.log('Streaming failed, trying fallback:', streamError);
         setIsStreaming(false);
         
+        // Determine fallback API endpoint based on provider
+        const fallbackEndpoint = aiProvider === 'groq' 
+          ? `${AI_SERVICE_URL}/groq/chat/rag`
+          : `${AI_SERVICE_URL}/gemini/chat/rag`;
+        
         // Try non-streaming fallback
         try {
-          const response = await fetch(`${AI_SERVICE_URL}/gemini/chat/rag`, {
+          const response = await fetch(fallbackEndpoint, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -333,7 +397,7 @@ export default function ChatPage() {
           <div>
             <h1 className="text-lg font-bold text-gray-800 dark:text-white">AI Agent</h1>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              {userData ? `Xin chào, ${userData.username || userData.email}` : 'Trợ lý thông minh cho doanh nghiệp'}
+              {userGreeting}
             </p>
           </div>
         </div>
@@ -351,8 +415,27 @@ export default function ChatPage() {
             <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite</option>
           </select>
         ) : (
-          <div className="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400">
-            {selectedModel.replace('gemini-', 'Gemini ').replace(/-/g, ' ')}
+          <div 
+            className="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400"
+            title={`Provider: ${aiProvider} | Model: ${selectedModel}`}
+          >
+            {(() => {
+              if (aiProvider === 'groq') {
+                const nameMap: Record<string, string> = {
+                  'llama-3.3-70b-versatile': 'Llama 3.3 70B',
+                  'llama-3.1-70b-versatile': 'Llama 3.1 70B',
+                  'llama-3.1-8b-instant': 'Llama 3.1 8B',
+                  'groq/compound': 'Groq Compound',
+                  'groq/compound-mini': 'Groq Compound Mini',
+                  'moonshotai/kimi-k2-instruct-0905': 'Kimi K2',
+                  'moonshotai/kimi-k2-instruct': 'Kimi K2',
+                  'qwen/qwen3-32b': 'Qwen 3 32B',
+                  'openai/gpt-oss-120b': 'GPT OSS 120B',
+                };
+                return nameMap[selectedModel] || selectedModel.split('/').pop() || selectedModel;
+              }
+              return selectedModel.replace('gemini-', 'Gemini ').replace(/-/g, ' ');
+            })()}
           </div>
         )}
 
@@ -370,22 +453,24 @@ export default function ChatPage() {
         )}
 
         {/* User Menu */}
-        {apiClient.isAuthenticated() ? (
-          <Link
-            href="/profile"
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-          >
-            <svg className="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-          </Link>
-        ) : (
-          <Link
-            href="/login"
-            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all text-sm"
-          >
-            Đăng nhập
-          </Link>
+        {mounted && (
+          isAuthenticated ? (
+            <Link
+              href="/profile"
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <svg className="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+            </Link>
+          ) : (
+            <Link
+              href="/login"
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all text-sm"
+            >
+              Đăng nhập
+            </Link>
+          )
         )}
       </header>
 
@@ -407,7 +492,7 @@ export default function ChatPage() {
                 {/* Welcome Text */}
                 <div>
                   <h2 className="text-4xl font-bold text-gray-800 dark:text-white mb-4">
-                    Xin chào{userData ? `, ${userData.username || userData.email}` : ''}! Tôi là AI Agent
+                    {mounted && userData ? `Xin chào, ${userData.username || userData.email}! Tôi là AI Agent` : 'Xin chào! Tôi là AI Agent'}
                   </h2>
                   <p className="text-xl text-gray-600 dark:text-gray-400">
                     Tôi có thể giúp bạn tư vấn sản phẩm, phân tích kinh doanh và trả lời mọi câu hỏi.

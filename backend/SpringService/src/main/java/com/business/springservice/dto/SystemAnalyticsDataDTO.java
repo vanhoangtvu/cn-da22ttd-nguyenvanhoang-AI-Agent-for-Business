@@ -78,6 +78,7 @@ public class SystemAnalyticsDataDTO {
         private Long sellerId;
         private Integer totalSold;
         private BigDecimal totalRevenue;
+        private String imageUrls;
     }
     
     @Data

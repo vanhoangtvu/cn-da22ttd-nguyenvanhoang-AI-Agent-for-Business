@@ -2,6 +2,9 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { apiClient } from '@/lib/api';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import ProductCard from './ProductCard';
 
 // Python AI Service URL
 const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'http://113.178.203.147:5000';
@@ -22,12 +25,117 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  products?: Product[]; // Products to display as cards
 }
+
+interface Product {
+  name: string;
+  price?: string;
+  imageUrl?: string;
+  description?: string;
+  stock?: number;
+}
+
+// Parse products from AI response
+const parseProducts = (content: string): { products: Product[]; cleanContent: string } => {
+  const products: Product[] = [];
+  let cleanContent = content;
+
+  console.log('[ChatWidget] Parsing content:', content.substring(0, 200));
+
+  // Find all markdown images - support both inline and bullet format
+  const imagePattern = /!\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
+  const images: Array<{alt: string, url: string, index: number}> = [];
+  
+  let imgMatch;
+  while ((imgMatch = imagePattern.exec(content)) !== null) {
+    images.push({
+      alt: imgMatch[1],
+      url: imgMatch[2],
+      index: imgMatch.index
+    });
+  }
+
+  console.log('[ChatWidget] Found images:', images.length);
+
+  // For each image, extract product info
+  images.forEach(img => {
+    const beforeImage = content.substring(Math.max(0, img.index - 400), img.index);
+    const afterImage = content.substring(img.index, Math.min(content.length, img.index + 400));
+    
+    // Find product name - look for **Name** or numbered list
+    let name = img.alt;
+    const nameMatch = beforeImage.match(/\*\*([^*]+)\*\*(?!.*\*\*)/);
+    if (nameMatch) {
+      name = nameMatch[1].trim();
+    }
+    
+    // Find price - multiple formats
+    const pricePatterns = [
+      /Giá bán:\s*([0-9.,]+\s*VNĐ)/i,
+      /Giá:\s*([0-9.,]+\s*VNĐ)/i,
+      /Price:\s*([0-9.,]+\s*VNĐ)/i,
+      /([0-9.,]+\s*VNĐ)/i
+    ];
+    
+    let price: string | undefined;
+    for (const pattern of pricePatterns) {
+      const match = afterImage.match(pattern);
+      if (match) {
+        price = match[1];
+        break;
+      }
+    }
+    
+    // Find description - look for common patterns
+    let description = '';
+    const descPatterns = [
+      /Mô tả:\s*([^\n*]+)/i,
+      /\*\s*Mô tả:\s*([^\n]+)/i,
+      /\n\s*\*\s*([^*\n]+?)(?=\n\s*\*|$)/
+    ];
+    
+    for (const pattern of descPatterns) {
+      const match = afterImage.match(pattern);
+      if (match && !match[1].includes('Giá')) {
+        description = match[1].trim();
+        break;
+      }
+    }
+    
+    // Find stock
+    const stockMatch = afterImage.match(/Tồn kho:\s*(\d+)/i);
+    const stock = stockMatch ? parseInt(stockMatch[1]) : undefined;
+    
+    products.push({
+      name,
+      imageUrl: img.url,
+      price,
+      description,
+      stock,
+    });
+  });
+
+  console.log('[ChatWidget] Parsed products:', products);
+
+  // Remove duplicates
+  const uniqueProducts = products.filter((product, index, self) =>
+    index === self.findIndex((p) => p.imageUrl === product.imageUrl)
+  );
+
+  // Remove markdown images from content since we'll show them as cards
+  if (uniqueProducts.length > 0) {
+    cleanContent = content.replace(/!\[[^\]]+\]\([^)]+\)/g, '');
+  }
+
+  return { products: uniqueProducts, cleanContent };
+};
 
 export default function ChatWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [sessionId] = useState(generateSessionId);
   const [aiModel, setAiModel] = useState('gemini-2.0-flash');
+  const [aiProvider, setAiProvider] = useState<'gemini' | 'groq'>('gemini');
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -42,20 +150,58 @@ export default function ChatWidget() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Load AI provider preference
+  useEffect(() => {
+    loadUserPreference();
+  }, []);
+
+  // Load user preference from database
+  const loadUserPreference = async () => {
+    try {
+      const userData = apiClient.getUserData();
+      const userId = userData?.userId?.toString() || 'anonymous';
+      
+      const response = await fetch(`${AI_SERVICE_URL}/ai-config/user-preference/${userId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setAiProvider(data.provider);
+        setAiModel(data.model);
+      }
+    } catch (error) {
+      console.error('Failed to load user preference:', error);
+      // Fallback to default
+      setAiProvider('gemini');
+      setAiModel('gemini-2.0-flash');
+    }
+  };
+
   // Load AI config from server
   useEffect(() => {
     const loadAIConfig = async () => {
+      // Only for Gemini provider
+      if (aiProvider !== 'gemini') return;
+      
       try {
         const res = await fetch(`${AI_SERVICE_URL}/ai-config/user-config`);
         if (res.ok) {
           const config = await res.json();
-          setAiModel(config.model);
+          // Don't override user preference
+          // setAiModel(config.model);
         }
       } catch (err) {
         console.error('Failed to load AI config:', err);
       }
     };
     loadAIConfig();
+  }, [aiProvider]);
+
+  // Poll for preference changes every 3 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadUserPreference();
+    }, 3000);
+
+    return () => clearInterval(interval);
   }, []);
 
   // Auto scroll to bottom when new messages arrive
@@ -88,13 +234,20 @@ export default function ChatWidget() {
     // Get user data for context
     const userData = apiClient.getUserData();
     const userId = userData?.userId?.toString() || 'anonymous';
+    console.log('[ChatWidget] User data:', userData);
+    console.log('[ChatWidget] Sending user_id:', userId);
 
     try {
       // Try streaming first
       let streamingSuccess = false;
       
+      // Determine API endpoint based on provider
+      const apiEndpoint = aiProvider === 'groq' 
+        ? `${AI_SERVICE_URL}/groq/chat/rag/stream`
+        : `${AI_SERVICE_URL}/gemini/chat/rag/stream`;
+      
       try {
-        const response = await fetch(`${AI_SERVICE_URL}/gemini/chat/rag/stream`, {
+        const response = await fetch(apiEndpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -183,8 +336,12 @@ export default function ChatWidget() {
         setIsStreaming(false);
         
         // Try non-streaming fallback
+        const fallbackEndpoint = aiProvider === 'groq'
+          ? `${AI_SERVICE_URL}/groq/chat/rag`
+          : `${AI_SERVICE_URL}/gemini/chat/rag`;
+        
         try {
-          const response = await fetch(`${AI_SERVICE_URL}/gemini/chat/rag`, {
+          const response = await fetch(fallbackEndpoint, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -206,6 +363,7 @@ export default function ChatWidget() {
                 role: 'assistant',
                 content: data.response,
                 timestamp: new Date(),
+                products: data.products || [], // Add products from API
               },
             ]);
           } else {
@@ -309,44 +467,120 @@ export default function ChatWidget() {
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              <div
-                className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                  message.role === 'user'
-                    ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-br-md'
-                    : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 shadow-md rounded-bl-md'
-                }`}
-              >
-                {message.role === 'assistant' && (
-                  <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-100 dark:border-gray-700">
-                    <div className="w-6 h-6 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">AI Agent</span>
-                  </div>
-                )}
-                <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                  {message.content}
-                  {isStreaming && message.role === 'assistant' && message === messages[messages.length - 1] && (
-                    <span className="inline-block w-2 h-4 bg-blue-600 ml-1 animate-pulse"></span>
-                  )}
-                </p>
-                <p className={`text-xs mt-2 ${message.role === 'user' ? 'text-white/70' : 'text-gray-400'}`}>
-                  {message.timestamp.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                </p>
-              </div>
-            </div>
-          ))}
+          {messages.map((message) => {
+            // Use products from API if available, otherwise parse from content
+            const products = message.products || [];
+            const cleanContent = message.content;
 
+            return (
+              <div
+                key={message.id}
+                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+              >
+                <div
+                  className={`${message.role === 'user' ? 'max-w-[80%]' : 'max-w-[95%]'} rounded-2xl px-4 py-3 ${
+                    message.role === 'user'
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-br-md'
+                      : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 shadow-md rounded-bl-md'
+                  }`}
+                >
+                  {message.role === 'assistant' && (
+                    <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-100 dark:border-gray-700">
+                      <div className="w-6 h-6 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full flex items-center justify-center">
+                        <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">AI Agent</span>
+                    </div>
+                  )}
+
+                  {/* AI Response Text */}
+                  <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:mt-3 prose-headings:mb-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5">
+                    {message.role === 'assistant' ? (
+                      <ReactMarkdown 
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          a: ({node, ...props}) => (
+                            <a {...props} className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline decoration-blue-600/30 hover:decoration-blue-600 transition-colors font-medium" target="_blank" rel="noopener noreferrer" />
+                          ),
+                          img: ({node, ...props}) => (
+                            <img {...props} className="max-w-full h-auto rounded-xl shadow-lg my-3 border border-gray-200 dark:border-gray-700" loading="lazy" alt={props.alt || 'Product image'} />
+                          ),
+                          p: ({node, ...props}) => (
+                            <p {...props} className="my-2 leading-relaxed text-gray-800 dark:text-gray-200" />
+                          ),
+                          strong: ({node, ...props}) => (
+                            <strong {...props} className="font-semibold text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700/50 px-1 rounded" />
+                          ),
+                          ul: ({node, ...props}) => (
+                            <ul {...props} className="my-2 space-y-1 list-disc list-inside text-gray-700 dark:text-gray-300" />
+                          ),
+                          ol: ({node, ...props}) => (
+                            <ol {...props} className="my-2 space-y-1 list-decimal list-inside text-gray-700 dark:text-gray-300" />
+                          ),
+                          li: ({node, ...props}) => (
+                            <li {...props} className="leading-relaxed" />
+                          ),
+                          code: ({node, inline, ...props}: any) => 
+                            inline ? (
+                              <code {...props} className="bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded text-sm font-mono" />
+                            ) : (
+                              <code {...props} className="block bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 p-3 rounded-lg text-sm font-mono overflow-x-auto" />
+                            ),
+                          blockquote: ({node, ...props}) => (
+                            <blockquote {...props} className="border-l-4 border-blue-500 pl-4 my-2 italic text-gray-600 dark:text-gray-400" />
+                          ),
+                          h1: ({node, ...props}) => (
+                            <h1 {...props} className="text-xl font-bold text-gray-900 dark:text-white mt-4 mb-2" />
+                          ),
+                          h2: ({node, ...props}) => (
+                            <h2 {...props} className="text-lg font-bold text-gray-900 dark:text-white mt-3 mb-2" />
+                          ),
+                          h3: ({node, ...props}) => (
+                            <h3 {...props} className="text-base font-semibold text-gray-900 dark:text-white mt-3 mb-1" />
+                          )
+                        }}
+                      >
+                        {cleanContent}
+                      </ReactMarkdown>
+                    ) : (
+                      <p className="whitespace-pre-wrap leading-relaxed text-white">{message.content}</p>
+                    )}
+                  </div>
+
+                  {/* Product Cards - Only for assistant messages with products */}
+                  {message.role === 'assistant' && products.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                        Sản phẩm được đề xuất ({products.length})
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {products.map((product, idx) => (
+                          <ProductCard
+                            key={idx}
+                            name={product.name}
+                            price={product.price}
+                            imageUrl={product.imageUrl}
+                            description={product.description}
+                            stock={product.stock}
+                            onClick={() => {
+                              // Navigate to product detail or shop page
+                              window.open('/shop', '_blank');
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          
           {/* Loading indicator */}
           {isLoading && !isStreaming && (
-            <div className="flex justify-start">
+            <div className="flex justify-start p-4">
               <div className="bg-white dark:bg-gray-800 rounded-2xl rounded-bl-md px-4 py-3 shadow-md">
                 <div className="flex items-center gap-2">
                   <div className="flex gap-1">
@@ -418,7 +652,7 @@ export default function ChatWidget() {
             </button>
           </div>
           <p className="text-xs text-gray-400 text-center mt-2">
-            Powered by Google Gemini AI
+            {aiProvider === 'groq' ? 'Powered by Groq AI' : 'Powered by Google Gemini AI'}
           </p>
         </div>
       </div>

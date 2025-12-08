@@ -80,7 +80,8 @@ public class AnalyticsService {
                         p.getSeller().getUsername(),
                         p.getSeller().getId(),
                         productSalesMap.getOrDefault(p.getId(), 0),
-                        productRevenueMap.getOrDefault(p.getId(), BigDecimal.ZERO)
+                        productRevenueMap.getOrDefault(p.getId(), BigDecimal.ZERO),
+                        p.getImageUrls()
                 ))
                 .collect(Collectors.toList()));
         

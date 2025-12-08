@@ -62,14 +62,25 @@ class DeleteResponse(BaseModel):
 async def push_rag_prompt(prompt_input: PromptInput):
     """Push a new RAG prompt to ChromaDB"""
     try:
+        print(f"[RAG] Received prompt: {prompt_input.prompt[:50]}...")
+        print(f"[RAG] Category: {prompt_input.category}, Tags: {prompt_input.tags}")
+        
+        if not rag_prompt_service:
+            print("[RAG] ERROR: rag_prompt_service is None!")
+            raise HTTPException(status_code=500, detail="RAG service not initialized")
+        
         result = rag_prompt_service.push_prompt(
             prompt=prompt_input.prompt,
             category=prompt_input.category,
             tags=prompt_input.tags,
             metadata=prompt_input.metadata
         )
+        print(f"[RAG] Successfully pushed prompt with ID: {result.get('id')}")
         return result
     except Exception as e:
+        print(f"[RAG] Error pushing prompt: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f'Error pushing prompt: {str(e)}')
 
 
@@ -81,6 +92,10 @@ async def get_rag_prompts(
 ):
     """Get all RAG prompts from ChromaDB"""
     try:
+        if not rag_prompt_service:
+            print("[RAG] ERROR: rag_prompt_service is None!")
+            raise HTTPException(status_code=500, detail="RAG service not initialized")
+            
         # Parse tags
         tags_list = tags.split(',') if tags else None
         
@@ -91,6 +106,9 @@ async def get_rag_prompts(
         )
         return prompts
     except Exception as e:
+        print(f"[RAG] Error getting prompts: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f'Error getting prompts: {str(e)}')
 
 
