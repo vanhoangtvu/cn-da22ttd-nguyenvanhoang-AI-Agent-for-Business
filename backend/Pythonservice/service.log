@@ -3097,3 +3097,552 @@ INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
 INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
 INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
 INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:57880 - "OPTIONS /ai-config/user-preference HTTP/1.1" 200 OK
+INFO:     192.168.1.1:57880 - "POST /ai-config/user-preference HTTP/1.1" 200 OK
+INFO:     192.168.1.1:57880 - "POST /ai-config/user-preference HTTP/1.1" 200 OK
+INFO:     192.168.1.1:57880 - "GET /groq/models HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:57880 - "POST /ai-config/user-preference HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-config HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:48104 - "POST /ai-config/user-preference HTTP/1.1" 200 OK
+INFO:     192.168.1.1:48104 - "GET /groq/models HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "OPTIONS /groq/chat/rag/stream HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "POST /groq/chat/rag/stream HTTP/1.1" 404 Not Found
+INFO:     192.168.1.1:39556 - "OPTIONS /groq/chat/rag HTTP/1.1" 200 OK
+[GROQ RAG] Received request: message='co iphone 15 ko...', model=meta-llama/llama-4-maverick-17b-128e-instruct, session_id=user_5_session, user_id=5
+[GROQ RAG DEBUG] Received user_id: 5, type: <class 'str'>
+[GROQ RAG DEBUG] Users collection has 8 documents
+[GROQ RAG DEBUG] Querying with string userId: 5
+[GROQ RAG DEBUG] Query results: 1 documents found
+[GROQ RAG] ✓ Found user info: Người dùng: Nguyen Van Tu (customer@ai.com). Vai trò: CUSTOMER. Trạng thái: ACTIVE. Địa chỉ: 12 Phan...
+[GROQ RAG] Returning 5 product cards
+INFO:     192.168.1.1:39556 - "POST /groq/chat/rag HTTP/1.1" 200 OK
+INFO:     192.168.1.1:50468 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:50476 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:39556 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:56268 - "GET /health/ HTTP/1.1" 200 OK
+INFO:     192.168.1.1:56278 - "GET /gemini/models HTTP/1.1" 200 OK
+INFO:     192.168.1.1:56278 - "GET /rag/stats HTTP/1.1" 200 OK
+INFO:     192.168.1.1:56278 - "GET /chat-history/stats HTTP/1.1" 200 OK
+INFO:     192.168.1.1:56278 - "GET /rag/prompts HTTP/1.1" 200 OK
+INFO:     192.168.1.1:56278 - "GET /chroma/collections HTTP/1.1" 200 OK
+INFO:     192.168.1.1:56278 - "GET /ai-config/config HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40498 - "GET /ai-config/user-config HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40498 - "GET /ai-config/user-config HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:56996 - "GET /health/ HTTP/1.1" 200 OK
+INFO:     192.168.1.1:57012 - "GET /gemini/models HTTP/1.1" 200 OK
+INFO:     192.168.1.1:57016 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+[GROQ] ✓ Loaded 12 chat models from API
+INFO:     192.168.1.1:57028 - "GET /groq/models HTTP/1.1" 200 OK
+INFO:     192.168.1.1:57012 - "GET /health/ HTTP/1.1" 200 OK
+INFO:     192.168.1.1:57016 - "GET /gemini/models HTTP/1.1" 200 OK
+INFO:     192.168.1.1:56996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:57040 - "GET /rag/stats HTTP/1.1" 200 OK
+INFO:     192.168.1.1:57012 - "GET /groq/models HTTP/1.1" 200 OK
+INFO:     192.168.1.1:57016 - "GET /groq/models HTTP/1.1" 200 OK
+INFO:     192.168.1.1:57012 - "GET /groq/models HTTP/1.1" 200 OK
+INFO:     192.168.1.1:57016 - "GET /rag/stats HTTP/1.1" 200 OK
+INFO:     192.168.1.1:57028 - "GET /chat-history/stats HTTP/1.1" 200 OK
+INFO:     192.168.1.1:57012 - "GET /chat-history/stats HTTP/1.1" 200 OK
+INFO:     192.168.1.1:57016 - "GET /rag/prompts HTTP/1.1" 200 OK
+INFO:     192.168.1.1:57012 - "GET /rag/prompts HTTP/1.1" 200 OK
+INFO:     192.168.1.1:57016 - "GET /chroma/collections HTTP/1.1" 200 OK
+INFO:     192.168.1.1:57012 - "GET /chroma/collections HTTP/1.1" 200 OK
+INFO:     192.168.1.1:57016 - "GET /ai-config/config HTTP/1.1" 200 OK
+INFO:     192.168.1.1:57012 - "GET /ai-config/config HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:48558 - "GET /chat-history/all-sessions HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:48558 - "OPTIONS /chat-history/sessions/user_5_session HTTP/1.1" 200 OK
+Failed to send telemetry event CollectionDeleteEvent: capture() takes 1 positional argument but 3 were given
+INFO:     192.168.1.1:48558 - "DELETE /chat-history/sessions/user_5_session HTTP/1.1" 200 OK
+INFO:     192.168.1.1:48558 - "GET /health/ HTTP/1.1" 200 OK
+INFO:     192.168.1.1:48558 - "GET /rag/stats HTTP/1.1" 200 OK
+INFO:     192.168.1.1:48558 - "GET /chat-history/stats HTTP/1.1" 200 OK
+INFO:     192.168.1.1:48558 - "GET /rag/prompts HTTP/1.1" 200 OK
+INFO:     192.168.1.1:48558 - "GET /chroma/collections HTTP/1.1" 200 OK
+INFO:     192.168.1.1:48558 - "GET /ai-config/config HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:48558 - "OPTIONS /chat-history/sessions/user_anonymous_session HTTP/1.1" 200 OK
+Failed to send telemetry event CollectionDeleteEvent: capture() takes 1 positional argument but 3 were given
+INFO:     192.168.1.1:48558 - "DELETE /chat-history/sessions/user_anonymous_session HTTP/1.1" 200 OK
+INFO:     192.168.1.1:48558 - "GET /health/ HTTP/1.1" 200 OK
+INFO:     192.168.1.1:48558 - "GET /rag/stats HTTP/1.1" 200 OK
+INFO:     192.168.1.1:48558 - "GET /chat-history/stats HTTP/1.1" 200 OK
+INFO:     192.168.1.1:48558 - "GET /rag/prompts HTTP/1.1" 200 OK
+INFO:     192.168.1.1:48558 - "GET /chroma/collections HTTP/1.1" 200 OK
+INFO:     192.168.1.1:48558 - "GET /ai-config/config HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:60174 - "GET /health/ HTTP/1.1" 200 OK
+INFO:     192.168.1.1:60186 - "GET /gemini/models HTTP/1.1" 200 OK
+INFO:     192.168.1.1:60188 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:60204 - "GET /groq/models HTTP/1.1" 200 OK
+INFO:     192.168.1.1:60186 - "GET /health/ HTTP/1.1" 200 OK
+INFO:     192.168.1.1:60204 - "GET /gemini/models HTTP/1.1" 200 OK
+INFO:     192.168.1.1:60188 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:60174 - "GET /groq/models HTTP/1.1" 200 OK
+INFO:     192.168.1.1:60186 - "GET /rag/stats HTTP/1.1" 200 OK
+INFO:     192.168.1.1:60204 - "GET /groq/models HTTP/1.1" 200 OK
+INFO:     192.168.1.1:60186 - "GET /rag/stats HTTP/1.1" 200 OK
+INFO:     192.168.1.1:60204 - "GET /groq/models HTTP/1.1" 200 OK
+INFO:     192.168.1.1:60186 - "GET /chat-history/stats HTTP/1.1" 200 OK
+INFO:     192.168.1.1:60204 - "GET /chat-history/stats HTTP/1.1" 200 OK
+INFO:     192.168.1.1:60186 - "GET /rag/prompts HTTP/1.1" 200 OK
+INFO:     192.168.1.1:60204 - "GET /rag/prompts HTTP/1.1" 200 OK
+INFO:     192.168.1.1:60186 - "GET /chroma/collections HTTP/1.1" 200 OK
+INFO:     192.168.1.1:60204 - "GET /chroma/collections HTTP/1.1" 200 OK
+INFO:     192.168.1.1:60186 - "GET /ai-config/config HTTP/1.1" 200 OK
+INFO:     192.168.1.1:60204 - "GET /ai-config/config HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:52970 - "GET /ai-config/user-config HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:49690 - "GET /chat-history/all-sessions HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:49690 - "GET /chat-history/all-sessions HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:55840 - "GET /ai-config/user-config HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:40490 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+WARNING:  WatchFiles detected changes in 'routes/gemini.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [55863]
+Failed to send telemetry event ClientStartEvent: capture() takes 1 positional argument but 3 were given
+Failed to send telemetry event ClientCreateCollectionEvent: capture() takes 1 positional argument but 3 were given
+Failed to send telemetry event ClientCreateCollectionEvent: capture() takes 1 positional argument but 3 were given
+INFO:     Started server process [65887]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+[GROQ] ✓ Groq client initialized successfully
+INFO:     192.168.1.1:43826 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:43836 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:43826 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:43826 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:43826 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:43826 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+WARNING:  WatchFiles detected changes in 'routes/groq_service.py'. Reloading...
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [65887]
+Failed to send telemetry event ClientStartEvent: capture() takes 1 positional argument but 3 were given
+Failed to send telemetry event ClientCreateCollectionEvent: capture() takes 1 positional argument but 3 were given
+Failed to send telemetry event ClientCreateCollectionEvent: capture() takes 1 positional argument but 3 were given
+INFO:     Started server process [65903]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+[GROQ] ✓ Groq client initialized successfully
+INFO:     192.168.1.1:54982 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54982 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "OPTIONS /groq/chat/rag/stream HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "POST /groq/chat/rag/stream HTTP/1.1" 404 Not Found
+INFO:     192.168.1.1:54996 - "OPTIONS /groq/chat/rag HTTP/1.1" 200 OK
+Failed to send telemetry event CollectionGetEvent: capture() takes 1 positional argument but 3 were given
+Failed to send telemetry event CollectionGetEvent: capture() takes 1 positional argument but 3 were given
+Add of existing embedding ID: product_1
+Add of existing embedding ID: product_2
+Add of existing embedding ID: product_3
+Add of existing embedding ID: product_4
+Add of existing embedding ID: product_5
+Add of existing embedding ID: product_6
+Add of existing embedding ID: product_7
+Add of existing embedding ID: product_8
+Add of existing embedding ID: product_9
+Add of existing embedding ID: product_10
+Add of existing embedding ID: product_11
+Add of existing embedding ID: product_12
+Add of existing embedding ID: product_13
+Add of existing embedding ID: product_14
+Add of existing embedding ID: product_15
+Add of existing embedding ID: product_16
+Add of existing embedding ID: product_17
+Add of existing embedding ID: product_18
+Add of existing embedding ID: product_19
+Add of existing embedding ID: product_20
+Add of existing embedding ID: product_21
+Add of existing embedding ID: product_22
+Add of existing embedding ID: product_23
+Add of existing embedding ID: product_24
+Add of existing embedding ID: product_25
+Add of existing embedding ID: product_26
+Add of existing embedding ID: product_27
+Add of existing embedding ID: product_28
+Add of existing embedding ID: product_29
+Add of existing embedding ID: product_30
+Add of existing embedding ID: product_31
+Failed to send telemetry event CollectionQueryEvent: capture() takes 1 positional argument but 3 were given
+Add of existing embedding ID: order_1
+Add of existing embedding ID: order_2
+Add of existing embedding ID: order_3
+Add of existing embedding ID: order_4
+Add of existing embedding ID: order_5
+Add of existing embedding ID: order_6
+Add of existing embedding ID: order_7
+Add of existing embedding ID: order_8
+Add of existing embedding ID: order_9
+Add of existing embedding ID: order_10
+Add of existing embedding ID: order_11
+Add of existing embedding ID: order_12
+Add of existing embedding ID: order_13
+Add of existing embedding ID: order_14
+Add of existing embedding ID: order_15
+Add of existing embedding ID: order_16
+Add of existing embedding ID: order_17
+Add of existing embedding ID: order_18
+Add of existing embedding ID: order_19
+Add of existing embedding ID: order_20
+Failed to send telemetry event CollectionQueryEvent: capture() takes 1 positional argument but 3 were given
+Add of existing embedding ID: category_1
+Add of existing embedding ID: category_2
+Add of existing embedding ID: category_3
+Add of existing embedding ID: category_4
+Failed to send telemetry event CollectionQueryEvent: capture() takes 1 positional argument but 3 were given
+Add of existing embedding ID: business_2
+Add of existing embedding ID: business_3
+Add of existing embedding ID: business_4
+Failed to send telemetry event CollectionQueryEvent: capture() takes 1 positional argument but 3 were given
+Add of existing embedding ID: user_1
+Add of existing embedding ID: user_2
+Add of existing embedding ID: user_3
+Add of existing embedding ID: user_4
+Add of existing embedding ID: user_5
+Add of existing embedding ID: user_6
+Add of existing embedding ID: user_7
+Add of existing embedding ID: user_8
+Failed to send telemetry event CollectionQueryEvent: capture() takes 1 positional argument but 3 were given
+Failed to send telemetry event CollectionQueryEvent: capture() takes 1 positional argument but 3 were given
+Failed to send telemetry event CollectionAddEvent: capture() takes 1 positional argument but 3 were given
+Failed to send telemetry event CollectionGetEvent: capture() takes 1 positional argument but 3 were given
+[GROQ RAG] Received request: message='co samsung ko...', model=meta-llama/llama-4-maverick-17b-128e-instruct, session_id=user_5_session, user_id=5
+[GROQ RAG DEBUG] Received user_id: 5, type: <class 'str'>
+[GROQ RAG DEBUG] Users collection has 8 documents
+[GROQ RAG DEBUG] Querying with string userId: 5
+[GROQ RAG DEBUG] Query results: 1 documents found
+[GROQ RAG] ✓ Found user info: Người dùng: Nguyen Van Tu (customer@ai.com). Vai trò: CUSTOMER. Trạng thái: ACTIVE. Địa chỉ: 12 Phan...
+[GROQ RAG] Returning 5 product cards
+INFO:     192.168.1.1:54996 - "POST /groq/chat/rag HTTP/1.1" 200 OK
+INFO:     192.168.1.1:41680 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "POST /groq/chat/rag/stream HTTP/1.1" 404 Not Found
+Failed to send telemetry event CollectionGetEvent: capture() takes 1 positional argument but 3 were given
+[GROQ RAG] Received request: message='s24 utral...', model=meta-llama/llama-4-maverick-17b-128e-instruct, session_id=user_5_session, user_id=5
+[GROQ RAG DEBUG] Received user_id: 5, type: <class 'str'>
+[GROQ RAG DEBUG] Users collection has 8 documents
+[GROQ RAG DEBUG] Querying with string userId: 5
+[GROQ RAG DEBUG] Query results: 1 documents found
+[GROQ RAG] ✓ Found user info: Người dùng: Nguyen Van Tu (customer@ai.com). Vai trò: CUSTOMER. Trạng thái: ACTIVE. Địa chỉ: 12 Phan...
+[GROQ RAG] Returning 5 product cards
+INFO:     192.168.1.1:54996 - "POST /groq/chat/rag HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+INFO:     192.168.1.1:54996 - "GET /ai-config/user-preference/1 HTTP/1.1" 200 OK
+./start.sh: line 52: 50912 Killed                  ./venv/bin/uvicorn app:app --host 0.0.0.0 --port 5000 --reload

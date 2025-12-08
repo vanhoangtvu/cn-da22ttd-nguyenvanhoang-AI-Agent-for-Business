@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { apiClient } from '@/lib/api';
+import OrderDetailPanel from '@/components/OrderDetailPanel';
 
 interface OrderItem {
   id: number;
@@ -49,10 +50,27 @@ const STATUS_LABELS: Record<string, string> = {
 
 export default function OrdersPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+
+  // Check for orderId in URL params and open detail panel
+  useEffect(() => {
+    const orderIdParam = searchParams.get('orderId');
+    if (orderIdParam) {
+      const orderId = parseInt(orderIdParam);
+      if (!isNaN(orderId)) {
+        setSelectedOrderId(orderId);
+        // Remove the orderId param from URL after reading it
+        const url = new URL(window.location.href);
+        url.searchParams.delete('orderId');
+        window.history.replaceState({}, '', url.toString());
+      }
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (!apiClient.isAuthenticated()) {
@@ -109,9 +127,9 @@ export default function OrdersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50 shadow-sm">
+      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50 shadow-sm flex-shrink-0">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <Link href="/shop" className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400">
@@ -128,19 +146,27 @@ export default function OrdersPage() {
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8">
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>{error}</span>
-            </div>
-          </div>
-        )}
+      {/* Main Content - Split Layout */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Orders List */}
+        <div 
+          className={`flex-1 overflow-y-auto transition-all duration-500 ease-in-out ${
+            selectedOrderId ? 'w-1/2' : 'w-full'
+          }`}
+        >
+          <div className="container mx-auto px-4 py-8">
+            {error && (
+              <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>{error}</span>
+                </div>
+              </div>
+            )}
 
-        {orders.length === 0 ? (
+            {orders.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
             <svg className="w-24 h-24 text-gray-400 mx-auto mb-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -237,10 +263,13 @@ export default function OrdersPage() {
                   {/* Actions */}
                   <div className="flex gap-3 mt-6">
                     <button
-                      onClick={() => setSelectedOrder(selectedOrder?.id === order.id ? null : order)}
+                      onClick={() => {
+                        console.log('View order details clicked:', order.id);
+                        setSelectedOrderId(selectedOrderId === order.id ? null : order.id);
+                      }}
                       className="px-6 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors font-semibold"
                     >
-                      {selectedOrder?.id === order.id ? 'Ẩn chi tiết' : 'Xem chi tiết'}
+                      Xem chi tiết
                     </button>
                     {canCancel(order.status) && (
                       <button
@@ -252,25 +281,36 @@ export default function OrdersPage() {
                     )}
                   </div>
                 </div>
-
-                {/* Expanded Details */}
-                {selectedOrder?.id === order.id && (
-                  <div className="bg-gray-50 dark:bg-gray-700/50 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
-                    <h3 className="font-bold mb-3">Lịch sử trạng thái</h3>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-3 text-sm">
-                        <div className="w-3 h-3 rounded-full bg-blue-600"></div>
-                        <span className="text-gray-600 dark:text-gray-400">
-                          {new Date(order.createdAt).toLocaleString('vi-VN')}
-                        </span>
-                        <span className="font-semibold">Đơn hàng đã được tạo</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             ))}
           </div>
+        )}
+          </div>
+        </div>
+
+        {/* Order Detail Panel - Slide in from right */}
+        {selectedOrderId && (
+          <>
+            {/* Overlay */}
+            <div 
+              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 transition-opacity duration-500"
+              onClick={() => {
+                console.log('Overlay clicked, closing panel');
+                setSelectedOrderId(null);
+              }}
+            />
+            
+            {/* Detail Panel */}
+            <div className="fixed top-0 right-0 h-full w-1/2 border-l border-gray-200 dark:border-gray-700 shadow-2xl z-50 animate-slide-in-right bg-white dark:bg-gray-900">
+              <OrderDetailPanel
+                orderId={selectedOrderId}
+                onClose={() => {
+                  console.log('Close button clicked');
+                  setSelectedOrderId(null);
+                }}
+              />
+            </div>
+          </>
         )}
       </div>
     </div>

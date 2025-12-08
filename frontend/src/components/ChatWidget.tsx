@@ -29,21 +29,23 @@ interface Message {
 }
 
 interface Product {
+  id?: number;
   name: string;
-  price?: string;
+  price?: string | number;
   imageUrl?: string;
   description?: string;
   stock?: number;
+  categoryName?: string;
 }
 
-// Parse products from AI response
+// Parse products from AI response - Enhanced version
 const parseProducts = (content: string): { products: Product[]; cleanContent: string } => {
   const products: Product[] = [];
   let cleanContent = content;
 
-  console.log('[ChatWidget] Parsing content:', content.substring(0, 200));
+  console.log('[ChatWidget] Parsing content for products...');
 
-  // Find all markdown images - support both inline and bullet format
+  // Pattern 1: Find markdown images with product info
   const imagePattern = /!\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
   const images: Array<{alt: string, url: string, index: number}> = [];
   
@@ -58,24 +60,40 @@ const parseProducts = (content: string): { products: Product[]; cleanContent: st
 
   console.log('[ChatWidget] Found images:', images.length);
 
-  // For each image, extract product info
+  // For each image, extract detailed product info
   images.forEach(img => {
-    const beforeImage = content.substring(Math.max(0, img.index - 400), img.index);
-    const afterImage = content.substring(img.index, Math.min(content.length, img.index + 400));
+    const beforeImage = content.substring(Math.max(0, img.index - 500), img.index);
+    const afterImage = content.substring(img.index, Math.min(content.length, img.index + 600));
     
-    // Find product name - look for **Name** or numbered list
+    // Find product name - look for **Name** pattern or numbered list
     let name = img.alt;
-    const nameMatch = beforeImage.match(/\*\*([^*]+)\*\*(?!.*\*\*)/);
-    if (nameMatch) {
-      name = nameMatch[1].trim();
+    const namePatterns = [
+      /\*\*([^*]+)\*\*(?!.*\*\*)/,  // Last **text** before image
+      /\d+\.\s+\*\*([^*]+)\*\*/,     // Numbered list with bold
+      /^[•\-\*]\s+\*\*([^*]+)\*\*/m  // Bullet list with bold
+    ];
+    
+    for (const pattern of namePatterns) {
+      const match = beforeImage.match(pattern);
+      if (match) {
+        name = match[1].trim();
+        break;
+      }
     }
     
-    // Find price - multiple formats
+    // Find Product ID from metadata
+    let productId: number | undefined;
+    const idMatch = afterImage.match(/ID:\s*(\d+)|Product ID:\s*(\d+)|Mã SP:\s*(\d+)/i);
+    if (idMatch) {
+      productId = parseInt(idMatch[1] || idMatch[2] || idMatch[3]);
+    }
+    
+    // Find price - multiple formats with Vietnamese currency
     const pricePatterns = [
-      /Giá bán:\s*([0-9.,]+\s*VNĐ)/i,
-      /Giá:\s*([0-9.,]+\s*VNĐ)/i,
-      /Price:\s*([0-9.,]+\s*VNĐ)/i,
-      /([0-9.,]+\s*VNĐ)/i
+      /Giá bán:\s*([0-9.,]+\s*(?:VNĐ|VND|đ))/i,
+      /Giá:\s*([0-9.,]+\s*(?:VNĐ|VND|đ))/i,
+      /Price:\s*([0-9.,]+\s*(?:VNĐ|VND|đ))/i,
+      /([0-9]{1,3}(?:[.,][0-9]{3})*\s*(?:VNĐ|VND|đ))/i
     ];
     
     let price: string | undefined;
@@ -92,40 +110,74 @@ const parseProducts = (content: string): { products: Product[]; cleanContent: st
     const descPatterns = [
       /Mô tả:\s*([^\n*]+)/i,
       /\*\s*Mô tả:\s*([^\n]+)/i,
-      /\n\s*\*\s*([^*\n]+?)(?=\n\s*\*|$)/
+      /Đặc điểm:\s*([^\n*]+)/i,
+      /\n\s*\*\s*([^*\n]+?)(?=\n\s*\*|Giá:|$)/
     ];
     
     for (const pattern of descPatterns) {
       const match = afterImage.match(pattern);
-      if (match && !match[1].includes('Giá')) {
+      if (match && !match[1].includes('Giá') && !match[1].includes('VNĐ')) {
         description = match[1].trim();
         break;
       }
     }
     
-    // Find stock
-    const stockMatch = afterImage.match(/Tồn kho:\s*(\d+)/i);
-    const stock = stockMatch ? parseInt(stockMatch[1]) : undefined;
+    // If no specific description found, try to get text after image
+    if (!description) {
+      const textMatch = afterImage.match(/\n([^*\n]{20,150}?)(?:\n|Giá:|$)/);
+      if (textMatch) {
+        description = textMatch[1].trim();
+      }
+    }
+    
+    // Find stock/quantity
+    const stockPatterns = [
+      /Tồn kho:\s*(\d+)/i,
+      /Còn lại:\s*(\d+)/i,
+      /Số lượng:\s*(\d+)/i,
+      /Stock:\s*(\d+)/i
+    ];
+    
+    let stock: number | undefined;
+    for (const pattern of stockPatterns) {
+      const match = afterImage.match(pattern);
+      if (match) {
+        stock = parseInt(match[1]);
+        break;
+      }
+    }
+    
+    // Find category
+    const categoryMatch = afterImage.match(/Danh mục:\s*([^\n*]+)/i);
+    const categoryName = categoryMatch ? categoryMatch[1].trim() : undefined;
     
     products.push({
+      id: productId,
       name,
       imageUrl: img.url,
       price,
       description,
       stock,
+      categoryName
     });
   });
 
   console.log('[ChatWidget] Parsed products:', products);
 
-  // Remove duplicates
+  // Remove duplicates based on imageUrl or productId
   const uniqueProducts = products.filter((product, index, self) =>
-    index === self.findIndex((p) => p.imageUrl === product.imageUrl)
+    index === self.findIndex((p) => 
+      (p.id && product.id && p.id === product.id) || 
+      (p.imageUrl === product.imageUrl)
+    )
   );
 
   // Remove markdown images from content since we'll show them as cards
   if (uniqueProducts.length > 0) {
+    // Remove image markdown but keep the text around it
     cleanContent = content.replace(/!\[[^\]]+\]\([^)]+\)/g, '');
+    // Clean up extra newlines
+    cleanContent = cleanContent.replace(/\n{3,}/g, '\n\n');
   }
 
   return { products: uniqueProducts, cleanContent };
@@ -551,22 +603,33 @@ export default function ChatWidget() {
 
                   {/* Product Cards - Only for assistant messages with products */}
                   {message.role === 'assistant' && products.length > 0 && (
-                    <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-                      <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                        Sản phẩm được đề xuất ({products.length})
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="mt-5 pt-4 border-t-2 border-blue-100 dark:border-blue-900/30">
+                      <div className="flex items-center gap-2 mb-4">
+                        <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                        </svg>
+                        <h4 className="text-sm font-bold text-gray-800 dark:text-gray-200">
+                          Sản phẩm được đề xuất ({products.length})
+                        </h4>
+                      </div>
+                      <div className={`grid gap-4 ${products.length === 1 ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
                         {products.map((product, idx) => (
                           <ProductCard
-                            key={idx}
+                            key={product.id || idx}
+                            id={product.id}
                             name={product.name}
                             price={product.price}
                             imageUrl={product.imageUrl}
                             description={product.description}
                             stock={product.stock}
+                            categoryName={product.categoryName}
+                            showAddToCart={true}
                             onClick={() => {
-                              // Navigate to product detail or shop page
-                              window.open('/shop', '_blank');
+                              if (product.id) {
+                                window.open(`/shop?productId=${product.id}`, '_blank');
+                              } else {
+                                window.open('/shop', '_blank');
+                              }
                             }}
                           />
                         ))}

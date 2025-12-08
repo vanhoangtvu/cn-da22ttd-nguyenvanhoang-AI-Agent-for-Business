@@ -58,25 +58,35 @@ def search_relevant_data(user_message: str, n_results: int = 5) -> tuple[str, li
                     for doc, metadata in zip(results['documents'][0], results['metadatas'][0]):
                         data_str = f"[{collection_name.upper()}] {doc}"
                         
-                        # Extract product card data for frontend
+                        # Extract product card data for frontend with full details
                         if collection_name == 'products' and 'imageUrls' in metadata:
                             try:
                                 import json
                                 image_urls = json.loads(metadata['imageUrls'])
                                 if image_urls and len(image_urls) > 0:
-                                    product_name = metadata.get('productName', 'Sản phẩm')
-                                    data_str += f" | HAS_IMAGE: {product_name}"
+                                    product_name = metadata.get('name', metadata.get('productName', 'Sản phẩm'))
+                                    product_price = metadata.get('price', 0)
+                                    product_id = metadata.get('id', None)
                                     
-                                    # Create product card data
+                                    # Extract description from document text
+                                    description_parts = doc.split('. ')
+                                    description = '. '.join(description_parts[1:3]) if len(description_parts) > 1 else doc[:150]
+                                    
+                                    data_str += f" | PRODUCT_ID: {product_id} | IMAGE: {image_urls[0]}"
+                                    
+                                    # Create detailed product card data
                                     product_card = {
+                                        'id': int(product_id) if product_id else None,
                                         'name': product_name,
                                         'imageUrl': image_urls[0],
-                                        'price': metadata.get('price', ''),
-                                        'description': doc[:150] if len(doc) > 150 else doc,
-                                        'stock': metadata.get('stock', 0)
+                                        'price': float(product_price) if product_price else 0,
+                                        'description': description,
+                                        'stock': metadata.get('quantity', metadata.get('stock', 0)),
+                                        'categoryName': metadata.get('category', metadata.get('categoryName', ''))
                                     }
                                     product_cards.append(product_card)
-                            except:
+                            except Exception as e:
+                                print(f"[GROQ SEARCH] Error parsing product metadata: {e}")
                                 pass
                         
                         relevant_data.append(data_str)
@@ -90,7 +100,7 @@ def search_relevant_data(user_message: str, n_results: int = 5) -> tuple[str, li
             return context, product_cards
         
     except Exception as e:
-        print(f"[SEARCH] Error searching ChromaDB: {e}")
+        print(f"[GROQ SEARCH] Error searching ChromaDB: {e}")
     
     return "", []
 
@@ -394,10 +404,16 @@ QUY TẮC QUAN TRỌNG:
 - Khi trả lời về đơn hàng, hãy lọc dữ liệu theo userId hoặc email của người dùng hiện tại.
 - KHÔNG sử dụng emoji trong câu trả lời.
 
-CÁCH GIỚI THIỆU SẢN PHẨM:
-- Chỉ giới thiệu tên sản phẩm, không cần thêm markdown hoặc hình ảnh
-- Frontend sẽ tự động hiển thị card sản phẩm với hình ảnh đẹp từ dữ liệu JSON
-- Trả lời ngắn gọn, chuyên nghiệp
+CÁCH GIỚI THIỆU SẢN PHẨM (BẮT BUỘC):
+- BẮT BUỘC phải sử dụng định dạng markdown với hình ảnh cho TỪNG sản phẩm:
+  **Tên Sản Phẩm**
+  ![Tên Sản Phẩm](URL_hình_ảnh)
+  - ID: [id]
+  - Giá: [giá] VNĐ
+  - Mô tả ngắn gọn
+- Lấy thông tin từ JSON SẢN PHẨM LIÊN QUAN ở trên (id, name, price, imageUrl, description)
+- Đảm bảo mỗi sản phẩm có đầy đủ: ID, tên in đậm, hình ảnh, giá, mô tả
+- ID là BẮT BUỘC để người dùng có thể xem chi tiết sản phẩm
 
 Tin nhắn người dùng: {chat_input.message}
 
@@ -449,6 +465,191 @@ Hãy trả lời bằng tiếng Việt, thân thiện, sinh động và hữu í
         print(f"[GROQ RAG] ERROR: {str(e)}")
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f'Error communicating with Groq: {str(e)}')
+
+@router.post("/chat/rag/stream", summary="Chat with RAG (streaming)")
+async def chat_with_groq_rag_stream(chat_input: ChatInput):
+    """Chat with Groq AI using RAG prompts and chat history with streaming response"""
+    if not groq_client:
+        raise HTTPException(status_code=503, detail='Groq service not initialized.')
+    
+    if not rag_prompt_service:
+        raise HTTPException(status_code=500, detail='RAG prompt service not initialized')
+    
+    async def generate():
+        try:
+            # Get all RAG prompts as context
+            rag_context = rag_prompt_service.get_all_prompts_as_context()
+            
+            # Get user information from ChromaDB if user_id is provided
+            user_context = ""
+            print(f"[GROQ RAG STREAM DEBUG] Received user_id: {chat_input.user_id}, type: {type(chat_input.user_id)}")
+            if chat_input.user_id and chat_input.user_id != 'anonymous' and chroma_client:
+                try:
+                    users_collection = chroma_client.get_collection('users')
+                    print(f"[GROQ RAG STREAM DEBUG] Users collection has {users_collection.count()} documents")
+                    
+                    # Try with string first (ChromaDB stores userId as string)
+                    print(f"[GROQ RAG STREAM DEBUG] Querying with string userId: {chat_input.user_id}")
+                    user_results = users_collection.get(
+                        where={"userId": chat_input.user_id},
+                        limit=1
+                    )
+                    
+                    # If no result, try with int
+                    if not user_results['documents']:
+                        try:
+                            user_id_int = int(chat_input.user_id)
+                            print(f"[GROQ RAG STREAM DEBUG] No result with string, trying int userId: {user_id_int}")
+                            user_results = users_collection.get(
+                                where={"userId": user_id_int},
+                                limit=1
+                            )
+                        except (ValueError, TypeError):
+                            pass
+                    
+                    print(f"[GROQ RAG STREAM DEBUG] Query results: {len(user_results.get('documents', []))} documents found")
+                    if user_results['documents']:
+                        user_info = user_results['documents'][0]
+                        user_context = f"\n[THÔNG TIN NGƯỜI DÙNG ĐANG CHAT]\n{user_info}\n"
+                        print(f"[GROQ RAG Stream] ✓ Found user info: {user_info[:100]}...")
+                    else:
+                        print(f"[GROQ RAG Stream] ✗ No user found for user_id: {chat_input.user_id}")
+                except Exception as e:
+                    print(f"[GROQ RAG Stream] Could not get user info: {e}")
+                    import traceback
+                    traceback.print_exc()
+            else:
+                print(f"[GROQ RAG STREAM DEBUG] Skipping user query - user_id: {chat_input.user_id}, chroma_client: {chroma_client is not None}")
+            
+            # Get chat history context if session_id provided
+            history_context = ""
+            if chat_input.session_id and chat_history_service:
+                history_context = chat_history_service.get_context_for_ai(chat_input.session_id, max_messages=10)
+            
+            # Search for relevant data from ChromaDB
+            relevant_data, product_cards = search_relevant_data(chat_input.message, n_results=5)
+            
+            # Create product cards JSON string
+            import json as json_lib
+            products_json = json_lib.dumps(product_cards, ensure_ascii=False) if product_cards else "[]"
+            
+            # Construct the full prompt with RAG context + user info + relevant data + history + user message
+            full_prompt = f"""Bạn là trợ lý AI thông minh, thân thiện và chuyên nghiệp cho doanh nghiệp. Hãy tuân theo các hướng dẫn sau:
+
+{rag_context}
+
+{user_context}
+
+{relevant_data}
+
+{history_context}
+
+--- SẢN PHẨM LIÊN QUAN (JSON) ---
+{products_json}
+--- KẾT THÚC SẢN PHẨM ---
+
+QUY TẮC QUAN TRỌNG:
+- Khi người dùng đã đăng nhập (có thông tin trong [THÔNG TIN NGƯỜI DÙNG ĐANG CHAT]), các câu hỏi về "đơn hàng của tôi", "thông tin của tôi", "tài khoản của tôi" sẽ TỰ ĐỘNG ÁNH XẠ sang thông tin của người dùng đang đăng nhập.
+- KHÔNG cần hỏi thêm thông tin như tên, email, số điện thoại nếu đã có trong thông tin người dùng.
+- Khi trả lời về đơn hàng, hãy lọc dữ liệu theo userId hoặc email của người dùng hiện tại.
+- KHÔNG sử dụng emoji trong câu trả lời.
+
+CÁCH GIỚI THIỆU SẢN PHẨM (CHỈ KHI HỎI VỀ SẢN PHẨM):
+- CHỈ hiển thị sản phẩm khi người dùng HỎI VỀ SẢN PHẨM (tìm, mua, giá, thông tin sản phẩm)
+- KHÔNG hiển thị sản phẩm khi hỏi về: đơn hàng, tài khoản, doanh thu, thống kê
+
+QUY TẮC HIỂN THỊ SẢN PHẨM (CỰC KỲ QUAN TRỌNG):
+- BẮT BUỘC SỬ DỤNG CHÍNH XÁC dữ liệu từ JSON [SẢN PHẨM LIÊN QUAN] ở trên
+- TUYỆT ĐỐI KHÔNG tự tạo, sửa đổi, hoặc thêm thông tin không có trong JSON
+- Mỗi sản phẩm PHẢI có đúng: id, name, price, imageUrl từ JSON
+- Nếu JSON trống hoặc không có sản phẩm phù hợp, hãy thông báo "Không tìm thấy sản phẩm"
+- KHÔNG đoán, KHÔNG hallucinate, CHỈ dùng dữ liệu có sẵn
+
+- Khi ĐƯỢC PHÉP hiển thị sản phẩm, BẮT BUỘC dùng định dạng:
+  **Tên Sản Phẩm** (từ JSON field "name")
+  ![Tên Sản Phẩm](URL_hình_ảnh) (từ JSON field "imageUrl")
+  - ID: [id] (từ JSON field "id")
+  - Giá: [giá] VNĐ (từ JSON field "price")
+  - Mô tả (từ JSON field "description")
+- Lấy CHÍNH XÁC thông tin từ JSON SẢN PHẨM LIÊN QUAN (id, name, price, imageUrl, description)
+- Đảm bảo mỗi sản phẩm có đầy đủ: ID, tên in đậm, hình ảnh, giá, mô tả
+- ID là BẮT BUỘC để người dùng có thể xem chi tiết sản phẩm
+
+CÁCH HIỂN THỊ ĐƠN HÀNG:
+- Khi trả lời về ĐƠN HÀNG, CHỈ hiển thị thông tin tóm tắt:
+  Ví dụ format CHÍNH XÁC:
+  **Đơn hàng #20**
+  ORDER_CARD: {"id": 20, "product": "Acer Aspire 5"}
+  (Chi tiết đầy đủ sẽ được tải khi bấm "Xem chi tiết")
+  
+  LƯU Ý: Phải có dòng mới giữa **Đơn hàng #[ID]** và ORDER_CARD
+
+Tin nhắn người dùng: {chat_input.message}
+
+Hãy trả lời bằng tiếng Việt, thân thiện, sinh động và hữu ích."""
+            
+            # Save user message to history
+            if chat_input.session_id and chat_history_service:
+                chat_history_service.save_message(
+                    session_id=chat_input.session_id,
+                    role="user",
+                    content=chat_input.message,
+                    user_id=chat_input.user_id
+                )
+            
+            # Send initial metadata
+            yield f"data: {json.dumps({'type': 'start', 'model': chat_input.model, 'provider': 'groq', 'rag_enabled': True, 'history_enabled': bool(chat_input.session_id)})}\n\n"
+            
+            # Stream response from Groq
+            stream = groq_client.chat.completions.create(
+                messages=[
+                    {
+                        "role": "user",
+                        "content": full_prompt
+                    }
+                ],
+                model=chat_input.model,
+                temperature=0.7,
+                max_tokens=2048,
+                stream=True,
+            )
+            
+            full_response = ""
+            for chunk in stream:
+                if chunk.choices[0].delta.content:
+                    text = chunk.choices[0].delta.content
+                    full_response += text
+                    yield f"data: {json.dumps({'type': 'chunk', 'text': text})}\n\n"
+            
+            # Save assistant response to history
+            if chat_input.session_id and chat_history_service and full_response:
+                chat_history_service.save_message(
+                    session_id=chat_input.session_id,
+                    role="assistant",
+                    content=full_response,
+                    user_id=chat_input.user_id
+                )
+            
+            # Send completion signal
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            
+        except Exception as e:
+            import traceback
+            print(f"[GROQ RAG Stream] ERROR: {str(e)}")
+            traceback.print_exc()
+            yield f"data: {json.dumps({'type': 'error', 'error': str(e)})}\n\n"
+    
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',
+            'Connection': 'keep-alive',
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': '*',
+        }
+    )
 
 @router.get("/health", summary="Check Groq service health")
 async def health_check():

@@ -56,25 +56,35 @@ def search_relevant_data(user_message: str, n_results: int = 5) -> tuple[str, li
                     for doc, metadata in zip(results['documents'][0], results['metadatas'][0]):
                         data_str = f"[{collection_name.upper()}] {doc}"
                         
-                        # Extract product card data for frontend
+                        # Extract product card data for frontend with full details
                         if collection_name == 'products' and 'imageUrls' in metadata:
                             try:
                                 import json
                                 image_urls = json.loads(metadata['imageUrls'])
                                 if image_urls and len(image_urls) > 0:
-                                    product_name = metadata.get('productName', 'Sản phẩm')
-                                    data_str += f" | HAS_IMAGE: {product_name}"
+                                    product_name = metadata.get('name', metadata.get('productName', 'Sản phẩm'))
+                                    product_price = metadata.get('price', 0)
+                                    product_id = metadata.get('id', None)
                                     
-                                    # Create product card data
+                                    # Extract description from document text
+                                    description_parts = doc.split('. ')
+                                    description = '. '.join(description_parts[1:3]) if len(description_parts) > 1 else doc[:150]
+                                    
+                                    data_str += f" | PRODUCT_ID: {product_id} | IMAGE: {image_urls[0]}"
+                                    
+                                    # Create detailed product card data
                                     product_card = {
+                                        'id': int(product_id) if product_id else None,
                                         'name': product_name,
                                         'imageUrl': image_urls[0],
-                                        'price': metadata.get('price', ''),
-                                        'description': doc[:150] if len(doc) > 150 else doc,
-                                        'stock': metadata.get('stock', 0)
+                                        'price': float(product_price) if product_price else 0,
+                                        'description': description,
+                                        'stock': metadata.get('quantity', metadata.get('stock', 0)),
+                                        'categoryName': metadata.get('category', metadata.get('categoryName', ''))
                                     }
                                     product_cards.append(product_card)
-                            except:
+                            except Exception as e:
+                                print(f"[SEARCH] Error parsing product metadata: {e}")
                                 pass
                         
                         relevant_data.append(data_str)
@@ -278,15 +288,33 @@ PHONG CÁCH TRẢ LỜI:
 - Nếu biết tên khách hàng, hãy xưng hô lịch sự và thân thiện (anh/chị + tên).
 - Trả lời chuyên nghiệp, sinh động như đang tư vấn trực tiếp cho khách hàng.
 - KHÔNG sử dụng emoji trong câu trả lời.
-- Khi đề cập đến sản phẩm, LUÔN kèm theo:
-  * Tên sản phẩm in đậm (**tên sản phẩm**)
-  * Giá tiền được format đẹp (VD: 42.480.000 VNĐ)
-  * Hình ảnh sản phẩm nếu có IMAGE_URL trong dữ liệu - BẮT BUỘC phải dùng format markdown: ![PRODUCT_NAME](IMAGE_URL)
-  * Các thông tin nổi bật (màu sắc, kích thước, đặc điểm)
+- CHỈ hiển thị thông tin sản phẩm khi người dùng HỎI VỀ SẢN PHẨM (tìm kiếm, mua hàng, giá cả, so sánh sản phẩm)
+- KHÔNG hiển thị sản phẩm khi hỏi về: đơn hàng, tài khoản, lịch sử mua hàng, doanh thu, thống kê, báo cáo
+
+QUY TẮC HIỂN THỊ SẢN PHẨM (CỰC KỲ QUAN TRỌNG):
+- BẮT BUỘC SỬ DỤNG CHÍNH XÁC dữ liệu từ JSON [SẢN PHẨM LIÊN QUAN] ở trên
+- TUYỆT ĐỐI KHÔNG tự tạo, sửa đổi, hoặc thêm thông tin không có trong JSON
+- Mỗi sản phẩm PHẢI có đúng: id, name, price, imageUrl từ JSON
+- Nếu JSON trống hoặc không có sản phẩm phù hợp, hãy thông báo "Không tìm thấy sản phẩm"
+- KHÔNG đoán, KHÔNG hallucinate, CHỈ dùng dữ liệu có sẵn
+
+- Khi ĐƯỢC PHÉP đề cập đến sản phẩm, LUÔN kèm theo:
+  * Tên sản phẩm in đậm (**tên sản phẩm**) - LẤY TỪ field "name" trong JSON
+  * ID sản phẩm (- ID: [id]) - LẤY TỪ field "id" trong JSON - BẮT BUỘC
+  * Giá tiền - LẤY TỪ field "price" trong JSON và format đẹp (VD: 42.480.000 VNĐ)
+  * Hình ảnh - LẤY TỪ field "imageUrl" trong JSON - BẮT BUỘC dùng format: ![tên_sản_phẩm](imageUrl)
+  * Mô tả - LẤY TỪ field "description" trong JSON
 - Khi liệt kê nhiều sản phẩm, mỗi sản phẩm phải có:
-  1. Số thứ tự và tên sản phẩm in đậm
-  2. Hình ảnh (nếu có IMAGE_URL): ![Tên](URL)
-  3. Mô tả và giá
+  1. Số thứ tự và tên sản phẩm in đậm (từ JSON field "name")
+  2. Hình ảnh (từ JSON field "imageUrl"): ![Tên](URL)
+  3. ID sản phẩm: - ID: [id] (từ JSON field "id")
+  4. Mô tả (từ JSON field "description") và giá (từ JSON field "price")
+- Khi trả lời về ĐƠN HÀNG, CHỈ hiển thị thông tin tóm tắt theo format sau:
+  **Đơn hàng #20**
+  ORDER_CARD: {"id": 20, "product": "Acer Aspire 5"}
+  
+  LƯU Ý: Phải có dòng mới giữa **Đơn hàng #[ID]** và ORDER_CARD
+  (Chi tiết đầy đủ sẽ được tải khi người dùng bấm "Xem chi tiết")
 - Kết thúc bằng câu hỏi mở hoặc gợi ý để tiếp tục hội thoại.
 
 Tin nhắn người dùng: {chat_input.message}
@@ -409,15 +437,33 @@ PHONG CÁCH TRẢ LỜI:
 - Nếu biết tên khách hàng, hãy xưng hô lịch sự và thân thiện (anh/chị + tên).
 - Trả lời chuyên nghiệp, sinh động như đang tư vấn trực tiếp cho khách hàng.
 - KHÔNG sử dụng emoji trong câu trả lời.
-- Khi đề cập đến sản phẩm, LUÔN kèm theo:
-  * Tên sản phẩm in đậm (**tên sản phẩm**)
-  * Giá tiền được format đẹp (VD: 42.480.000 VNĐ)
-  * Hình ảnh sản phẩm nếu có IMAGE_URL trong dữ liệu - BẮT BUỘC phải dùng format markdown: ![PRODUCT_NAME](IMAGE_URL)
-  * Các thông tin nổi bật (màu sắc, kích thước, đặc điểm)
+- CHỈ hiển thị thông tin sản phẩm khi người dùng HỎI VỀ SẢN PHẨM (tìm kiếm, mua hàng, giá cả, so sánh sản phẩm)
+- KHÔNG hiển thị sản phẩm khi hỏi về: đơn hàng, tài khoản, lịch sử mua hàng, doanh thu, thống kê, báo cáo
+
+QUY TẮC HIỂN THỊ SẢN PHẨM (CỰC KỲ QUAN TRỌNG):
+- BẮT BUỘC SỬ DỤNG CHÍNH XÁC dữ liệu từ JSON [SẢN PHẨM LIÊN QUAN] ở trên
+- TUYỆT ĐỐI KHÔNG tự tạo, sửa đổi, hoặc thêm thông tin không có trong JSON
+- Mỗi sản phẩm PHẢI có đúng: id, name, price, imageUrl từ JSON
+- Nếu JSON trống hoặc không có sản phẩm phù hợp, hãy thông báo "Không tìm thấy sản phẩm"
+- KHÔNG đoán, KHÔNG hallucinate, CHỈ dùng dữ liệu có sẵn
+
+- Khi ĐƯỢC PHÉP đề cập đến sản phẩm, LUÔN kèm theo:
+  * Tên sản phẩm in đậm (**tên sản phẩm**) - LẤY TỪ field "name" trong JSON
+  * ID sản phẩm (- ID: [id]) - LẤY TỪ field "id" trong JSON - BẮT BUỘC
+  * Giá tiền - LẤY TỪ field "price" trong JSON và format đẹp (VD: 42.480.000 VNĐ)
+  * Hình ảnh - LẤY TỪ field "imageUrl" trong JSON - BẮT BUỘC dùng format: ![tên_sản_phẩm](imageUrl)
+  * Mô tả - LẤY TỪ field "description" trong JSON
 - Khi liệt kê nhiều sản phẩm, mỗi sản phẩm phải có:
-  1. Số thứ tự và tên sản phẩm in đậm
-  2. Hình ảnh (nếu có IMAGE_URL): ![Tên](URL)
-  3. Mô tả và giá
+  1. Số thứ tự và tên sản phẩm in đậm (từ JSON field "name")
+  2. Hình ảnh (từ JSON field "imageUrl"): ![Tên](URL)
+  3. ID sản phẩm: - ID: [id] (từ JSON field "id")
+  4. Mô tả (từ JSON field "description") và giá (từ JSON field "price")
+- Khi trả lời về ĐƠN HÀNG, CHỈ hiển thị thông tin tóm tắt theo format sau:
+  **Đơn hàng #20**
+  ORDER_CARD: {"id": 20, "product": "Acer Aspire 5"}
+  
+  LƯU Ý: Phải có dòng mới giữa **Đơn hàng #[ID]** và ORDER_CARD
+  (Chi tiết đầy đủ sẽ được tải khi người dùng bấm "Xem chi tiết")
 - Kết thúc bằng câu hỏi mở hoặc gợi ý để tiếp tục hội thoại.
 
 Tin nhắn người dùng: {chat_input.message}

@@ -3,6 +3,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import ProductCard from '@/components/ProductCard';
+import ProductDetailPanel from '@/components/ProductDetailPanel';
+import OrderCard from '@/components/OrderCard';
+import OrderDetailPanel from '@/components/OrderDetailPanel';
 
 // Python AI Service URL
 const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'http://113.178.203.147:5000';
@@ -12,6 +18,28 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  products?: Product[];
+  orders?: Order[];
+}
+
+interface Order {
+  id: number;
+  customerName: string;
+  totalAmount: number;
+  status: string;
+  createdAt: string;
+  orderItemsCount: number;
+  productName?: string; // Optional: product name from minimal format
+}
+
+interface Product {
+  id?: number;
+  name: string;
+  price?: string | number;
+  imageUrl?: string;
+  description?: string;
+  stock?: number;
+  categoryName?: string;
 }
 
 interface Conversation {
@@ -20,6 +48,316 @@ interface Conversation {
   messages: Message[];
   createdAt: Date;
 }
+
+// Parse products from AI response - Enhanced version
+const parseProducts = (content: string): { products: Product[]; cleanContent: string } => {
+  const products: Product[] = [];
+  let cleanContent = content;
+
+  // Find all markdown images
+  const imagePattern = /!\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
+  const images: Array<{alt: string, url: string, index: number}> = [];
+  
+  let imgMatch;
+  while ((imgMatch = imagePattern.exec(content)) !== null) {
+    images.push({
+      alt: imgMatch[1],
+      url: imgMatch[2],
+      index: imgMatch.index
+    });
+  }
+
+  // For each image, extract detailed product info
+  images.forEach(img => {
+    const beforeImage = content.substring(Math.max(0, img.index - 500), img.index);
+    const afterImage = content.substring(img.index, Math.min(content.length, img.index + 600));
+    
+    let name = img.alt;
+    const namePatterns = [
+      /\*\*([^*]+)\*\*(?!.*\*\*)/,
+      /\d+\.\s+\*\*([^*]+)\*\*/,
+      /^[•\-\*]\s+\*\*([^*]+)\*\*/m
+    ];
+    
+    for (const pattern of namePatterns) {
+      const match = beforeImage.match(pattern);
+      if (match) {
+        name = match[1].trim();
+        break;
+      }
+    }
+    
+    let productId: number | undefined;
+    const idMatch = afterImage.match(/ID:\s*(\d+)|Product ID:\s*(\d+)|Mã SP:\s*(\d+)/i);
+    if (idMatch) {
+      productId = parseInt(idMatch[1] || idMatch[2] || idMatch[3]);
+    }
+    
+    const pricePatterns = [
+      /Giá bán:\s*([0-9.,]+\s*(?:VNĐ|VND|đ))/i,
+      /Giá:\s*([0-9.,]+\s*(?:VNĐ|VND|đ))/i,
+      /([0-9]{1,3}(?:[.,][0-9]{3})*\s*(?:VNĐ|VND|đ))/i
+    ];
+    
+    let price: string | undefined;
+    for (const pattern of pricePatterns) {
+      const match = afterImage.match(pattern);
+      if (match) {
+        price = match[1];
+        break;
+      }
+    }
+    
+    let description = '';
+    const descPatterns = [
+      /Mô tả:\s*([^\n*]+)/i,
+      /Đặc điểm:\s*([^\n*]+)/i,
+      /\n\s*\*\s*([^*\n]+?)(?=\n\s*\*|Giá:|$)/
+    ];
+    
+    for (const pattern of descPatterns) {
+      const match = afterImage.match(pattern);
+      if (match && !match[1].includes('Giá') && !match[1].includes('VNĐ')) {
+        description = match[1].trim();
+        break;
+      }
+    }
+    
+    const stockPatterns = [
+      /Tồn kho:\s*(\d+)/i,
+      /Còn lại:\s*(\d+)/i,
+      /Số lượng:\s*(\d+)/i
+    ];
+    
+    let stock: number | undefined;
+    for (const pattern of stockPatterns) {
+      const match = afterImage.match(pattern);
+      if (match) {
+        stock = parseInt(match[1]);
+        break;
+      }
+    }
+    
+    const categoryMatch = afterImage.match(/Danh mục:\s*([^\n*]+)/i);
+    const categoryName = categoryMatch ? categoryMatch[1].trim() : undefined;
+    
+    products.push({
+      id: productId,
+      name,
+      imageUrl: img.url,
+      price,
+      description,
+      stock,
+      categoryName
+    });
+    
+    console.log('Parsed product:', { id: productId, name, imageUrl: img.url });
+  });
+
+  const uniqueProducts = products.filter((product, index, self) =>
+    index === self.findIndex((p) => 
+      (p.id && product.id && p.id === product.id) || 
+      (p.imageUrl === product.imageUrl)
+    )
+  );
+
+  console.log('Total products parsed:', uniqueProducts.length);
+  console.log('Products with ID:', uniqueProducts.filter(p => p.id).length);
+
+  if (uniqueProducts.length > 0) {
+    cleanContent = content.replace(/!\[[^\]]+\]\([^)]+\)/g, '');
+    cleanContent = cleanContent.replace(/\n{3,}/g, '\n\n');
+  }
+
+  return { products: uniqueProducts, cleanContent };
+};
+
+// Parse orders from AI response
+const parseOrders = (content: string): { orders: Order[]; cleanContent: string } => {
+  const orders: Order[] = [];
+  let cleanContent = content;
+
+  // Pattern 1: New minimal format with JSON-like ORDER_CARD
+  // **Đơn hàng #20**
+  // ORDER_CARD: {"id": 20, "product": "Acer Aspire 5"}
+  // More flexible regex to handle various whitespace/newline combinations
+  const minimalPattern = /\*\*Đơn hàng\s*#(\d+)\*\*[\s\S]*?ORDER_CARD:\s*\{\s*"id"\s*:\s*(\d+)\s*,\s*"product"\s*:\s*"([^"]+)"\s*\}/gi;
+  
+  let match;
+  while ((match = minimalPattern.exec(content)) !== null) {
+    const orderId = parseInt(match[2]);
+    console.log('[Pattern 1 - Minimal] Matched Order ID:', orderId, 'Product:', match[3]);
+    orders.push({
+      id: orderId,
+      customerName: '', // Will be loaded from API
+      totalAmount: 0, // Will be loaded from API
+      status: '', // Will be loaded from API
+      createdAt: '', // Will be loaded from API
+      orderItemsCount: 1, // Default, will be loaded from API
+      productName: match[3] // Store product name from minimal format
+    });
+  }
+
+  console.log('[Pattern 1] Total orders parsed (minimal format):', orders.length);
+  if (orders.length > 0) {
+    console.log('[Pattern 1] Sample order:', orders[0]);
+    return { orders, cleanContent };
+  }
+
+  // Pattern 2: Simplified bullet format (like in current screenshot)
+  // Đơn hàng #13:
+  // • Trạng thái: DELIVERED  OR  Trạng thái: DELIVERED
+  // • Tổng tiền: 27990K VND
+  // • Ngày đặt hàng: 2025-11-28T13:25:00
+  // • Sản phẩm: Samsung Galaxy S24 Ultra x1
+  const simpleBulletPattern = /Đơn hàng\s*#(\d+)[:\s]*[\s\S]*?Trạng thái:\s*(\w+)[\s\S]*?Tổng tiền:\s*([0-9.,KkVNĐđ\s]+)[\s\S]*?Ngày đặt hàng:\s*([^\n]+)[\s\S]*?Sản phẩm:\s*([^\n•]+)/gi;
+  
+  let match2;
+  while ((match2 = simpleBulletPattern.exec(content)) !== null) {
+    const itemsText = match2[5].trim();
+    const itemsMatch = itemsText.match(/x(\d+)/);
+    const itemsCount = itemsMatch ? parseInt(itemsMatch[1]) : 1;
+    
+    // Extract product name (before "x1" or similar)
+    const productName = itemsText.replace(/\s*x\d+\s*$/, '').trim();
+    
+    // Parse total amount
+    let totalAmountStr = match2[3].trim().toUpperCase().replace(/[VNĐđ\s]/gi, '');
+    let totalAmount: number;
+    
+    console.log('[Pattern 2 - Bullet] Matched Order ID:', match2[1]);
+    console.log('[Pattern 2 - Bullet] Raw total:', match2[3]);
+    
+    if (totalAmountStr.includes('K')) {
+      const numberPart = totalAmountStr.replace('K', '').replace(/[.,]/g, '');
+      totalAmount = parseFloat(numberPart) * 1000;
+      console.log('[Pattern 2] K format - Number part:', numberPart, '-> Total:', totalAmount);
+    } else {
+      totalAmount = parseFloat(totalAmountStr.replace(/[.,]/g, ''));
+      console.log('[Pattern 2] Direct format - Total:', totalAmount);
+    }
+    
+    orders.push({
+      id: parseInt(match2[1]),
+      customerName: '', // Will be loaded from API
+      totalAmount: totalAmount,
+      status: match2[2].trim().toUpperCase(),
+      createdAt: match2[4].trim(),
+      orderItemsCount: itemsCount,
+      productName: productName
+    });
+  }
+
+  console.log('[Pattern 2] Total orders parsed (bullet format):', orders.length);
+  if (orders.length > 0) {
+    console.log('[Pattern 2] Sample order:', orders[0]);
+    return { orders, cleanContent };
+  }
+
+  // Fallback patterns for backward compatibility
+  // Pattern 3: ORDER_ID format (old structured format)
+  const structuredPattern = /ORDER_ID:\s*(\d+)[\s\S]*?CUSTOMER:\s*([^\n]+)[\s\S]*?TOTAL:\s*([0-9.,]+)[\s\S]*?STATUS:\s*([^\n]+)[\s\S]*?DATE:\s*([^\n]+)[\s\S]*?ITEMS:\s*([^\n]+)/gi;
+  
+  let match3;
+  while ((match3 = structuredPattern.exec(content)) !== null) {
+    const itemsText = match3[6].trim();
+    const itemsMatch = itemsText.match(/(\d+)/);
+    const itemsCount = itemsMatch ? parseInt(itemsMatch[1]) : 1;
+    
+    orders.push({
+      id: parseInt(match3[1]),
+      customerName: match3[2].trim(),
+      totalAmount: parseFloat(match3[3].replace(/[.,KkVNĐđ\s]/g, '')),
+      status: match3[4].trim().toUpperCase(),
+      createdAt: match3[5].trim(),
+      orderItemsCount: itemsCount
+    });
+  }
+
+  // Pattern 4: Fallback for plain text format (like in screenshot)
+  // Can be either: "TOTAL: 13990K VND" OR "TOTAL: 13990000 VND" OR "TOTAL: 13990000đ"
+  const plainPattern = /Đơn hàng\s*#(\d+)\s+ORDER_ID:\s*\d+\s+CUSTOMER:\s*(\w+)\s+TOTAL:\s*([0-9.,Kk]+)(?:\s*(?:VN[DĐ]|đ))?\s+STATUS:\s*(\w+)\s+DATE:\s*([^\s]+)[\s\S]*?ITEMS:\s*([^\n]+)/gi;
+  
+  let match4;
+  while ((match4 = plainPattern.exec(content)) !== null) {
+    // Extract product count from ITEMS field
+    const itemsText = match4[6].trim();
+    const itemsMatch = itemsText.match(/x(\d+)/);
+    const itemsCount = itemsMatch ? parseInt(itemsMatch[1]) : 1;
+    
+    // Parse total amount (handle K for thousands OR direct value)
+    let totalAmountStr = match4[3].trim().toUpperCase();
+    let totalAmount: number;
+    
+    console.log('[Pattern 4] Raw total string:', match4[3]);
+    console.log('[Pattern 4] After cleanup:', totalAmountStr);
+    
+    if (totalAmountStr.includes('K')) {
+      // Has K suffix - multiply by 1000
+      // Example: "13990K" -> 13990 * 1000 = 13,990,000
+      const numberPart = totalAmountStr.replace('K', '').replace(/[.,]/g, '');
+      totalAmount = parseFloat(numberPart) * 1000;
+      console.log('[Pattern 4] K format - Number part:', numberPart, '-> Total:', totalAmount);
+    } else {
+      // No K - already in full number format
+      // Example: "13990000" -> 13,990,000
+      totalAmount = parseFloat(totalAmountStr.replace(/[.,]/g, ''));
+      console.log('[Pattern 4] Direct format - Total:', totalAmount);
+    }
+    
+    orders.push({
+      id: parseInt(match4[1]),
+      customerName: match4[2].trim(),
+      totalAmount: totalAmount,
+      status: match4[4].trim().toUpperCase(),
+      createdAt: match4[5].trim(),
+      orderItemsCount: itemsCount
+    });
+  }
+
+  // Pattern 5: New format from latest response - bullet list format
+  // Đơn hàng #20
+  // • Mã đơn hàng: 20
+  // • Trạng thái: PENDING
+  // • Tổng tiền: 13990K VND
+  // • Ngày đặt hàng: 2025-12-04T08:20:16.467919
+  // • Sản phẩm: Acer Aspire 5 x1
+  const bulletPattern = /Đơn hàng\s*#(\d+)\s*\n[\s\S]*?Mã đơn hàng:\s*\d+\s*\n[\s\S]*?Trạng thái:\s*(\w+)\s*\n[\s\S]*?Tổng tiền:\s*([0-9.,KkVNĐđ\s]+)\s*\n[\s\S]*?Ngày đặt hàng:\s*([^\n]+)\s*\n[\s\S]*?Sản phẩm:\s*([^\n]+)/gi;
+  
+  let match5;
+  while ((match5 = bulletPattern.exec(content)) !== null) {
+    const itemsText = match5[5].trim();
+    const itemsMatch = itemsText.match(/x(\d+)/);
+    const itemsCount = itemsMatch ? parseInt(itemsMatch[1]) : 1;
+    
+    // Parse total amount
+    let totalAmountStr = match4[3].trim().toUpperCase().replace(/[VNĐđ\s]/gi, '');
+    let totalAmount: number;
+    
+    if (totalAmountStr.includes('K')) {
+      const numberPart = totalAmountStr.replace('K', '').replace(/[.,]/g, '');
+      totalAmount = parseFloat(numberPart) * 1000;
+    } else {
+      totalAmount = parseFloat(totalAmountStr.replace(/[.,]/g, ''));
+    }
+    
+    orders.push({
+      id: parseInt(match5[1]),
+      customerName: 'customer', // Default as it's not in this format
+      totalAmount: totalAmount,
+      status: match5[2].trim().toUpperCase(),
+      createdAt: match5[4].trim(),
+      orderItemsCount: itemsCount
+    });
+  }
+
+  console.log('Total orders parsed:', orders.length);
+  if (orders.length > 0) {
+    console.log('Sample order:', orders[0]);
+  }
+
+  return { orders, cleanContent };
+};
 
 export default function ChatPage() {
   const [conversation, setConversation] = useState<Conversation | null>(null);
@@ -33,8 +371,19 @@ export default function ChatPage() {
   const [mounted, setMounted] = useState(false);
   const [aiProvider, setAiProvider] = useState<'gemini' | 'groq'>('gemini');
   const [userId, setUserId] = useState<string>('anonymous');
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Debug: Log when selectedProductId or selectedOrderId changes
+  useEffect(() => {
+    console.log('selectedProductId changed to:', selectedProductId);
+  }, [selectedProductId]);
+
+  useEffect(() => {
+    console.log('selectedOrderId changed to:', selectedOrderId);
+  }, [selectedOrderId]);
 
   // Get user info
   const userData = apiClient.getUserData();
@@ -378,7 +727,7 @@ export default function ChatPage() {
   return (
     <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center px-4 gap-4">
+      <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center px-4 gap-4 flex-shrink-0 z-10">
         <Link
           href="/shop"
           className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -474,9 +823,16 @@ export default function ChatPage() {
         )}
       </header>
 
-      {/* Main Chat Area */}
-      <main className="flex-1 overflow-y-auto">
-        {!conversation || conversation.messages.length === 0 ? (
+      {/* Main Content - Split Layout */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Chat Area */}
+        <div 
+          className={`flex flex-col transition-all duration-500 ease-in-out ${
+            selectedProductId ? 'w-1/2' : 'w-full'
+          }`}
+        >
+          {/* Messages Area */}
+          <main className="flex-1 overflow-y-auto">{!conversation || conversation.messages.length === 0 ? (
           /* Welcome Screen */
           <div className="h-full flex flex-col items-center justify-center p-8">
             <div className="max-w-3xl w-full text-center space-y-8">
@@ -556,59 +912,176 @@ export default function ChatPage() {
           ) : (
             /* Messages */
             <div className="max-w-4xl mx-auto py-8 px-4 space-y-6">
-              {conversation.messages.map((message, index) => (
-                <div
-                  key={message.id}
-                  className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
-                >
-                  {/* Avatar */}
-                  <div
-                    className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
-                      message.role === 'user'
-                        ? 'bg-gradient-to-br from-green-500 to-emerald-600'
-                        : 'bg-gradient-to-br from-blue-600 to-indigo-600'
-                    }`}
-                  >
-                    {message.role === 'user' ? (
-                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                    ) : (
-                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                    )}
-                  </div>
+              {conversation.messages.map((message, index) => {
+                // Parse products and orders from message content
+                const { products, cleanContent: contentAfterProducts } = message.products ? 
+                  { products: message.products, cleanContent: message.content } : 
+                  parseProducts(message.content);
+                
+                const { orders, cleanContent } = message.orders ?
+                  { orders: message.orders, cleanContent: contentAfterProducts } :
+                  parseOrders(contentAfterProducts);
 
-                  {/* Message Content */}
+                return (
                   <div
-                    className={`flex-1 max-w-[80%] ${
-                      message.role === 'user' ? 'text-right' : ''
-                    }`}
+                    key={message.id}
+                    className={`flex gap-4 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}
                   >
+                    {/* Avatar */}
                     <div
-                      className={`inline-block px-5 py-4 rounded-2xl ${
+                      className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
                         message.role === 'user'
-                          ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-tr-md'
-                          : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 shadow-lg rounded-tl-md border border-gray-100 dark:border-gray-700'
+                          ? 'bg-gradient-to-br from-green-500 to-emerald-600'
+                          : 'bg-gradient-to-br from-blue-600 to-indigo-600'
                       }`}
                     >
-                      <p className="whitespace-pre-wrap leading-relaxed">
-                        {message.content}
-                        {isStreaming && message.role === 'assistant' && index === conversation.messages.length - 1 && (
-                          <span className="inline-block w-2 h-5 bg-blue-600 ml-1 animate-pulse"></span>
+                      {message.role === 'user' ? (
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                      ) : (
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                        </svg>
+                      )}
+                    </div>
+
+                    {/* Message Content */}
+                    <div
+                      className={`flex-1 max-w-[85%] ${
+                        message.role === 'user' ? 'text-right' : ''
+                      }`}
+                    >
+                      <div
+                        className={`inline-block px-6 py-4 rounded-2xl ${
+                          message.role === 'user'
+                            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-tr-md'
+                            : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 shadow-lg rounded-tl-md border border-gray-100 dark:border-gray-700'
+                        }`}
+                      >
+                        {/* Message Text with Markdown */}
+                        {message.role === 'assistant' ? (
+                          <div className="prose prose-sm dark:prose-invert max-w-none">
+                            <ReactMarkdown 
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                a: ({node, ...props}) => (
+                                  <a {...props} className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer" />
+                                ),
+                                img: ({node, ...props}) => null, // We handle images separately as product cards
+                                p: ({node, ...props}) => (
+                                  <p {...props} className="my-2 leading-relaxed" />
+                                ),
+                                strong: ({node, ...props}) => (
+                                  <strong {...props} className="font-bold text-gray-900 dark:text-white" />
+                                ),
+                                ul: ({node, ...props}) => (
+                                  <ul {...props} className="my-2 list-disc list-inside space-y-1" />
+                                ),
+                                ol: ({node, ...props}) => (
+                                  <ol {...props} className="my-2 list-decimal list-inside space-y-1" />
+                                ),
+                                code: ({node, inline, ...props}: any) => 
+                                  inline ? (
+                                    <code {...props} className="bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded text-sm" />
+                                  ) : (
+                                    <code {...props} className="block bg-gray-100 dark:bg-gray-700 p-3 rounded-lg text-sm overflow-x-auto" />
+                                  ),
+                              }}
+                            >
+                              {cleanContent}
+                            </ReactMarkdown>
+                            {isStreaming && index === conversation.messages.length - 1 && (
+                              <span className="inline-block w-2 h-5 bg-blue-600 ml-1 animate-pulse"></span>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
                         )}
+
+                        {/* Product Cards Section */}
+                        {message.role === 'assistant' && products.length > 0 && (
+                          <div className="mt-6 pt-4 border-t-2 border-blue-100 dark:border-blue-900/30">
+                            <div className="flex items-center gap-2 mb-4">
+                              <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                              </svg>
+                              <h4 className="text-sm font-bold text-gray-800 dark:text-gray-200">
+                                Sản phẩm được đề xuất ({products.length})
+                              </h4>
+                            </div>
+                            <div className={`grid gap-4 ${products.length === 1 ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'}`}>
+                              {products.map((product, idx) => (
+                                <ProductCard
+                                  key={product.id || idx}
+                                  id={product.id}
+                                  name={product.name}
+                                  price={product.price}
+                                  imageUrl={product.imageUrl}
+                                  description={product.description}
+                                  stock={product.stock}
+                                  categoryName={product.categoryName}
+                                  showAddToCart={true}
+                                  onClick={() => {
+                                    console.log('Product clicked:', product);
+                                    if (product.id) {
+                                      console.log('Setting selectedProductId to:', product.id);
+                                      setSelectedProductId(product.id);
+                                    } else {
+                                      console.warn('Product has no ID');
+                                    }
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Order Cards Section */}
+                        {message.role === 'assistant' && orders.length > 0 && (
+                          <div className="mt-6 pt-4 border-t-2 border-green-100 dark:border-green-900/30">
+                            <div className="flex items-center gap-2 mb-4">
+                              <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              <h4 className="text-sm font-bold text-gray-800 dark:text-gray-200">
+                                Đơn hàng của bạn ({orders.length})
+                              </h4>
+                            </div>
+                            <div className={`grid gap-4 ${orders.length === 1 ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2'}`}>
+                              {orders.map((order, idx) => (
+                                <OrderCard
+                                  key={order.id || idx}
+                                  id={order.id}
+                                  customerName={order.customerName}
+                                  totalAmount={order.totalAmount}
+                                  status={order.status}
+                                  createdAt={order.createdAt}
+                                  orderItemsCount={order.orderItemsCount}
+                                  productName={order.productName}
+                                  inChatMode={true}
+                                  onClick={() => {
+                                    console.log('Order clicked:', order);
+                                    console.log('Setting selectedOrderId to:', order.id);
+                                    setSelectedOrderId(order.id);
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <p className="text-xs text-gray-400 mt-2">
+                        {message.timestamp.toLocaleTimeString('vi-VN', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
                       </p>
                     </div>
-                    <p className="text-xs text-gray-400 mt-2">
-                      {message.timestamp.toLocaleTimeString('vi-VN', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </p>
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               {/* Loading */}
               {isLoading && !isStreaming && (
@@ -634,24 +1107,24 @@ export default function ChatPage() {
               <div ref={messagesEndRef} />
             </div>
           )}
-      </main>
+          </main>
 
-      {/* Input Area - Fixed at bottom */}
-      <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="relative flex items-end gap-3 bg-gray-100 dark:bg-gray-700 rounded-2xl p-2">
-            {/* Attachment Button */}
-            <button className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl transition-colors">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-              </svg>
-            </button>
+          {/* Input Area - Fixed at bottom of chat */}
+          <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 flex-shrink-0">
+            <div className="max-w-4xl mx-auto">
+              <div className="relative flex items-end gap-3 bg-gray-100 dark:bg-gray-700 rounded-2xl p-2">
+                {/* Attachment Button */}
+                <button className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl transition-colors">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                  </svg>
+                </button>
 
-            {/* Text Input */}
-            <textarea
-              ref={inputRef}
-              value={inputValue}
-              onChange={handleTextareaChange}
+                {/* Text Input */}
+                <textarea
+                  ref={inputRef}
+                  value={inputValue}
+                  onChange={handleTextareaChange}
               onKeyPress={handleKeyPress}
               placeholder="Nhập tin nhắn của bạn..."
               disabled={isLoading}
@@ -683,6 +1156,62 @@ export default function ChatPage() {
             AI Agent sử dụng Google Gemini và dữ liệu RAG từ hệ thống để trả lời. Kết quả chỉ mang tính tham khảo.
           </p>
         </div>
+      </div>
+        </div>
+
+        {/* Product Detail Panel - Slide in from right */}
+        {(() => {
+          console.log('Checking selectedProductId:', selectedProductId);
+          console.log('Should render panel:', !!selectedProductId);
+          return selectedProductId ? (
+            <>
+              {/* Overlay */}
+              <div 
+                className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 transition-opacity duration-500"
+                onClick={() => {
+                  console.log('Overlay clicked, closing panel');
+                  setSelectedProductId(null);
+                }}
+              />
+              
+              {/* Detail Panel */}
+              <div className="fixed top-0 right-0 h-full w-1/2 border-l border-gray-200 dark:border-gray-700 shadow-2xl z-50 animate-slide-in-right bg-white dark:bg-gray-900">
+                <ProductDetailPanel
+                  productId={selectedProductId}
+                  onClose={() => {
+                    console.log('Close button clicked');
+                    setSelectedProductId(null);
+                  }}
+                />
+              </div>
+            </>
+          ) : null;
+        })()}
+
+        {/* Order Detail Panel - Slide in from right */}
+        {selectedOrderId && (
+          <>
+            {/* Overlay */}
+            <div 
+              className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 transition-opacity duration-500"
+              onClick={() => {
+                console.log('Order overlay clicked, closing panel');
+                setSelectedOrderId(null);
+              }}
+            />
+            
+            {/* Detail Panel */}
+            <div className="fixed top-0 right-0 h-full w-1/2 border-l border-gray-200 dark:border-gray-700 shadow-2xl z-50 animate-slide-in-right bg-white dark:bg-gray-900">
+              <OrderDetailPanel
+                orderId={selectedOrderId}
+                onClose={() => {
+                  console.log('Order close button clicked');
+                  setSelectedOrderId(null);
+                }}
+              />
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
