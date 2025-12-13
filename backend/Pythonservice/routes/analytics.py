@@ -129,7 +129,58 @@ Use quantitative analysis where possible and explain in Vietnamese."""
             "timestamp": datetime.now().isoformat()
         }
         
+        # Calculate overview statistics
+        overview_stats = {}
+        try:
+            # Get total products from business_data collection with data_type = "product"
+            try:
+                business_collection = analytics_rag_service.chroma_client.get_collection("business_data")
+                business_data = business_collection.get(include=["metadatas"])
+                total_products = 0
+                if business_data["metadatas"]:
+                    for metadata in business_data["metadatas"]:
+                        if metadata and metadata.get("data_type") == "product":
+                            total_products += 1
+                overview_stats["total_products"] = total_products
+            except Exception as e:
+                print(f"[Analytics] Error getting products count: {e}")
+                overview_stats["total_products"] = 0
+            
+            # Get total orders and revenue from orders_analytics collection
+            try:
+                orders_collection = analytics_rag_service.chroma_client.get_collection("orders_analytics")
+                orders_data = orders_collection.get(include=["metadatas"])
+                total_orders = len(orders_data["ids"]) if orders_data["ids"] else 0
+                total_revenue = 0
+                
+                if orders_data["metadatas"]:
+                    for metadata in orders_data["metadatas"]:
+                        if metadata and "total_amount" in metadata:
+                            try:
+                                amount = float(metadata["total_amount"])
+                                total_revenue += amount
+                            except (ValueError, TypeError):
+                                pass
+                
+                overview_stats["total_orders"] = total_orders
+                overview_stats["total_revenue"] = total_revenue
+            except Exception as e:
+                print(f"[Analytics] Error calculating order stats: {e}")
+                overview_stats["total_orders"] = 0
+                overview_stats["total_revenue"] = 0
+                
+        except Exception as e:
+            print(f"[Analytics] Error calculating overview stats: {e}")
+            overview_stats = {
+                "total_products": 0,
+                "total_orders": 0,
+                "total_revenue": 0
+            }
+        
+        insights["overview"] = overview_stats
+        
         print(f"[Analytics] Generated analysis with {len(relevant_data)} data points")
+        print(f"[Analytics] Overview stats: {overview_stats}")
         
         return {
             "analysis": analysis_text,
