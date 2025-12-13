@@ -132,38 +132,40 @@ Use quantitative analysis where possible and explain in Vietnamese."""
         # Calculate overview statistics
         overview_stats = {}
         try:
-            # Get total products from business_data collection with data_type = "product"
+            print(f"[Analytics] Starting overview calculation...")
+            
+            # Get total products from products collection
             try:
-                business_collection = analytics_rag_service.chroma_client.get_collection("business_data")
-                business_data = business_collection.get(include=["metadatas"])
-                total_products = 0
-                if business_data["metadatas"]:
-                    for metadata in business_data["metadatas"]:
-                        if metadata and metadata.get("data_type") == "product":
-                            total_products += 1
-                overview_stats["total_products"] = total_products
+                print(f"[Analytics] Accessing products collection...")
+                products_collection = analytics_rag_service.chroma_client.get_collection("products")
+                product_count = products_collection.count()
+                overview_stats["total_products"] = product_count
+                print(f"[Analytics] Found {product_count} products")
             except Exception as e:
                 print(f"[Analytics] Error getting products count: {e}")
                 overview_stats["total_products"] = 0
             
-            # Get total orders and revenue from orders_analytics collection
+            # Get total orders and revenue from orders collection
             try:
-                orders_collection = analytics_rag_service.chroma_client.get_collection("orders_analytics")
+                print(f"[Analytics] Accessing orders collection...")
+                orders_collection = analytics_rag_service.chroma_client.get_collection("orders")
                 orders_data = orders_collection.get(include=["metadatas"])
                 total_orders = len(orders_data["ids"]) if orders_data["ids"] else 0
                 total_revenue = 0
                 
+                print(f"[Analytics] Processing {total_orders} orders...")
                 if orders_data["metadatas"]:
-                    for metadata in orders_data["metadatas"]:
-                        if metadata and "total_amount" in metadata:
+                    for i, metadata in enumerate(orders_data["metadatas"]):
+                        if metadata and "totalAmount" in metadata:
                             try:
-                                amount = float(metadata["total_amount"])
+                                amount = float(metadata["totalAmount"])
                                 total_revenue += amount
-                            except (ValueError, TypeError):
-                                pass
+                            except (ValueError, TypeError) as e:
+                                print(f"[Analytics] Error parsing amount in order {i}: {e}")
                 
                 overview_stats["total_orders"] = total_orders
                 overview_stats["total_revenue"] = total_revenue
+                print(f"[Analytics] Calculated revenue: {total_revenue}")
             except Exception as e:
                 print(f"[Analytics] Error calculating order stats: {e}")
                 overview_stats["total_orders"] = 0
