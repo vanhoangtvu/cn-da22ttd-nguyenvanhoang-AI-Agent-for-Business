@@ -19,6 +19,7 @@ from services.analytics_rag_service import AnalyticsRAGService
 from routes.health import router as health_router
 from routes.analytics import router as analytics_router, set_analytics_rag_service
 from routes.business_analytics import set_chroma_client
+from routes.data_sync import router as data_sync_router
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -56,6 +57,7 @@ print(f"[ChromaDB] Initialized shared client at {analytics_chroma_path}")
 # Register routers
 app.include_router(health_router, tags=["Health"])
 app.include_router(analytics_router, prefix="/api/analytics", tags=["Business Analytics"])
+app.include_router(data_sync_router, tags=["Data Synchronization"])
 
 @app.get("/")
 async def root():
@@ -65,7 +67,8 @@ async def root():
         "version": "3.0.0",
         "architecture": "business_analytics",
         "services": {
-            "analytics": "/api/analytics/*"
+            "analytics": "/api/analytics/*",
+            "data_sync": "/admin/analytics/*"
         },
         "docs": "/docs"
     }
@@ -81,6 +84,7 @@ if __name__ == "__main__":
     print(f"📍 Server: http://{host}:{port}")
     print(f"📚 Docs: http://{host}:{port}/docs")
     print(f"📊 Analytics: http://{host}:{port}/api/analytics/*")
+    print(f"🔄 Data Sync: http://{host}:{port}/admin/analytics/*")
     print(f"{'='*60}\n")
     
     uvicorn.run(app, host=host, port=port)

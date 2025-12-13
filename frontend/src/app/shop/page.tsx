@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api';
+import ProductDetailPanel from '@/components/ProductDetailPanel';
 import {
   ShoppingCart,
   MessageCircle,
@@ -71,39 +72,52 @@ interface Category {
   status: string;
 }
 
-// Skeleton Loading Component
+// Modern Skeleton Loading Component
 const ProductSkeleton = ({ viewMode }: { viewMode: 'grid' | 'list' }) => (
-  <div className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-xl overflow-hidden border border-white/20 dark:border-gray-700/50 animate-pulse ${
+  <div className={`group relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-2xl rounded-2xl shadow-lg overflow-hidden border border-white/30 dark:border-gray-700/30 animate-pulse ${
     viewMode === 'list' ? 'flex' : ''
   }`}>
-    <div className={`bg-gray-200 dark:bg-gray-700 ${viewMode === 'list' ? 'w-64' : 'aspect-square'} relative overflow-hidden`}>
-      <div className="absolute inset-0 animate-shimmer"></div>
+    {/* Image Skeleton */}
+    <div className={`relative overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 ${viewMode === 'list' ? 'w-48' : 'aspect-[4/3]'}`}>
+      <div className="absolute inset-0 bg-gradient-to-br from-gray-200/50 to-gray-300/50 dark:from-gray-600/50 dark:to-gray-700/50 animate-shimmer"></div>
+
+      {/* Badge Skeletons */}
+      <div className="absolute top-3 left-3 flex flex-col gap-2">
+        <div className="w-14 h-5 bg-white/60 rounded-lg animate-shimmer"></div>
+        <div className="w-12 h-5 bg-white/60 rounded-lg animate-shimmer"></div>
+      </div>
+
+      {/* Gallery Indicator Skeleton */}
+      <div className="absolute bottom-3 right-3 w-10 h-5 bg-black/40 rounded-lg animate-shimmer"></div>
     </div>
-    <div className={`p-5 ${viewMode === 'list' ? 'flex-1' : ''}`}>
-      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded mb-2 relative overflow-hidden">
-        <div className="absolute inset-0 animate-shimmer"></div>
-      </div>
-      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded mb-1 w-3/4 relative overflow-hidden">
-        <div className="absolute inset-0 animate-shimmer"></div>
-      </div>
-      <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded mb-4 w-1/2 relative overflow-hidden">
-        <div className="absolute inset-0 animate-shimmer"></div>
-      </div>
-      <div className="flex gap-2 mb-4">
-        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-16 relative overflow-hidden">
-          <div className="absolute inset-0 animate-shimmer"></div>
+
+    {/* Content Skeleton */}
+    <div className={`p-4 ${viewMode === 'list' ? 'flex-1 flex flex-col justify-between' : ''}`}>
+      <div>
+        {/* Category Badge Skeleton */}
+        <div className="mb-3 w-20 h-6 bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-xl animate-shimmer"></div>
+
+        {/* Title Skeleton */}
+        <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded-lg mb-2 animate-shimmer"></div>
+        <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-4/5 mb-4 animate-shimmer"></div>
+
+        {/* Stats Skeleton */}
+        <div className="flex gap-3 mb-4">
+          <div className="w-14 h-5 bg-green-50 dark:bg-green-900/20 rounded-lg animate-shimmer"></div>
+          <div className="w-12 h-5 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg animate-shimmer"></div>
+          <div className="w-14 h-5 bg-purple-50 dark:bg-purple-900/20 rounded-lg animate-shimmer"></div>
         </div>
-        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-12 relative overflow-hidden">
-          <div className="absolute inset-0 animate-shimmer"></div>
-        </div>
       </div>
-      <div className="flex justify-between items-center">
-        <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-20 relative overflow-hidden">
-          <div className="absolute inset-0 animate-shimmer"></div>
+
+      {/* Price and Button Skeleton */}
+      <div className={`${viewMode === 'list' ? 'flex items-center justify-between gap-4' : 'space-y-3'}`}>
+        <div className="flex-1">
+          <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-lg mb-1 animate-shimmer"></div>
+          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3 animate-shimmer"></div>
         </div>
-        <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded-xl w-32 relative overflow-hidden">
-          <div className="absolute inset-0 animate-shimmer"></div>
-        </div>
+        <div className={`h-10 bg-gradient-to-r from-blue-200 to-indigo-200 dark:from-blue-800 dark:to-indigo-800 rounded-xl animate-shimmer ${
+          viewMode === 'list' ? 'w-32' : 'w-full'
+        }`}></div>
       </div>
     </div>
   </div>
@@ -122,17 +136,9 @@ export default function ShopPage() {
   const [cartCount, setCartCount] = useState(0);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
-  const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
   const [isClient, setIsClient] = useState(false);
   const [hoveredProduct, setHoveredProduct] = useState<number | null>(null);
-
-  // Banner carousel auto-play
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentBannerIndex((prev) => (prev + 1) % 3);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
 
   // Scroll to top button
   useEffect(() => {
@@ -315,13 +321,24 @@ export default function ShopPage() {
                 <Menu className="w-6 h-6" />
               </button>
 
-              {/* Chat AI Button */}
+              {/* Agent Chat Button */}
               <Link
                 href="/chat"
-                className="hidden sm:flex px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold items-center gap-2 hover:scale-105 animate-pulse-glow"
+                className="group relative hidden sm:flex px-4 py-2 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 hover:from-blue-600 hover:via-indigo-600 hover:to-purple-600 text-white rounded-xl hover:shadow-xl hover:shadow-blue-400/25 transition-all duration-300 font-semibold items-center gap-2 hover:scale-105 overflow-hidden"
               >
-                <MessageCircle className="w-5 h-5" />
-                <span className="hidden lg:inline">Chat AI</span>
+                {/* Animated background */}
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+
+                {/* Shine effect */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+
+                {/* Icon with animation */}
+                <div className="relative z-10 p-1 bg-white/20 rounded-lg group-hover:bg-white/30 transition-colors duration-300">
+                  <MessageCircle className="w-4 h-4 group-hover:animate-pulse" />
+                </div>
+
+                {/* Text */}
+                <span className="relative z-10 hidden xl:inline text-sm tracking-wide">Agent Chat</span>
               </Link>
 
               {isClient && apiClient.isAuthenticated() ? (
@@ -416,63 +433,125 @@ export default function ShopPage() {
       )}
 
       {/* Hero Banner */}
-      <div className="relative h-[500px] bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 overflow-hidden">
-        {/* Animated Background */}
-        <div className="absolute inset-0 opacity-30">
-          <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
-          <div className="absolute top-0 -right-4 w-72 h-72 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
-          <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
+      <div className="relative min-h-[600px] bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 overflow-hidden">
+        {/* Modern Animated Background */}
+        <div className="absolute inset-0">
+          {/* Gradient Mesh */}
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-600/20 via-purple-600/20 to-cyan-600/20"></div>
+
+          {/* Floating Particles */}
+          <div className="absolute inset-0">
+            {[...Array(20)].map((_, i) => (
+              <div
+                key={i}
+                className="absolute w-1 h-1 bg-white/20 rounded-full animate-float"
+                style={{
+                  left: `${Math.random() * 100}%`,
+                  top: `${Math.random() * 100}%`,
+                  animationDelay: `${Math.random() * 5}s`,
+                  animationDuration: `${3 + Math.random() * 4}s`
+                }}
+              ></div>
+            ))}
+          </div>
+
+          {/* Geometric Shapes */}
+          <div className="absolute top-20 left-10 w-32 h-32 border border-white/10 rounded-full animate-spin-slow"></div>
+          <div className="absolute bottom-20 right-20 w-24 h-24 bg-gradient-to-br from-cyan-400/10 to-blue-400/10 rounded-lg rotate-45 animate-pulse"></div>
+          <div className="absolute top-1/2 left-1/4 w-16 h-16 border-2 border-white/5 rounded-full animate-bounce"></div>
         </div>
 
-        {/* Banner Content */}
-        <div className="relative container mx-auto px-4 h-full flex items-center">
-          <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-xl rounded-full text-white text-sm font-semibold mb-6 border border-white/30">
-              <Sparkles className="w-5 h-5" />
-              Chào mừng đến với BizOps
+        {/* Content */}
+        <div className="relative container mx-auto px-4 h-full flex items-center py-20">
+          <div className="max-w-4xl">
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 backdrop-blur-xl rounded-full text-white text-sm font-semibold mb-8 border border-white/20 shadow-2xl">
+              <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+              <span>🚀 BizOps Platform</span>
+              <Sparkles className="w-4 h-4" />
             </div>
-            <h1 className="text-5xl md:text-6xl font-bold text-white mb-6 animate-slide-up">
-              Khám phá sản phẩm <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 to-pink-200">
-                tuyệt vời nhất
+
+            {/* Main Title */}
+            <h1 className="text-6xl md:text-7xl lg:text-8xl font-black text-white mb-8 leading-tight">
+              <span className="block animate-slide-up">Nâng Tầm</span>
+              <span className="block bg-gradient-to-r from-cyan-300 via-blue-300 to-purple-300 bg-clip-text text-transparent animate-slide-up animation-delay-200">
+                Doanh Nghiệp
+              </span>
+              <span className="block text-4xl md:text-5xl lg:text-6xl font-bold text-white/80 animate-slide-up animation-delay-400">
+                Với Công Nghệ AI
               </span>
             </h1>
-            <p className="text-xl text-white/90 mb-8 animate-slide-up animation-delay-200">
-              Giải pháp kinh doanh thông minh với công nghệ AI tiên tiến
+
+            {/* Subtitle */}
+            <p className="text-xl md:text-2xl text-white/90 mb-12 max-w-2xl leading-relaxed animate-slide-up animation-delay-600">
+              Khám phá các giải pháp kinh doanh thông minh, tối ưu hóa quy trình và tăng trưởng bền vững với nền tảng BizOps.
             </p>
-            <div className="flex gap-4 animate-slide-up animation-delay-400">
+
+            {/* CTA Buttons */}
+            <div className="flex flex-col sm:flex-row gap-6 animate-slide-up animation-delay-800">
               <button
                 onClick={() => setSelectedCategory(null)}
-                className="px-8 py-4 bg-white text-blue-600 rounded-xl font-semibold hover:bg-gray-100 transition-all hover:scale-105 shadow-lg"
+                className="group px-10 py-5 bg-gradient-to-r from-white to-gray-100 text-slate-900 rounded-2xl font-bold text-lg hover:shadow-2xl hover:shadow-white/25 transition-all duration-300 hover:scale-105 flex items-center justify-center gap-3"
               >
-                Mua sắm ngay
+                <Zap className="w-6 h-6 group-hover:animate-pulse" />
+                Khám phá ngay
               </button>
-              <button className="px-8 py-4 bg-white/10 backdrop-blur-sm text-white rounded-xl font-semibold hover:bg-white/20 transition-all border-2 border-white/30">
-                Tìm hiểu thêm
+              <button className="group px-10 py-5 bg-white/10 backdrop-blur-xl text-white rounded-2xl font-bold text-lg hover:bg-white/20 transition-all duration-300 border-2 border-white/30 hover:border-white/50 flex items-center justify-center gap-3">
+                <TrendingUp className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                Xem Demo
               </button>
+            </div>
+
+            {/* Stats */}
+            <div className="flex flex-wrap gap-8 mt-16 animate-slide-up animation-delay-1000">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-white mb-1">10K+</div>
+                <div className="text-white/70 text-sm">Doanh nghiệp</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-white mb-1">500+</div>
+                <div className="text-white/70 text-sm">Giải pháp</div>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-white mb-1">99.9%</div>
+                <div className="text-white/70 text-sm">Uptime</div>
+              </div>
             </div>
           </div>
 
-          {/* Decorative Elements */}
-          <div className="hidden lg:block absolute right-20 top-1/2 -translate-y-1/2 animate-float">
+          {/* Modern Decorative Elements */}
+          <div className="hidden xl:block absolute right-10 top-1/2 -translate-y-1/2">
             <div className="relative">
-              <div className="w-80 h-80 bg-white/10 backdrop-blur-xl rounded-3xl shadow-2xl rotate-12"></div>
-              <div className="absolute inset-0 w-80 h-80 bg-white/5 backdrop-blur-xl rounded-3xl shadow-2xl -rotate-6"></div>
+              {/* Main Card */}
+              <div className="w-96 h-96 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/20 rotate-6 hover:rotate-12 transition-transform duration-700 animate-float">
+                <div className="p-8 h-full flex flex-col justify-center">
+                  <div className="w-16 h-16 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-2xl flex items-center justify-center mb-6 shadow-lg">
+                    <Briefcase className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-white mb-4">BizOps Suite</h3>
+                  <p className="text-white/80 text-sm leading-relaxed">
+                    Nền tảng toàn diện cho quản lý và tối ưu hóa hoạt động kinh doanh với AI thông minh.
+                  </p>
+                  <div className="flex gap-2 mt-6">
+                    <div className="w-3 h-3 bg-cyan-400 rounded-full animate-pulse"></div>
+                    <div className="w-3 h-3 bg-blue-400 rounded-full animate-pulse animation-delay-200"></div>
+                    <div className="w-3 h-3 bg-purple-400 rounded-full animate-pulse animation-delay-400"></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Floating Elements */}
+              <div className="absolute -top-4 -left-4 w-20 h-20 bg-gradient-to-br from-emerald-400/20 to-cyan-400/20 rounded-full blur-xl animate-bounce"></div>
+              <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full blur-2xl animate-pulse"></div>
             </div>
           </div>
         </div>
 
-        {/* Banner Indicators */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2">
-          {[0, 1, 2].map((index) => (
-            <button
-              key={index}
-              onClick={() => setCurrentBannerIndex(index)}
-              className={`h-2 rounded-full transition-all ${
-                currentBannerIndex === index ? 'w-8 bg-white' : 'w-2 bg-white/50'
-              }`}
-            />
-          ))}
+        {/* Scroll Indicator */}
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
+          <div className="w-6 h-10 border-2 border-white/30 rounded-full flex justify-center">
+            <div className="w-1 h-3 bg-white/50 rounded-full mt-2 animate-pulse"></div>
+          </div>
         </div>
       </div>
 
@@ -726,61 +805,69 @@ export default function ShopPage() {
 
           {/* Main Content */}
           <main className="flex-1">
-            {/* Toolbar */}
-            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-xl p-6 mb-6 border border-white/20 dark:border-gray-700/50">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    Hiển thị <span className="font-bold text-lg text-blue-600 dark:text-blue-400">{filteredProducts.length}</span> sản phẩm
+            {/* Modern Toolbar */}
+            <div className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-2xl rounded-3xl shadow-2xl p-8 mb-8 border border-white/40 dark:border-gray-700/40">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+                      <Package className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400 font-medium">Hiển thị</div>
+                      <div className="text-2xl font-black bg-gradient-to-r from-slate-800 to-blue-800 dark:from-slate-200 dark:to-blue-200 bg-clip-text text-transparent">
+                        {filteredProducts.length} sản phẩm
+                      </div>
+                    </div>
                   </div>
                   {selectedCategory && (
                     <button
                       onClick={() => setSelectedCategory(null)}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-sm hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-all"
+                      className="group flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 text-red-600 dark:text-red-400 rounded-2xl text-sm font-semibold hover:shadow-lg hover:scale-105 transition-all duration-300 border border-red-200/50 dark:border-red-800/50"
                     >
+                      <X className="w-4 h-4 group-hover:rotate-90 transition-transform duration-200" />
                       <span>Xóa bộ lọc</span>
-                      <X className="w-4 h-4" />
                     </button>
                   )}
                 </div>
-                <div className="flex items-center gap-4">
-                  {/* Sort */}
-                  <div className="relative">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+                  {/* Enhanced Sort */}
+                  <div className="relative group">
                     <select
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value as any)}
-                      className="appearance-none px-4 py-2.5 pr-10 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all font-medium cursor-pointer"
+                      className="appearance-none px-6 py-3 pr-12 bg-white/80 dark:bg-gray-700/80 backdrop-blur-xl border border-gray-200/50 dark:border-gray-600/50 rounded-2xl focus:ring-2 focus:ring-blue-500/50 focus:border-blue-300/50 transition-all duration-300 font-semibold cursor-pointer shadow-lg hover:shadow-xl text-gray-900 dark:text-gray-100"
                     >
-                      <option value="name">Tên A-Z</option>
-                      <option value="price-asc">Giá thấp đến cao</option>
-                      <option value="price-desc">Giá cao đến thấp</option>
+                      <option value="name">📝 Tên A-Z</option>
+                      <option value="price-asc">💰 Giá thấp → cao</option>
+                      <option value="price-desc">💎 Giá cao → thấp</option>
                     </select>
-                    <ChevronDown className="absolute right-3 top-3.5 w-4 h-4 text-gray-500 pointer-events-none" />
+                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 group-hover:text-blue-500 transition-colors pointer-events-none" />
                   </div>
 
-                  {/* View Mode */}
-                  <div className="flex gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-xl">
+                  {/* Modern View Mode */}
+                  <div className="flex gap-2 bg-white/80 dark:bg-gray-700/80 backdrop-blur-xl p-1.5 rounded-2xl shadow-lg border border-gray-200/50 dark:border-gray-600/50">
                     <button
                       onClick={() => setViewMode('grid')}
-                      className={`p-2 rounded-lg transition-all ${
+                      className={`group p-3 rounded-xl transition-all duration-300 ${
                         viewMode === 'grid'
-                          ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-md'
-                          : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-600/50'
+                          ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg scale-105'
+                          : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-600/50 hover:scale-105'
                       }`}
-                      title="Lưới"
+                      title="Chế độ lưới"
                     >
-                      <Grid3X3 className="w-5 h-5" />
+                      <Grid3X3 className={`w-5 h-5 ${viewMode === 'grid' ? 'animate-pulse' : 'group-hover:rotate-12 transition-transform'}`} />
                     </button>
                     <button
                       onClick={() => setViewMode('list')}
-                      className={`p-2 rounded-lg transition-all ${
+                      className={`group p-3 rounded-xl transition-all duration-300 ${
                         viewMode === 'list'
-                          ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-md'
-                          : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-600/50'
+                          ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg scale-105'
+                          : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-600/50 hover:scale-105'
                       }`}
-                      title="Danh sách"
+                      title="Chế độ danh sách"
                     >
-                      <List className="w-5 h-5" />
+                      <List className={`w-5 h-5 ${viewMode === 'list' ? 'animate-pulse' : 'group-hover:-rotate-12 transition-transform'}`} />
                     </button>
                   </div>
                 </div>
@@ -792,11 +879,11 @@ export default function ShopPage() {
               <div
                 className={
                   viewMode === 'grid'
-                    ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'
-                    : 'space-y-4'
+                    ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'
+                    : 'space-y-3'
                 }
               >
-                {Array.from({ length: 8 }).map((_, index) => (
+                {Array.from({ length: 12 }).map((_, index) => (
                   <ProductSkeleton key={index} viewMode={viewMode} />
                 ))}
               </div>
@@ -834,10 +921,10 @@ export default function ShopPage() {
                   </button>
                   <Link
                     href="/chat"
-                    className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
+                    className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold hover:shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
                   >
                     <MessageCircle className="w-5 h-5" />
-                    Hỏi AI trợ giúp
+                    Agent Chat
                   </Link>
                 </div>
 
@@ -862,8 +949,8 @@ export default function ShopPage() {
               <div
                 className={
                   viewMode === 'grid'
-                    ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'
-                    : 'space-y-4'
+                    ? 'grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4'
+                    : 'space-y-3'
                 }
               >
                 {filteredProducts.map((product) => (
@@ -871,124 +958,158 @@ export default function ShopPage() {
                     key={product.id}
                     onMouseEnter={() => setHoveredProduct(product.id)}
                     onMouseLeave={() => setHoveredProduct(null)}
-                    className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden group border border-white/20 dark:border-gray-700/50 ${
+                    onClick={() => setSelectedProductId(product.id)}
+                    className={`group relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-2xl rounded-2xl shadow-lg hover:shadow-xl hover:shadow-blue-500/10 dark:hover:shadow-blue-400/10 transition-all duration-500 overflow-hidden border border-white/30 dark:border-gray-700/30 cursor-pointer ${
                       viewMode === 'list' ? 'flex' : ''
-                    } ${hoveredProduct === product.id ? 'scale-[1.02] -translate-y-1' : ''}`}
+                    } ${hoveredProduct === product.id ? 'scale-[1.02] -translate-y-1 shadow-2xl' : ''}`}
                   >
-                    {/* Image */}
-                    <div className={`relative overflow-hidden bg-gray-100 dark:bg-gray-700 ${viewMode === 'list' ? 'w-64' : 'aspect-square'}`}>
+
+                    {/* Image Container */}
+                    <div className={`relative overflow-hidden ${viewMode === 'list' ? 'w-48' : 'aspect-[4/3]'} bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800`}>
                       <img
-                        src={product.imageUrls?.[0] || 'https://via.placeholder.com/400'}
+                        src={product.imageUrls?.[0] || `https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=300&fit=crop&crop=center&auto=format&q=75`}
                         alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
+                        loading="lazy"
+                        decoding="async"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          if (!target.src.includes('placeholder')) {
+                            target.src = `https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&h=300&fit=crop&crop=center&auto=format&q=75`;
+                          }
+                        }}
                       />
-                      
-                      {/* Overlay with Quick Actions */}
-                      <div className={`absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-4 ${
+
+                      {/* Loading overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 animate-pulse opacity-0 group-hover:opacity-0 transition-opacity duration-300"></div>
+
+                      {/* Enhanced Overlay */}
+                      <div className={`absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex items-end p-4 ${
                         product.quantity === 0 ? 'opacity-100' : ''
                       }`}>
                         {product.quantity === 0 ? (
-                          <div className="w-full text-center">
-                            <span className="inline-block px-4 py-2 bg-red-500 text-white font-bold text-sm rounded-lg">
+                          <div className="w-full text-center transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+                            <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-red-500/90 backdrop-blur-sm text-white font-bold text-sm rounded-xl shadow-lg">
+                              <X className="w-4 h-4" />
                               Hết hàng
                             </span>
                           </div>
                         ) : (
-                          <div className="w-full flex gap-2">
-                            <button className="flex-1 px-3 py-2 bg-white/90 backdrop-blur-sm text-gray-900 rounded-lg font-semibold hover:bg-white transition-all text-sm">
-                              Xem nhanh
-                            </button>
-                            <button className="p-2 bg-white/90 backdrop-blur-sm text-red-500 rounded-lg hover:bg-white transition-all">
-                              <Heart className="w-5 h-5" />
+                          <div className="w-full flex justify-end transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+                            <button className="p-2 bg-white/95 backdrop-blur-sm text-red-500 rounded-lg hover:bg-white hover:scale-105 transition-all duration-200 shadow-lg">
+                              <Heart className="w-4 h-4" />
                             </button>
                           </div>
                         )}
                       </div>
 
-                      {/* Badges */}
+                      {/* Modern Badges */}
                       <div className="absolute top-3 left-3 flex flex-col gap-2">
                         {product.quantity <= 5 && product.quantity > 0 && (
-                          <span className="px-3 py-1 bg-orange-500 text-white text-xs font-bold rounded-full shadow-lg">
+                          <span className="px-2 py-1 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-bold rounded-lg shadow-lg backdrop-blur-sm border border-white/20 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" />
                             Sắp hết
                           </span>
                         )}
                         {product.price < 100000 && (
-                          <span className="px-3 py-1 bg-green-500 text-white text-xs font-bold rounded-full shadow-lg">
+                          <span className="px-2 py-1 bg-gradient-to-r from-emerald-500 to-green-500 text-white text-xs font-bold rounded-lg shadow-lg backdrop-blur-sm border border-white/20 flex items-center gap-1">
+                            <TrendingUp className="w-3 h-3" />
                             Giá tốt
                           </span>
                         )}
+                        <span className="px-2 py-1 bg-gradient-to-r from-blue-500/80 to-indigo-500/80 backdrop-blur-sm text-white text-xs font-semibold rounded-lg shadow-lg border border-white/20">
+                          Mới
+                        </span>
                       </div>
 
-                      {/* Image Gallery Indicator */}
+                      {/* Enhanced Gallery Indicator */}
                       {product.imageUrls && product.imageUrls.length > 1 && (
-                        <div className="absolute bottom-3 right-3 px-2 py-1 bg-black/60 backdrop-blur-sm text-white text-xs rounded-lg flex items-center gap-1">
-                          <ImageIcon className="w-3 h-3" />
-                          {product.imageUrls.length}
+                        <div className="absolute bottom-3 right-3 px-2 py-1 bg-black/70 backdrop-blur-sm text-white text-xs rounded-lg flex items-center gap-1 shadow-lg border border-white/10">
+                          <div className="flex gap-0.5">
+                            {[...Array(Math.min(product.imageUrls.length, 3))].map((_, i) => (
+                              <div key={i} className="w-1 h-1 bg-white/60 rounded-full"></div>
+                            ))}
+                          </div>
+                          <span className="font-medium">{product.imageUrls.length}</span>
                         </div>
                       )}
                     </div>
 
-                    {/* Content */}
-                    <div className={`p-5 ${viewMode === 'list' ? 'flex-1 flex flex-col justify-between' : ''}`}>
+                    {/* Enhanced Content */}
+                    <div className={`relative p-4 ${viewMode === 'list' ? 'flex-1 flex flex-col justify-between' : ''}`}>
                       <div>
-                        {/* Category Badge */}
+                        {/* Premium Category Badge */}
                         <div className="mb-3">
-                          <span className="inline-flex items-center gap-1 px-3 py-1 bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 text-blue-600 dark:text-blue-400 text-xs font-semibold rounded-full">
-                            <Tag className="w-3 h-3" />
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 text-blue-700 dark:text-blue-300 text-xs font-bold rounded-xl border border-blue-200/50 dark:border-blue-800/50">
+                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
                             {product.categoryName}
                           </span>
                         </div>
 
-                        {/* Title */}
-                        <h3 className="font-bold text-lg mb-2 line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors cursor-pointer">
+                        {/* Enhanced Title */}
+                        <h3 className="font-bold text-lg mb-2 line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300 leading-tight">
                           {product.name}
                         </h3>
 
-                        {/* Description */}
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-2">
+                        {/* Improved Description */}
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 line-clamp-2 leading-relaxed">
                           {product.description}
                         </p>
 
-                        {/* Stats */}
-                        <div className="flex items-center gap-3 mb-4 text-xs text-gray-500 dark:text-gray-400">
-                          <div className="flex items-center gap-1">
-                            <Package className="w-4 h-4" />
-                            <span>Còn {product.quantity}</span>
+                        {/* Modern Stats */}
+                        <div className="flex items-center gap-3 mb-4 text-xs">
+                          <div className="flex items-center gap-1 px-2 py-1 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 rounded-lg" title={`Còn ${product.quantity} sản phẩm`}>
+                            <Package className="w-3 h-3" />
+                            <span className="font-medium">
+                              {product.quantity === 0 ? 'Hết hàng' :
+                               product.quantity <= 5 ? 'Còn ít' :
+                               product.quantity <= 20 ? 'Còn nhiều' : 'Còn hàng'}
+                            </span>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <Star className="w-4 h-4 text-yellow-500 fill-current" />
-                            <span>4.5</span>
+                          <div className="flex items-center gap-1 px-2 py-1 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 rounded-lg">
+                            <Star className="w-3 h-3 fill-current" />
+                            <span className="font-medium">4.8</span>
                           </div>
-                          <div className="flex items-center gap-1">
-                            <ShoppingBag className="w-4 h-4" />
-                            <span>123 đã bán</span>
+                          <div className="flex items-center gap-1 px-2 py-1 bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 rounded-lg">
+                            <Users className="w-3 h-3" />
+                            <span className="font-medium">
+                              {Math.floor(Math.random() * 50) + 10}
+                            </span>
                           </div>
                         </div>
                       </div>
 
-                      {/* Price and Action */}
+                      {/* Enhanced Price and Action */}
                       <div className={`${viewMode === 'list' ? 'flex items-center justify-between gap-4' : 'space-y-3'}`}>
-                        <div>
+                        <div className="flex-1">
                           <div className="flex items-baseline gap-2 mb-1">
-                            <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                            <span className="text-2xl font-black bg-gradient-to-r from-slate-800 via-blue-800 to-indigo-800 dark:from-slate-200 dark:via-blue-200 dark:to-indigo-200 bg-clip-text text-transparent">
                               {product.price.toLocaleString('vi-VN')}đ
                             </span>
-                            {/* Optional: Show original price with discount */}
+                            <span className="text-sm text-gray-400 line-through">
+                              {(product.price * 1.2).toLocaleString('vi-VN')}đ
+                            </span>
                           </div>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            Bởi {product.sellerUsername}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                              {product.sellerUsername}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <div className="w-1 h-1 bg-green-500 rounded-full"></div>
+                              <span className="text-xs text-green-600 dark:text-green-400 font-medium">Online</span>
+                            </div>
+                          </div>
                         </div>
 
                         <button
                           onClick={() => handleAddToCart(product.id)}
                           disabled={product.quantity === 0}
-                          className={`group/btn px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-semibold hover:shadow-xl hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none disabled:hover:scale-100 flex items-center justify-center gap-2 ${
+                          className={`px-4 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
                             viewMode === 'list' ? '' : 'w-full'
                           }`}
                         >
-                          <ShoppingCart className="w-5 h-5 group-hover/btn:animate-bounce" />
-                          <span>Thêm vào giỏ</span>
+                          <ShoppingCart className="w-4 h-4" />
+                          <span>Thêm</span>
                         </button>
                       </div>
                     </div>
@@ -1013,13 +1134,20 @@ export default function ShopPage() {
           </button>
         )}
 
-        {/* Quick Chat */}
+        {/* Agent Chat */}
         <Link
           href="/chat"
-          className="w-14 h-14 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-110 flex items-center justify-center group animate-pulse-glow"
-          title="Chat với AI"
+          className="group relative w-14 h-14 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-500 hover:from-blue-600 hover:via-indigo-600 hover:to-purple-600 text-white rounded-2xl shadow-2xl hover:shadow-3xl hover:shadow-blue-400/30 transition-all duration-300 hover:scale-110 flex items-center justify-center overflow-hidden"
+          title="Agent Chat - Trợ lý AI thông minh"
         >
-          <MessageCircle className="w-6 h-6 group-hover:animate-pulse" />
+          {/* Animated background */}
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-400 via-indigo-400 to-purple-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+
+          {/* Pulsing ring */}
+          <div className="absolute inset-0 rounded-2xl bg-blue-300/30 animate-ping"></div>
+
+          {/* Icon */}
+          <MessageCircle className="w-6 h-6 relative z-10 group-hover:animate-bounce transition-transform duration-300" />
         </Link>
 
         {/* Quick Cart */}
@@ -1038,6 +1166,25 @@ export default function ShopPage() {
           </Link>
         )}
       </div>
+
+      {/* Product Detail Panel - Slide in from right */}
+      {selectedProductId && (
+        <>
+          {/* Overlay */}
+          <div 
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 transition-opacity duration-500"
+            onClick={() => setSelectedProductId(null)}
+          />
+          
+          {/* Detail Panel */}
+          <div className="fixed top-0 right-0 h-full w-1/2 border-l border-gray-200 dark:border-gray-700 shadow-2xl z-50 animate-slide-in-right bg-white dark:bg-gray-900">
+            <ProductDetailPanel
+              productId={selectedProductId}
+              onClose={() => setSelectedProductId(null)}
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }

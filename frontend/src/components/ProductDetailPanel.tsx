@@ -31,25 +31,36 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
   const [quantity, setQuantity] = useState(1);
   const [addingToCart, setAddingToCart] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [addToCartSuccess, setAddToCartSuccess] = useState(false);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
 
   useEffect(() => {
     loadProductDetail();
   }, [productId]);
 
-  // Auto-rotate images if there are 2 or more
+  // Enhanced Auto-rotate images
   useEffect(() => {
-    if (!product || !product.imageUrls || product.imageUrls.length < 2) return;
+    if (!product || !product.imageUrls || product.imageUrls.length < 2 || !isAutoPlaying) {
+      return;
+    }
 
     const interval = setInterval(() => {
-      setSelectedImageIndex((prevIndex) => 
+      setSelectedImageIndex((prevIndex) =>
         (prevIndex + 1) % product.imageUrls.length
       );
-    }, 3000); // Change image every 3 seconds
+    }, 4000);
 
     return () => clearInterval(interval);
-  }, [product]);
+  }, [product, selectedImageIndex, isAutoPlaying]);
 
-  const loadProductDetail = async () => {
+  // Pause auto-play when user interacts
+  const handleImageInteraction = () => {
+    setIsAutoPlaying(false);
+    // Resume auto-play after 8 seconds of inactivity
+    setTimeout(() => {
+      setIsAutoPlaying(true);
+    }, 8000);
+  };  const loadProductDetail = async () => {
     try {
       setLoading(true);
       console.log('Loading product detail for ID:', productId);
@@ -70,10 +81,15 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
     try {
       setAddingToCart(true);
       await apiClient.addToCart(product.id, quantity);
-      alert('Đã thêm vào giỏ hàng!');
+      
+      // Show success animation
+      setAddToCartSuccess(true);
+      setTimeout(() => setAddToCartSuccess(false), 2000);
+      
+      alert(`Đã thêm ${quantity} sản phẩm vào giỏ hàng thành công!`);
     } catch (error) {
       console.error('Error adding to cart:', error);
-      alert('Không thể thêm vào giỏ hàng');
+      alert('Không thể thêm vào giỏ hàng. Vui lòng thử lại.');
     } finally {
       setAddingToCart(false);
     }
@@ -108,113 +124,162 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
   }
 
   return (
-    <div className="h-full flex flex-col bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
-      {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm">
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
-          <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-          </svg>
-          Chi tiết sản phẩm
-        </h2>
-        <button
-          onClick={onClose}
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors group"
-          title="Đóng"
-        >
-          <svg className="w-6 h-6 text-gray-600 dark:text-gray-400 group-hover:text-gray-800 dark:group-hover:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+    <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 dark:from-gray-900 dark:via-slate-900/50 dark:to-gray-900 relative overflow-hidden">
+      {/* Background decorative elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-indigo-600/20 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-purple-400/20 to-pink-600/20 rounded-full blur-3xl"></div>
       </div>
 
-      {/* Product Content - Scrollable */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        {/* Product Images Gallery */}
-        <div className="space-y-4">
-          {/* Main Image - Smaller size with max-width */}
-          <div className="relative w-full max-w-md mx-auto aspect-square rounded-3xl overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 shadow-2xl">
-            {product.imageUrls && product.imageUrls.length > 0 ? (
-              <>
-                <Image
-                  src={product.imageUrls[selectedImageIndex]}
-                  alt={product.name}
-                  fill
-                  className="object-cover transition-opacity duration-500"
-                  sizes="(max-width: 768px) 100vw, 400px"
-                  priority
-                />
-                
-                {/* Image counter badge */}
-                {product.imageUrls.length > 1 && (
-                  <div className="absolute top-4 right-4 px-3 py-1.5 bg-black/60 backdrop-blur-sm text-white text-sm font-semibold rounded-full">
-                    {selectedImageIndex + 1} / {product.imageUrls.length}
-                  </div>
-                )}
+      {/* Floating Close Button */}
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 z-20 w-12 h-12 flex items-center justify-center bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 backdrop-blur-xl text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 rounded-2xl transition-all duration-200 hover:scale-110 shadow-lg border border-white/50 dark:border-gray-700/50"
+        title="Đóng"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
 
-                {/* Navigation arrows for manual control */}
-                {product.imageUrls.length > 1 && (
-                  <>
-                    <button
-                      onClick={() => setSelectedImageIndex((prev) => 
-                        prev === 0 ? product.imageUrls.length - 1 : prev - 1
-                      )}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/60 hover:bg-black/80 backdrop-blur-sm text-white rounded-full flex items-center justify-center transition-all"
-                    >
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => setSelectedImageIndex((prev) => 
-                        (prev + 1) % product.imageUrls.length
-                      )}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 bg-black/60 hover:bg-black/80 backdrop-blur-sm text-white rounded-full flex items-center justify-center transition-all"
-                    >
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
-                  </>
-                )}
-
-                {/* Dot indicators */}
-                {product.imageUrls.length > 1 && (
-                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
-                    {product.imageUrls.map((_, index) => (
-                      <button
+      {/* Product Content - Scrollable - Optimized Spacing */}
+      <div className="relative flex-1 overflow-y-auto pt-16 pb-6 px-6 space-y-8">
+        {/* Product Images Gallery - Modern Design */}
+        <div className="space-y-6">
+          {/* Main Image Container - Enhanced with Smooth Slide */}
+          <div className="relative w-full max-w-lg mx-auto overflow-hidden">
+            <div className="relative h-96 overflow-hidden bg-gradient-to-br from-gray-100 via-gray-50 to-white dark:from-gray-700 dark:via-gray-800 dark:to-gray-900 shadow-2xl">
+              {product.imageUrls && product.imageUrls.length > 0 ? (
+                <>
+                  {/* Image Carousel Container */}
+                  <div className="relative w-full h-full">
+                    {product.imageUrls.map((url, index) => (
+                      <div
                         key={index}
-                        onClick={() => setSelectedImageIndex(index)}
-                        className={`w-2 h-2 rounded-full transition-all ${
-                          selectedImageIndex === index
-                            ? 'bg-white w-6'
-                            : 'bg-white/50 hover:bg-white/75'
+                        className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
+                          index === selectedImageIndex ? 'opacity-100' : 'opacity-0'
                         }`}
-                      />
+                      >
+                        <Image
+                          src={url}
+                          alt={`${product.name} - ${index + 1}`}
+                          fill
+                          className="object-contain"
+                          sizes="(max-width: 768px) 100vw, 400px"
+                          priority={index === 0}
+                        />
+                      </div>
                     ))}
                   </div>
-                )}
-              </>
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <svg className="w-32 h-32 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-            )}
+
+                  {/* Enhanced Image counter badge with auto-play indicator */}
+                  {product.imageUrls.length > 1 && (
+                    <div className="absolute top-4 right-4 flex items-center gap-2">
+                      <div className="px-4 py-2 bg-black/70 backdrop-blur-xl text-white text-sm font-bold rounded-2xl shadow-lg border border-white/20">
+                        {selectedImageIndex + 1} / {product.imageUrls.length}
+                      </div>
+                      {/* Auto-play indicator */}
+                      <button
+                        onClick={() => setIsAutoPlaying(!isAutoPlaying)}
+                        className={`w-8 h-8 rounded-xl backdrop-blur-xl border transition-all duration-300 ${
+                          isAutoPlaying
+                            ? 'bg-green-500/80 text-white border-green-400/50'
+                            : 'bg-gray-500/80 text-white border-gray-400/50'
+                        } flex items-center justify-center shadow-lg`}
+                        title={isAutoPlaying ? 'Tạm dừng tự động chuyển' : 'Bật tự động chuyển'}
+                      >
+                        {isAutoPlaying ? (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1.586a1 1 0 01.707.293l.707.707A1 1 0 0012.414 11H15m-3 7.5A9.5 9.5 0 1121.5 12 9.5 9.5 0 0112 2.5z" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Modern Navigation arrows */}
+                  {product.imageUrls.length > 1 && (
+                    <>
+                      <button
+                        onClick={() => {
+                          setSelectedImageIndex((prev) =>
+                            prev === 0 ? product.imageUrls.length - 1 : prev - 1
+                          );
+                          handleImageInteraction();
+                        }}
+                        className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 backdrop-blur-xl text-gray-800 dark:text-white rounded-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-lg border border-white/50 dark:border-gray-600/50 group"
+                      >
+                        <svg className="w-6 h-6 transition-transform duration-200 group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedImageIndex((prev) =>
+                            (prev + 1) % product.imageUrls.length
+                          );
+                          handleImageInteraction();
+                        }}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 backdrop-blur-xl text-gray-800 dark:text-white rounded-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 shadow-lg border border-white/50 dark:border-gray-600/50 group"
+                      >
+                        <svg className="w-6 h-6 transition-transform duration-200 group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </>
+                  )}
+
+                  {/* Enhanced Dot indicators */}
+                  {product.imageUrls.length > 1 && (
+                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3">
+                      {/* Dots */}
+                      <div className="flex gap-3 bg-black/20 backdrop-blur-xl rounded-2xl p-2">
+                        {product.imageUrls.map((_, index) => (
+                          <button
+                            key={index}
+                            onClick={() => {
+                              setSelectedImageIndex(index);
+                              handleImageInteraction();
+                            }}
+                            className={`transition-all duration-300 ${
+                              selectedImageIndex === index
+                                ? 'w-8 h-3 bg-white rounded-full shadow-lg'
+                                : 'w-3 h-3 bg-white/50 hover:bg-white/75 rounded-full'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="w-full h-full flex flex-col items-center justify-center p-8">
+                  <div className="w-24 h-24 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-600 dark:to-gray-700 rounded-2xl flex items-center justify-center mb-4">
+                    <svg className="w-12 h-12 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <p className="text-gray-500 dark:text-gray-400 text-center font-medium">Không có hình ảnh</p>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Thumbnail Gallery */}
+          {/* Thumbnail Gallery - Enhanced */}
           {product.imageUrls && product.imageUrls.length > 1 && (
-            <div className="grid grid-cols-5 gap-2 max-w-md mx-auto">
+            <div className="grid grid-cols-5 gap-3 max-w-lg mx-auto">
               {product.imageUrls.map((url, index) => (
                 <button
                   key={index}
                   onClick={() => setSelectedImageIndex(index)}
-                  className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                  className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all duration-300 hover:scale-105 ${
                     selectedImageIndex === index
-                      ? 'border-blue-600 ring-2 ring-blue-300 scale-105'
-                      : 'border-gray-200 dark:border-gray-700 hover:border-blue-400 hover:scale-105'
+                      ? 'border-blue-500 ring-4 ring-blue-500/20 shadow-lg scale-105'
+                      : 'border-gray-200 dark:border-gray-700 hover:border-blue-400 hover:shadow-md'
                   }`}
                 >
                   <Image
@@ -224,158 +289,297 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
                     className="object-cover"
                     sizes="80px"
                   />
+                  {selectedImageIndex === index && (
+                    <div className="absolute inset-0 bg-blue-500/20 flex items-center justify-center">
+                      <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                        <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                    </div>
+                  )}
                 </button>
               ))}
             </div>
           )}
         </div>
 
-        {/* Product Info */}
-        <div className="space-y-4">
-          {/* Category Badge */}
-          {product.categoryName && (
-            <div>
-              <span className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-sm font-semibold rounded-full shadow-lg">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                </svg>
-                {product.categoryName}
-              </span>
-            </div>
-          )}
-
-          {/* Product Name */}
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white leading-tight">
+        {/* Product Title - Compact Header */}
+        <div className="text-center space-y-3 pb-2">
+          <h1 className="text-2xl md:text-3xl font-black text-gray-900 dark:text-white leading-tight bg-gradient-to-r from-gray-900 via-blue-900 to-gray-900 dark:from-white dark:via-blue-100 dark:to-white bg-clip-text text-transparent">
             {product.name}
           </h1>
-
-          {/* Price */}
-          <div className="flex items-baseline gap-2">
-            <span className="text-4xl font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              {formatPrice(product.price)}
-            </span>
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">ID: #{product.id}</span>
+            <div className="w-1 h-1 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+            <span className="text-sm text-gray-500 dark:text-gray-400">{product.categoryName}</span>
           </div>
+        </div>
 
-          {/* Stock Status */}
-          <div className="flex items-center gap-2">
-            <svg 
-              className={`w-5 h-5 ${product.quantity > 0 ? 'text-green-500' : 'text-red-500'}`} 
-              fill="currentColor" 
-              viewBox="0 0 20 20"
-            >
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-            <span className={`text-sm font-semibold ${product.quantity > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-              {product.quantity > 0 ? `Còn ${product.quantity} sản phẩm` : 'Hết hàng'}
-            </span>
-          </div>
-
-          {/* Status Badge */}
-          {product.status && (
-            <div className="flex items-center gap-2">
-              <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold ${
-                product.status === 'ACTIVE' 
-                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                  : 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400'
-              }`}>
-                {product.status === 'ACTIVE' ? '✓ Đang bán' : product.status}
+        {/* Product Info - Modern Cards */}
+        <div className="space-y-6">
+          {/* Price - Premium Design */}
+          <div className="text-center space-y-2">
+            <div className="inline-flex items-baseline gap-3 px-8 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-3xl border border-blue-100 dark:border-blue-800/50">
+              <span className="text-5xl md:text-6xl font-black text-blue-600 dark:text-blue-400">
+                {formatPrice(product.price)}
               </span>
             </div>
-          )}
+          </div>
 
-          {/* Seller Info */}
+          {/* Status Cards - Modern Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Stock Status */}
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-2xl p-4 border border-green-100 dark:border-green-800/50">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
+                  product.quantity > 0
+                    ? 'bg-green-500 shadow-lg shadow-green-500/30'
+                    : 'bg-red-500 shadow-lg shadow-red-500/30'
+                }`}>
+                  <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Tình trạng</p>
+                  <p className={`text-base font-bold ${
+                    product.quantity > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    {product.quantity > 0 ? `Còn ${product.quantity} sp` : 'Hết hàng'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Product Status */}
+            {product.status && (
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-4 border border-blue-100 dark:border-blue-800/50">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
+                    product.status === 'ACTIVE'
+                      ? 'bg-blue-500 shadow-lg shadow-blue-500/30'
+                      : 'bg-gray-500 shadow-lg shadow-gray-500/30'
+                  }`}>
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Trạng thái</p>
+                    <p className={`text-base font-bold ${
+                      product.status === 'ACTIVE'
+                        ? 'text-blue-600 dark:text-blue-400'
+                        : 'text-gray-600 dark:text-gray-400'
+                    }`}>
+                      {product.status === 'ACTIVE' ? 'Đang bán' : product.status}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Seller Info - Modern Card */}
           {product.sellerUsername && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-100 dark:border-blue-800">
-              <div className="flex items-center gap-2 text-sm">
-                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                <span className="text-gray-600 dark:text-gray-400">Người bán:</span>
-                <span className="font-semibold text-blue-600 dark:text-blue-400">{product.sellerUsername}</span>
+            <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-900/20 dark:via-indigo-900/20 dark:to-purple-900/20 rounded-3xl p-4 border border-blue-100/50 dark:border-blue-800/30 shadow-lg">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 font-medium mb-1">Người bán</p>
+                  <p className="text-base font-bold text-blue-600 dark:text-blue-400">{product.sellerUsername}</p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-sm text-green-600 dark:text-green-400 font-medium">Online</span>
+                </div>
               </div>
             </div>
           )}
 
-          {/* Description */}
+          {/* Description - Enhanced Card */}
           {product.description && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
-              <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-3 flex items-center gap-2">
-                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Mô tả sản phẩm
-              </h3>
-              <p className="text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-                {product.description}
-              </p>
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl p-8 shadow-xl border border-white/50 dark:border-gray-700/50">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-gray-800 dark:text-white">Mô tả sản phẩm</h3>
+              </div>
+              <div className="prose prose-gray dark:prose-invert max-w-none">
+                <p className="text-gray-600 dark:text-gray-300 leading-relaxed text-lg whitespace-pre-wrap">
+                  {product.description}
+                </p>
+              </div>
             </div>
           )}
 
-          {/* Quantity Selector */}
+          {/* Quantity Selector - Modern Minimal */}
           {product.quantity > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg border border-gray-100 dark:border-gray-700">
-              <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4">Số lượng</h3>
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  disabled={quantity <= 1}
-                  className="w-12 h-12 flex items-center justify-center bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                  </svg>
-                </button>
-                <input
-                  type="number"
-                  value={quantity}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value) || 1;
-                    setQuantity(Math.min(Math.max(1, val), product.quantity));
-                  }}
-                  min="1"
-                  max={product.quantity}
-                  className="w-20 h-12 text-center text-xl font-bold bg-gray-50 dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <button
-                  onClick={() => setQuantity(Math.min(product.quantity, quantity + 1))}
-                  disabled={quantity >= product.quantity}
-                  className="w-12 h-12 flex items-center justify-center bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                </button>
+            <div className="bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-blue-900/10 dark:to-indigo-900/10 rounded-xl p-3 border border-blue-100/30 dark:border-blue-800/20">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Số lượng:</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    disabled={quantity <= 1}
+                    className="w-8 h-8 flex items-center justify-center bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200 dark:border-gray-600"
+                  >
+                    <svg className="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                    </svg>
+                  </button>
+                  <span className="w-12 text-center font-semibold text-gray-800 dark:text-white">{quantity}</span>
+                  <button
+                    onClick={() => setQuantity(Math.min(product.quantity, quantity + 1))}
+                    disabled={quantity >= product.quantity}
+                    className="w-8 h-8 flex items-center justify-center bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed border border-gray-200 dark:border-gray-600"
+                  >
+                    <svg className="w-4 h-4 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Action Buttons - Fixed at bottom */}
+      {/* Action Buttons - Optimized Design - Compact */}
       {product.quantity > 0 && product.status === 'ACTIVE' && (
-        <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 shadow-lg">
-          <button
-            onClick={handleAddToCart}
-            disabled={addingToCart}
-            className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-xl hover:shadow-2xl hover:scale-105 transform"
-          >
-            {addingToCart ? (
-              <>
-                <svg className="w-6 h-6 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span>Đang thêm...</span>
-              </>
-            ) : (
-              <>
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                <span>Thêm {quantity} sản phẩm vào giỏ hàng</span>
-              </>
+        <div className="relative border-t border-white/20 dark:border-gray-700/50 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl p-4 shadow-2xl">
+          {/* Background gradient */}
+          <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 via-blue-500/5 to-purple-500/5 rounded-t-3xl"></div>
+
+          {/* Success overlay */}
+          {addToCartSuccess && (
+            <div className="absolute inset-0 bg-green-500/90 backdrop-blur-sm rounded-t-3xl flex items-center justify-center z-10 animate-fade-in">
+              <div className="flex items-center gap-3 text-white">
+                <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <span className="text-lg font-bold">Đã thêm vào giỏ hàng!</span>
+              </div>
+            </div>
+          )}
+
+          <div className="relative space-y-4">
+            {/* Price Summary Card - Hidden */}
+            {false && (
+            <div className="bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-4 border border-blue-100/50 dark:border-blue-800/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Tổng tiền</p>
+                    <p className="text-2xl font-black text-gray-900 dark:text-white">
+                      {formatPrice(product.price * quantity)}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {quantity} × {formatPrice(product.price)}
+                  </p>
+                  <p className="text-xs text-green-600 dark:text-green-400 font-medium">
+                    Tiết kiệm 0đ
+                  </p>
+                </div>
+              </div>
+            </div>
             )}
-          </button>
+
+            {/* Action Buttons */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* Add to Cart Button - Primary */}
+              <button
+                onClick={handleAddToCart}
+                disabled={addingToCart || addToCartSuccess}
+                className={`relative py-3 px-4 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 hover:from-green-600 hover:via-emerald-600 hover:to-teal-600 text-white font-bold rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-xl hover:shadow-green-500/30 hover:scale-[1.02] transform overflow-hidden group ${
+                  addToCartSuccess ? 'bg-gradient-to-r from-green-600 to-emerald-600' : ''
+                }`}
+              >
+                {/* Ripple effect */}
+                <div className="absolute inset-0 bg-white/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+
+                {addingToCart ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-sm font-semibold relative z-10">Đang thêm...</span>
+                  </>
+                ) : addToCartSuccess ? (
+                  <>
+                    <svg className="w-4 h-4 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-sm font-semibold relative z-10">Đã thêm!</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span className="text-sm font-semibold relative z-10">Thêm vào giỏ</span>
+                  </>
+                )}
+              </button>
+
+              {/* Buy Now Button - Secondary */}
+              <button
+                onClick={() => {
+                  handleAddToCart();
+                  // Could navigate to checkout here
+                  setTimeout(() => {
+                    // Navigate to cart or checkout
+                    window.location.href = '/cart';
+                  }, 1000);
+                }}
+                disabled={addingToCart || addToCartSuccess}
+                className="py-3 px-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 text-white font-bold rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-xl hover:shadow-blue-500/30 hover:scale-[1.02] transform border border-white/20 group"
+              >
+                <div className="absolute inset-0 bg-white/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <svg className="w-4 h-4 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <span className="text-sm font-semibold relative z-10">Mua ngay</span>
+              </button>
+            </div>
+
+            {/* Trust Badges */}
+            <div className="flex items-center justify-center gap-6 pt-2">
+              <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Giao hàng tận nơi</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Đổi trả 7 ngày</span>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Bảo hành chính hãng</span>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

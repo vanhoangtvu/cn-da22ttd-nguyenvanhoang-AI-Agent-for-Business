@@ -241,18 +241,14 @@ export default function ProfilePage() {
 
         {/* Profile Header Card */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden mb-8 animate-slide-up">
-          <div className={`${roleBadge.bg} p-8 text-white relative overflow-hidden`}>
-            <div className="absolute inset-0 opacity-20">
-              <div className="absolute -top-24 -right-24 w-96 h-96 bg-white rounded-full blur-3xl animate-blob"></div>
-              <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-white rounded-full blur-3xl animate-blob animation-delay-2000"></div>
-            </div>
+          <div className="bg-white dark:bg-gray-800 p-8 text-gray-900 dark:text-white relative overflow-hidden border border-gray-200 dark:border-gray-700">
             <div className="relative flex flex-col md:flex-row items-center md:items-start gap-6">
               <div className="relative group">
-                <div className="w-32 h-32 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center text-5xl font-bold overflow-hidden ring-4 ring-white/50 shadow-2xl">
+                <div className="w-32 h-32 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900 dark:to-indigo-900 flex items-center justify-center text-5xl font-bold overflow-hidden ring-4 ring-blue-200 dark:ring-blue-800 shadow-2xl border border-blue-300 dark:border-blue-700">
                   {user.avatarUrl ? (
-                    <img src={user.avatarUrl} alt={user.username} className="w-full h-full object-cover" />
+                    <img src={user.avatarUrl} alt={user.username} className="w-full h-full object-cover rounded-2xl" />
                   ) : (
-                    <span className="drop-shadow-lg">{user.username.charAt(0).toUpperCase()}</span>
+                    <span className="text-blue-600 dark:text-blue-400 font-extrabold">{user.username.charAt(0).toUpperCase()}</span>
                   )}
                 </div>
                 {isEditing && (

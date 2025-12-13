@@ -91,6 +91,71 @@ async def analyze_business_data(request: AnalyticsRequest):
             if order_data:
                 data_sources.append("order_patterns")
         
+        # Check if we have any relevant data
+        if not relevant_data:
+            print(f"[Analytics] No relevant data found for query: {request.query}")
+            
+            # Return professional message indicating no data available
+            no_data_analysis = """## 🚫 Không Thể Phân Tích - Thiếu Dữ Liệu Kinh Doanh
+
+**Tình trạng hiện tại:** Hệ thống chưa có đủ dữ liệu để thực hiện phân tích AI thông minh.
+
+### 📊 Dữ liệu cần thiết để bắt đầu:
+
+**1. Dữ liệu sản phẩm** 
+- Danh sách sản phẩm với giá cả, tồn kho
+- Thông tin danh mục và nhà cung cấp
+- Lịch sử giá và khuyến mãi
+
+**2. Dữ liệu bán hàng**
+- Lịch sử đơn hàng và doanh thu
+- Thông tin khách hàng và tần suất mua
+- Hiệu suất theo kênh bán hàng
+
+**3. Dữ liệu vận hành**
+- Tình trạng tồn kho theo thời gian
+- Chi phí hoạt động và lợi nhuận
+- Hiệu suất nhân viên và quy trình
+
+### 🔄 Các bước để kích hoạt phân tích AI:
+
+1. **Import dữ liệu** từ hệ thống quản lý hiện tại
+2. **Đồng bộ dữ liệu** từ Spring Boot service
+3. **Kích hoạt RAG indexing** cho tìm kiếm thông minh
+4. **Chạy phân tích thử nghiệm** để kiểm tra
+
+### 💡 Lợi ích khi có dữ liệu:
+
+- **Phân tích bán hàng** theo thời gian thực
+- **Dự báo doanh thu** với độ chính xác cao
+- **Tối ưu tồn kho** tự động
+- **Đề xuất giá** dựa trên thị trường
+- **Phân tích khách hàng** chi tiết
+
+**Vui lòng liên hệ đội ngũ kỹ thuật để thiết lập dữ liệu kinh doanh.**"""
+
+            # Calculate overview statistics (will be 0)
+            overview_stats = {
+                "total_products": 0,
+                "total_orders": 0,
+                "total_revenue": 0
+            }
+            
+            insights = {
+                "data_points_analyzed": 0,
+                "sources_used": [],
+                "timestamp": datetime.now().isoformat(),
+                "overview": overview_stats,
+                "data_status": "no_data"
+            }
+            
+            return {
+                "analysis": no_data_analysis,
+                "model_used": request.model_id,
+                "data_sources": [],
+                "insights": insights
+            }
+        
         # Build context from data
         data_context = "\n\nRelevant business data:\n"
         for i, data_item in enumerate(relevant_data[:20], 1):
