@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api';
+import AdminLayout from '@/components/AdminLayout';
 
 interface Product {
   id: number;
@@ -86,8 +87,8 @@ export default function ProductManagement() {
           : apiClient.getProductsBySeller(user.userId),
         apiClient.getAdminCategories(),
       ]);
-      setProducts(productsData);
-      setCategories(categoriesData);
+      setProducts(productsData as Product[]);
+      setCategories(categoriesData as Category[]);
     } catch (error) {
       console.error('Failed to load data:', error);
       alert('Không thể tải dữ liệu. Vui lòng thử lại.');
@@ -192,60 +193,7 @@ export default function ProductManagement() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-lg sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                Quản lý Sản phẩm
-              </h1>
-            </div>
-            <div className="flex items-center gap-4">
-              <Link href="/shop" className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-blue-600 transition-colors">
-                Cửa hàng
-              </Link>
-              <button onClick={() => apiClient.logout()} className="px-4 py-2 text-red-600 hover:text-red-700 transition-colors">
-                Đăng xuất
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Navigation */}
-      <div className="bg-white dark:bg-gray-800 shadow-md">
-        <div className="container mx-auto px-4">
-          <div className="flex gap-2 overflow-x-auto">
-            <Link href="/admin" className="px-6 py-4 text-gray-700 dark:text-gray-300 hover:text-purple-600 transition-colors whitespace-nowrap">
-              Tổng quan
-            </Link>
-            <Link href="/admin/products" className="px-6 py-4 font-semibold border-b-4 border-purple-600 text-purple-600 whitespace-nowrap">
-              Sản phẩm
-            </Link>
-            <Link href="/admin/orders" className="px-6 py-4 text-gray-700 dark:text-gray-300 hover:text-purple-600 transition-colors whitespace-nowrap">
-              Đơn hàng
-            </Link>
-            <Link href="/admin/categories" className="px-6 py-4 text-gray-700 dark:text-gray-300 hover:text-purple-600 transition-colors whitespace-nowrap">
-              Danh mục
-            </Link>
-            <Link href="/admin/revenue" className="px-6 py-4 text-gray-700 dark:text-gray-300 hover:text-purple-600 transition-colors whitespace-nowrap">
-              Doanh thu
-            </Link>
-            <Link href="/admin/reports" className="px-6 py-4 text-gray-700 dark:text-gray-300 hover:text-purple-600 transition-colors whitespace-nowrap">
-              Báo cáo
-            </Link>
-            {userData.role === 'ADMIN' && (
-              <Link href="/admin/users" className="px-6 py-4 text-gray-700 dark:text-gray-300 hover:text-purple-600 transition-colors whitespace-nowrap">
-                Người dùng
-              </Link>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
+    <AdminLayout userData={userData} currentPage="products">
       <main className="container mx-auto px-4 py-8">
         {/* Filters and Actions */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6">
@@ -635,6 +583,6 @@ export default function ProductManagement() {
           </div>
         </div>
       )}
-    </div>
+    </AdminLayout>
   );
 }

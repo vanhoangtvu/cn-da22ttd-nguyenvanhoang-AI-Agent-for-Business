@@ -4,9 +4,9 @@ API service tích hợp Google Gemini AI và ChromaDB vector database với Swag
 
 ## 🌐 Public Access
 
-**API URL:** `http://113.178.203.147:5000`
+**API URL:** `http://14.183.200.75:5000`
 
-**Swagger Documentation:** `http://113.178.203.147:5000/docs`
+**Swagger Documentation:** `http://14.183.200.75:5000/docs`
 
 **Test Stream Chat:** Mở file `test_stream.html` trong trình duyệt
 
@@ -68,7 +68,7 @@ Script sẽ tự động:
 
 **Chat bình thường:**
 ```bash
-curl -X POST http://113.178.203.147:5000/gemini/chat \
+curl -X POST http://14.183.200.75:5000/gemini/chat \
   -H "Content-Type: application/json" \
   -d '{
     "message": "Xin chào, bạn là ai?",
@@ -78,7 +78,7 @@ curl -X POST http://113.178.203.147:5000/gemini/chat \
 
 **Chat streaming:**
 ```bash
-curl -N -X POST http://113.178.203.147:5000/gemini/chat/stream \
+curl -N -X POST http://14.183.200.75:5000/gemini/chat/stream \
   -H "Content-Type: application/json" \
   -d '{
     "message": "Viết một câu chuyện ngắn",
@@ -89,7 +89,7 @@ curl -N -X POST http://113.178.203.147:5000/gemini/chat/stream \
 ### ChromaDB - Thêm documents
 
 ```bash
-curl -X POST http://113.178.203.147:5000/chroma/documents \
+curl -X POST http://14.183.200.75:5000/chroma/documents \
   -H "Content-Type: application/json" \
   -d '{
     "collection_name": "my_docs",
@@ -107,7 +107,7 @@ curl -X POST http://113.178.203.147:5000/chroma/documents \
 ### ChromaDB - Tìm kiếm
 
 ```bash
-curl -X POST http://113.178.203.147:5000/chroma/query \
+curl -X POST http://14.183.200.75:5000/chroma/query \
   -H "Content-Type: application/json" \
   -d '{
     "collection_name": "my_docs",
@@ -119,13 +119,13 @@ curl -X POST http://113.178.203.147:5000/chroma/query \
 ### ChromaDB - Xem tất cả collections
 
 ```bash
-curl http://113.178.203.147:5000/chroma/collections
+curl http://14.183.200.75:5000/chroma/collections
 ```
 
 ### RAG Prompts - Thêm prompt
 
 ```bash
-curl -X POST http://113.178.203.147:5000/rag/prompts \
+curl -X POST http://14.183.200.75:5000/rag/prompts \
   -H "Content-Type: application/json" \
   -d '{
     "prompt": "Always greet users warmly and professionally",
@@ -138,19 +138,19 @@ curl -X POST http://113.178.203.147:5000/rag/prompts \
 
 ```bash
 # Xem tất cả
-curl http://113.178.203.147:5000/rag/prompts
+curl http://14.183.200.75:5000/rag/prompts
 
 # Lọc theo category
-curl "http://113.178.203.147:5000/rag/prompts?category=greeting"
+curl "http://14.183.200.75:5000/rag/prompts?category=greeting"
 
 # Xem thống kê
-curl http://113.178.203.147:5000/rag/stats
+curl http://14.183.200.75:5000/rag/stats
 ```
 
 ### Chat với RAG (AI sử dụng prompts đã lưu)
 
 ```bash
-curl -X POST http://113.178.203.147:5000/gemini/chat/rag \
+curl -X POST http://14.183.200.75:5000/gemini/chat/rag \
   -H "Content-Type: application/json" \
   -d '{
     "message": "Hello, how are you?",
@@ -181,7 +181,7 @@ backend/Pythonservice/
 │   └── rag.py          # RAG Prompts endpoints
 ├── services/           # Business logic
 │   └── rag_prompt_service.py  # RAG prompts management
-├── chroma_data/        # ChromaDB storage (auto-created)
+├── chroma_analytics/    # Unified ChromaDB storage for all business data and analytics
 ├── requirements.txt    # Dependencies
 ├── start.sh           # Start script
 ├── test_stream.html   # Test streaming chat
@@ -224,7 +224,7 @@ Hệ thống RAG (Retrieval-Augmented Generation) cho phép quản lý prompts c
 
 ## 📝 Notes
 
-- ChromaDB data được lưu trong thư mục `./chroma_data`
+- ChromaDB data được lưu trong thư mục `./chroma_data` và `./chroma_analytics`
 - RAG prompts được lưu trong collection `rag_prompts`
 - Gemini models list được cache khi khởi động server
 - Streaming sử dụng Server-Sent Events (SSE)

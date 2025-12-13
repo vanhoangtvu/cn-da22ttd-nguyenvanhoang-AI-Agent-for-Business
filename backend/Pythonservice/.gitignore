@@ -22,6 +22,20 @@ build/
 .env.local
 .env.*.local
 
+# Logs
+*.log
+app.log
+service.log
+
+# Backups
+*.tar.gz
+*.zip
+backups/
+
+# Config files (user-specific)
+ai_config.json
+user_ai_preferences.json
+
 # OS
 .DS_Store
 Thumbs.db

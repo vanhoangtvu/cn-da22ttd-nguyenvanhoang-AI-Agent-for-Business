@@ -1,5 +1,6 @@
 package com.business.springservice.controller;
 
+import com.business.springservice.dto.ActivityLogDTO;
 import com.business.springservice.dto.BusinessDashboardDTO;
 import com.business.springservice.dto.DashboardStatsDTO;
 import com.business.springservice.dto.RevenueReportDTO;
@@ -122,5 +123,33 @@ public class DashboardController {
     })
     public ResponseEntity<SystemReportDTO> getSystemReport() {
         return ResponseEntity.ok(dashboardService.getSystemReport());
+    }
+
+    @GetMapping("/recent-activities")
+    @Operation(summary = "Get recent activities for admin dashboard",
+               description = "Get the most recent system activities including product changes, orders, user registrations, etc. Admin only.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved recent activities"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Access denied - Admin only")
+    })
+    public ResponseEntity<List<ActivityLogDTO>> getRecentActivities(
+            @RequestParam(defaultValue = "20") @Parameter(description = "Number of activities to retrieve", example = "20") int limit) {
+        return ResponseEntity.ok(dashboardService.getRecentActivities(limit));
+    }
+
+    @GetMapping("/business/recent-activities")
+    @Operation(summary = "Get recent activities for business dashboard",
+               description = "Get recent activities related to the business user's products and orders.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved recent activities"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+        @ApiResponse(responseCode = "403", description = "Access denied")
+    })
+    public ResponseEntity<List<ActivityLogDTO>> getRecentActivitiesForBusiness(
+            HttpServletRequest request,
+            @RequestParam(defaultValue = "20") @Parameter(description = "Number of activities to retrieve", example = "20") int limit) {
+        Long businessId = (Long) request.getAttribute("userId");
+        return ResponseEntity.ok(dashboardService.getRecentActivitiesForBusiness(businessId, limit));
     }
 }

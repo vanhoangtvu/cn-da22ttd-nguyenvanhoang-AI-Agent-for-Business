@@ -3,6 +3,7 @@ package com.business.springservice.controller;
 import com.business.springservice.dto.OrderCreateRequest;
 import com.business.springservice.dto.OrderDTO;
 import com.business.springservice.dto.OrderUpdateAddressRequest;
+import com.business.springservice.service.ActivityLogService;
 import com.business.springservice.service.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -24,6 +25,7 @@ import java.util.List;
 public class OrderController {
     
     private final OrderService orderService;
+    private final ActivityLogService activityLogService;
     
     @PostMapping
     @Operation(summary = "Create new order", description = "Create a new order. Customer ID will be extracted from JWT token.")
@@ -36,7 +38,28 @@ public class OrderController {
             HttpServletRequest request,
             @RequestBody OrderCreateRequest orderRequest) {
         Long customerId = (Long) request.getAttribute("userId");
-        return ResponseEntity.status(HttpStatus.CREATED).body(orderService.createOrder(orderRequest, customerId));
+        String username = (String) request.getAttribute("username");
+        String userRole = (String) request.getAttribute("userRole");
+        String ipAddress = getClientIpAddress(request);
+        String userAgent = request.getHeader("User-Agent");
+
+        OrderDTO createdOrder = orderService.createOrder(orderRequest, customerId);
+
+        // Log activity
+        activityLogService.logActivity(
+            "CREATE_ORDER",
+            "ORDER",
+            createdOrder.getId(),
+            "Đơn hàng mới được tạo: #" + createdOrder.getId(),
+            "{\"totalAmount\":" + createdOrder.getTotalAmount() + ",\"itemCount\":" + createdOrder.getOrderItems().size() + "}",
+            customerId,
+            username,
+            userRole,
+            ipAddress,
+            userAgent
+        );
+
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdOrder);
     }
     
     @GetMapping("/my-orders")
@@ -58,7 +81,31 @@ public class OrderController {
             HttpServletRequest request,
             @PathVariable Long id) {
         Long customerId = (Long) request.getAttribute("userId");
+        String username = (String) request.getAttribute("username");
+        String userRole = (String) request.getAttribute("userRole");
+        String ipAddress = getClientIpAddress(request);
+        String userAgent = request.getHeader("User-Agent");
+
+        // Get order before canceling
+        OrderDTO orderBeforeCancel = orderService.getOrderById(id);
+        
+        // Cancel order
         orderService.cancelOrder(id, customerId);
+        
+        // Log activity
+        activityLogService.logActivity(
+            "CANCEL_ORDER",
+            "ORDER",
+            id,
+            "Đơn hàng #" + id + " đã bị hủy",
+            "{\"orderId\":" + id + ",\"totalAmount\":" + orderBeforeCancel.getTotalAmount() + ",\"customerId\":" + customerId + "}",
+            customerId,
+            username,
+            userRole,
+            ipAddress,
+            userAgent
+        );
+        
         return ResponseEntity.noContent().build();
     }
     
@@ -70,5 +117,17 @@ public class OrderController {
             @RequestBody OrderUpdateAddressRequest addressRequest) {
         Long customerId = (Long) request.getAttribute("userId");
         return ResponseEntity.ok(orderService.updateShippingAddress(id, customerId, addressRequest.getShippingAddress()));
+    }
+
+    private String getClientIpAddress(HttpServletRequest request) {
+        String xForwardedFor = request.getHeader("X-Forwarded-For");
+        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
+            return xForwardedFor.split(",")[0].trim();
+        }
+        String xRealIp = request.getHeader("X-Real-IP");
+        if (xRealIp != null && !xRealIp.isEmpty()) {
+            return xRealIp;
+        }
+        return request.getRemoteAddr();
     }
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api';
+import AdminLayout from '@/components/AdminLayout';
 
 // Python AI Service URL
 const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'http://113.178.203.147:5000';
@@ -166,26 +167,17 @@ export default function AIServicePage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages]);
 
-  // Load user's AI provider preference from database
+  // Load user's AI provider preference (simplified for new architecture)
   const loadUserPreference = async () => {
     try {
-      const userData = apiClient.getUserData();
-      const userId = userData?.userId?.toString() || 'anonymous';
-      
-      const response = await fetch(`${AI_SERVICE_URL}/ai-config/user-preference/${userId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setAiProvider(data.provider);
-        
-        if (data.provider === 'groq') {
-          setSelectedGroqModel(data.model);
-          await loadGroqModels();
-        } else {
-          setSelectedModel(data.model);
-        }
-      }
+      // For now, just set defaults since ai-config endpoints don't exist
+      setAiProvider('gemini');
+      setSelectedModel('gemini-2.5-flash');
     } catch (error) {
       console.error('Failed to load user preference:', error);
+      // Set defaults
+      setAiProvider('gemini');
+      setSelectedModel('gemini-2.5-flash');
     }
   };
 
@@ -202,7 +194,7 @@ export default function AIServicePage() {
 
     try {
       // Check service health
-      const healthRes = await fetch(`${AI_SERVICE_URL}/health/`);
+      const healthRes = await fetch(`${AI_SERVICE_URL}/health`);
       if (healthRes.ok) {
         const health = await healthRes.json();
         setServiceHealth(health);
@@ -210,34 +202,56 @@ export default function AIServicePage() {
         setServiceHealth({ status: 'unhealthy', message: 'Service không phản hồi' });
       }
 
-      // Load RAG stats
-      const ragStatsRes = await fetch(`${AI_SERVICE_URL}/rag/stats`);
-      if (ragStatsRes.ok) {
-        setRagStats(await ragStatsRes.json());
+      // Load Analytics stats (replaces old RAG stats)
+      const analyticsStatsRes = await fetch(`${AI_SERVICE_URL}/api/analytics/stats`);
+      if (analyticsStatsRes.ok) {
+        const stats = await analyticsStatsRes.json();
+        setRagStats({
+          total_prompts: stats.total_business_data || 0,
+          categories: stats.categories || {},
+          collection_name: 'analytics'
+        });
       }
 
-      // Load Chat stats
-      const chatStatsRes = await fetch(`${AI_SERVICE_URL}/chat-history/stats`);
-      if (chatStatsRes.ok) {
-        setChatStats(await chatStatsRes.json());
+      // Load Chat stats (customer chat stats)
+      setChatStats({
+        total_messages: 0, // Will be implemented later
+        total_sessions: 0,
+        total_users: 0,
+        collection_name: 'customer_chat'
+      });
+
+      // Load prompts (business data instead of RAG prompts)
+      const businessDataRes = await fetch(`${AI_SERVICE_URL}/api/analytics/data/all?limit=50`);
+      if (businessDataRes.ok) {
+        const data = await businessDataRes.json();
+        // Transform business data to look like prompts
+        const transformedPrompts = (data.data || []).map((item: any, index: number) => ({
+          id: `business_${index}`,
+          prompt: item.content || item.summary || 'Business data',
+          category: item.data_type || 'business',
+          tags: ['business', item.data_type || 'data'],
+          metadata: item.metadata || {}
+        }));
+        setPrompts(transformedPrompts);
       }
 
-      // Load prompts
-      const promptsRes = await fetch(`${AI_SERVICE_URL}/rag/prompts`);
-      if (promptsRes.ok) {
-        setPrompts(await promptsRes.json());
-      }
-
-      // Load collections
-      const collectionsRes = await fetch(`${AI_SERVICE_URL}/chroma/collections`);
+      // Load collections (analytics collections instead of chroma collections)
+      const collectionsRes = await fetch(`${AI_SERVICE_URL}/api/analytics/stats`);
       if (collectionsRes.ok) {
-        setCollections(await collectionsRes.json());
+        const stats = await collectionsRes.json();
+        setCollections([
+          { name: 'business_data', count: stats.total_business_data || 0 },
+          { name: 'orders_analytics', count: stats.total_orders || 0 },
+          { name: 'trends', count: stats.total_trends || 0 }
+        ]);
       }
 
-      // Load AI config
-      const configRes = await fetch(`${AI_SERVICE_URL}/ai-config/config`);
+      // Load AI config (use analytics models instead)
+      const configRes = await fetch(`${AI_SERVICE_URL}/api/analytics/models`);
       if (configRes.ok) {
-        setAiConfig(await configRes.json());
+        const modelsData = await configRes.json();
+        setAiConfig({ models: modelsData.models || [] });
       }
 
     } catch (err) {
@@ -249,17 +263,23 @@ export default function AIServicePage() {
     }
   };
 
-  // Load available Gemini models for chat
+  // Load available AI models for chat
   const loadAvailableModels = async () => {
     setLoadingChatModels(true);
     try {
-      const response = await fetch(`${AI_SERVICE_URL}/gemini/models`);
+      const response = await fetch(`${AI_SERVICE_URL}/api/analytics/models`);
       if (response.ok) {
-        const models = await response.json();
+        const modelsData = await response.json();
+        // Transform to GeminiModel format
+        const models = (modelsData.models || []).map((model: string) => ({
+          name: model,
+          display_name: model,
+          supported_methods: ['generateContent']
+        }));
         setAvailableModels(models);
-        
+
         // Set default model to first available if current selection not available
-        if (models.length > 0 && !models.find((m: GeminiModel) => m.name === selectedModel)) {
+        if (models.length > 0 && !models.find((m: any) => m.name === selectedModel)) {
           setSelectedModel(models[0].name);
         }
       }
@@ -275,16 +295,21 @@ export default function AIServicePage() {
     }
   };
 
-  // Load Groq models
+  // Load Groq models (from analytics models endpoint)
   const loadGroqModels = async () => {
     try {
-      const response = await fetch(`${AI_SERVICE_URL}/groq/models`);
+      const response = await fetch(`${AI_SERVICE_URL}/api/analytics/models`);
       if (response.ok) {
-        const models = await response.json();
+        const modelsData = await response.json();
+        // Filter for Groq models (those that don't start with 'gemini')
+        const groqModelsList = (modelsData.models || []).filter((model: string) =>
+          !model.toLowerCase().startsWith('gemini')
+        );
         // Format display names for better readability
-        const formattedModels = models.map((model: any) => ({
-          ...model,
-          display_name: formatModelName(model.name || model.display_name)
+        const formattedModels = groqModelsList.map((model: string) => ({
+          name: model,
+          display_name: formatModelName(model),
+          id: model
         }));
         setGroqModels(formattedModels);
       }
@@ -368,31 +393,14 @@ export default function AIServicePage() {
     // Save to database
     const userData = apiClient.getUserData();
     const userId = userData?.userId?.toString() || 'anonymous';
-    
+
     const model = provider === 'groq' ? selectedGroqModel : selectedModel;
-    
+
     console.log('[Admin] 💾 Saving preference:', { userId, provider, model });
-    
-    try {
-      const response = await fetch(`${AI_SERVICE_URL}/ai-config/user-preference`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: userId,
-          provider: provider,
-          model: model
-        })
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        console.log('[Admin] ✅ Provider preference saved successfully:', result);
-      } else {
-        console.error('[Admin] ❌ Failed to save provider preference, status:', response.status);
-      }
-    } catch (error) {
-      console.error('[Admin] ❌ Error saving provider preference:', error);
-    }
+
+    // Note: User preference saving is not implemented in the new separated architecture
+    // Preferences are stored locally for now
+    console.log('[Admin] ℹ️  User preferences stored locally (not saved to server in new architecture)');
     
     if (provider === 'groq') {
       await loadGroqModels();
@@ -416,26 +424,10 @@ export default function AIServicePage() {
     
     console.log('[Admin] 💾 Saving Groq model preference:', { userId, provider: 'groq', model: modelName });
     
-    try {
-      const response = await fetch(`${AI_SERVICE_URL}/ai-config/user-preference`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          user_id: userId,
-          provider: 'groq',
-          model: modelName
-        })
-      });
-      
-      if (response.ok) {
-        const result = await response.json();
-        console.log('[Admin] ✅ Groq model saved successfully:', result);
-      } else {
-        console.error('[Admin] ❌ Failed to save Groq model, status:', response.status);
-      }
-    } catch (error) {
-      console.error('[Admin] ❌ Error saving Groq model preference:', error);
-    }
+    console.log('[Admin] 💾 Saving Groq model preference:', { userId, modelName });
+
+    // Note: User preference saving is not implemented in the new separated architecture
+    console.log('[Admin] ℹ️  Groq model preference stored locally (not saved to server in new architecture)');
   };
 
   // Add new prompt
@@ -446,13 +438,18 @@ export default function AIServicePage() {
     }
 
     try {
-      const res = await fetch(`${AI_SERVICE_URL}/rag/prompts`, {
+      // Use analytics endpoint to store business data instead of RAG prompts
+      const res = await fetch(`${AI_SERVICE_URL}/api/analytics/data`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: newPrompt.prompt,
-          category: newPrompt.category,
-          tags: newPrompt.tags.split(',').map(t => t.trim()).filter(t => t),
+          data_id: `prompt_${Date.now()}`,
+          data_content: newPrompt.prompt,
+          data_type: newPrompt.category,
+          metadata: {
+            tags: newPrompt.tags.split(',').map(t => t.trim()).filter(t => t),
+            source: 'admin_prompt'
+          }
         }),
       });
 
@@ -628,23 +625,13 @@ Giọng điệu: Thân thiện, chuyên nghiệp, hữu ích.`,
     }
   };
 
-  // Update AI config
+  // Update AI config (not implemented in new architecture)
   const handleUpdateConfig = async (updates: Partial<AIConfig>) => {
     setSavingConfig(true);
     try {
-      const res = await fetch(`${AI_SERVICE_URL}/ai-config/config`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        setAiConfig(prev => prev ? { ...prev, ...data.config } : null);
-        alert('Cập nhật cấu hình thành công!');
-      } else {
-        alert('Không thể cập nhật cấu hình');
-      }
+      // Note: Config updates are not implemented in the new separated architecture
+      console.log('[Admin] ℹ️  Config updates not available in new architecture:', updates);
+      alert('Cập nhật cấu hình không khả dụng trong kiến trúc mới!');
     } catch (err) {
       alert('Lỗi kết nối');
     } finally {
@@ -763,14 +750,9 @@ Giọng điệu: Thân thiện, chuyên nghiệp, hữu ích.`,
     
     setSavingConfig(true);
     try {
-      const res = await fetch(`${AI_SERVICE_URL}/ai-config/config/reset`, {
-        method: 'POST',
-      });
-
-      if (res.ok) {
-        loadData();
-        alert('Đã đặt lại cấu hình!');
-      }
+      // Note: Config reset is not implemented in the new separated architecture
+      console.log('[Admin] ℹ️  Config reset not available in new architecture');
+      alert('Đặt lại cấu hình không khả dụng trong kiến trúc mới!');
     } catch (err) {
       alert('Lỗi kết nối');
     } finally {
@@ -837,16 +819,28 @@ Giọng điệu: Thân thiện, chuyên nghiệp, hữu ích.`,
       })) || [];
 
       if (productDocs.length > 0) {
-        await fetch(`${AI_SERVICE_URL}/chroma/documents`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            collection_name: 'products',
-            documents: productDocs,
-            metadatas: productMetas,
-            ids: systemAnalytics.products?.map((p: any) => `product_${p.id}`) || []
-          }),
-        });
+        // Use new analytics endpoint instead of chroma
+        for (const product of systemAnalytics.products || []) {
+          await fetch(`${AI_SERVICE_URL}/api/analytics/data`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              data_id: `product_${product.id}`,
+              data_content: `Sản phẩm: ${product.name}. Giá: ${product.price} VNĐ. Danh mục: ${product.categoryName}. Người bán: ${product.sellerUsername}. Số lượng: ${product.quantity}. Đã bán: ${product.totalSold || 0}`,
+              data_type: 'product',
+              metadata: {
+                product_id: product.id,
+                name: product.name,
+                price: product.price,
+                category: product.categoryName,
+                seller: product.sellerUsername,
+                quantity: product.quantity,
+                totalSold: product.totalSold || 0,
+                imageUrls: product.imageUrls || '[]'
+              }
+            }),
+          });
+        }
         setSyncProgress(`✓ Đã đồng bộ ${productDocs.length} sản phẩm`);
       }
 
@@ -866,16 +860,25 @@ Giọng điệu: Thân thiện, chuyên nghiệp, hữu ích.`,
       })) || [];
 
       if (orderDocs.length > 0) {
-        await fetch(`${AI_SERVICE_URL}/chroma/documents`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            collection_name: 'orders',
-            documents: orderDocs,
-            metadatas: orderMetas,
-            ids: systemAnalytics.orders?.map((o: any) => `order_${o.id}`) || []
-          }),
-        });
+        // Use new analytics endpoint instead of chroma
+        for (const order of systemAnalytics.orders || []) {
+          await fetch(`${AI_SERVICE_URL}/api/analytics/orders`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              order_id: `order_${order.id}`,
+              customer_id: order.customerId?.toString(),
+              total_amount: order.totalAmount,
+              products: order.items || [],
+              order_date: order.createdAt,
+              metadata: {
+                status: order.status,
+                totalItems: order.totalItems,
+                customerName: order.customerName
+              }
+            }),
+          });
+        }
         setSyncProgress(`✓ Đã đồng bộ ${orderDocs.length} đơn hàng`);
       }
 
@@ -895,22 +898,34 @@ Giọng điệu: Thân thiện, chuyên nghiệp, hữu ích.`,
       })) || [];
 
       if (businessDocs.length > 0) {
-        await fetch(`${AI_SERVICE_URL}/chroma/documents`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            collection_name: 'business',
-            documents: businessDocs,
-            metadatas: businessMetas,
-            ids: systemAnalytics.businessPerformance?.map((b: any) => `business_${b.businessId}`) || []
-          }),
-        });
+        // Use new analytics endpoint instead of chroma
+        for (const business of systemAnalytics.businessPerformance || []) {
+          await fetch(`${AI_SERVICE_URL}/api/analytics/data`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              data_id: `business_${business.businessId}`,
+              data_content: `Doanh nghiệp: ${business.businessUsername}. Tổng ${business.totalProducts} sản phẩm (${business.activeProducts} hoạt động). Giá trị kho: ${(business.inventoryValue / 1000000).toFixed(2)}M VNĐ. ${business.totalOrders} đơn hàng. Doanh thu: ${(business.revenue / 1000000).toFixed(2)}M VNĐ. Trung bình/đơn: ${(business.averageOrderValue / 1000).toFixed(0)}K VNĐ.`,
+              data_type: 'business_performance',
+              metadata: {
+                businessId: business.businessId,
+                businessUsername: business.businessUsername,
+                totalProducts: business.totalProducts,
+                activeProducts: business.activeProducts,
+                revenue: business.revenue,
+                inventoryValue: business.inventoryValue,
+                totalOrders: business.totalOrders,
+                averageOrderValue: business.averageOrderValue
+              }
+            }),
+          });
+        }
         setSyncProgress(`✓ Đã đồng bộ ${businessDocs.length} doanh nghiệp`);
       }
 
       // Step 4: Sync Users to 'users' collection
       setSyncProgress('Đang đồng bộ người dùng vào collection "users"...');
-      const userDocs = systemAnalytics.users?.map((u: any) => 
+      const userDocs = systemAnalytics.users?.map((u: any) =>
         `Người dùng: ${u.username} (${u.email}). Vai trò: ${u.role}. Trạng thái: ${u.accountStatus}. Địa chỉ: ${u.address || 'Chưa có'}. SĐT: ${u.phoneNumber || 'Chưa có'}.`
       ) || [];
 
@@ -924,17 +939,10 @@ Giọng điệu: Thân thiện, chuyên nghiệp, hữu ích.`,
       })) || [];
 
       if (userDocs.length > 0) {
-        await fetch(`${AI_SERVICE_URL}/chroma/documents`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            collection_name: 'users',
-            documents: userDocs,
-            metadatas: userMetas,
-            ids: systemAnalytics.users?.map((u: any) => `user_${u.id}`) || []
-          }),
-        });
-        setSyncProgress(`✓ Đã đồng bộ ${userDocs.length} người dùng`);
+        // Note: Users are not stored in analytics RAG in the new architecture
+        // This data is available through Spring API for analytics purposes
+        console.log(`ℹ️  Skipping user sync - ${userDocs.length} users available via Spring API`);
+        setSyncProgress(`✓ Bỏ qua đồng bộ ${userDocs.length} người dùng (có sẵn qua Spring API)`);
       }
 
       // Step 5: Sync Categories to 'categories' collection
@@ -952,37 +960,51 @@ Giọng điệu: Thân thiện, chuyên nghiệp, hữu ích.`,
       })) || [];
 
       if (categoryDocs.length > 0) {
-        await fetch(`${AI_SERVICE_URL}/chroma/documents`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            collection_name: 'categories',
-            documents: categoryDocs,
-            metadatas: categoryMetas,
-            ids: systemAnalytics.categories?.map((c: any) => `category_${c.id}`) || []
-          }),
-        });
+        // Use new analytics endpoint instead of chroma
+        for (const category of systemAnalytics.categories || []) {
+          await fetch(`${AI_SERVICE_URL}/api/analytics/data`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              data_id: `category_${category.id}`,
+              data_content: `Danh mục: ${category.name}. ${category.description}. Trạng thái: ${category.status}. Có ${category.productCount} sản phẩm.`,
+              data_type: 'category',
+              metadata: {
+                categoryId: category.id,
+                name: category.name,
+                status: category.status,
+                productCount: category.productCount
+              }
+            }),
+          });
+        }
         setSyncProgress(`✓ Đã đồng bộ ${categoryDocs.length} danh mục`);
       }
 
-      // Step 6: Sync System Statistics to 'system_stats' collection
-      setSyncProgress('Đang tạo thống kê tổng quan vào collection "system_stats"...');
+      // Step 6: Sync System Statistics to analytics RAG
+      setSyncProgress('Đang tạo thống kê tổng quan vào analytics RAG...');
       const statsDoc = `Thống kê hệ thống: Tổng ${systemAnalytics.totalUsers} người dùng (${systemAnalytics.totalCustomers} khách, ${systemAnalytics.totalBusinessUsers} doanh nghiệp). ${systemAnalytics.totalProducts} sản phẩm (${systemAnalytics.activeProducts} hoạt động). ${systemAnalytics.totalOrders} đơn hàng (${systemAnalytics.deliveredOrders} đã giao, ${systemAnalytics.pendingOrders} chờ). Tổng doanh thu: ${(systemAnalytics.totalRevenue / 1000000).toFixed(2)}M VNĐ. Tháng này: ${(systemAnalytics.monthlyRevenue / 1000000).toFixed(2)}M VNĐ. Tuần này: ${(systemAnalytics.weeklyRevenue / 1000000).toFixed(2)}M VNĐ.`;
 
-      await fetch(`${AI_SERVICE_URL}/chroma/documents`, {
+      await fetch(`${AI_SERVICE_URL}/api/analytics/data`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          collection_name: 'system_stats',
-          documents: [statsDoc],
-          metadatas: [{
+          data_id: `system_stats_${new Date().getTime()}`,
+          data_content: statsDoc,
+          data_type: 'system_statistics',
+          metadata: {
             totalUsers: systemAnalytics.totalUsers,
+            totalCustomers: systemAnalytics.totalCustomers,
+            totalBusinessUsers: systemAnalytics.totalBusinessUsers,
             totalProducts: systemAnalytics.totalProducts,
+            activeProducts: systemAnalytics.activeProducts,
             totalOrders: systemAnalytics.totalOrders,
+            deliveredOrders: systemAnalytics.deliveredOrders,
+            pendingOrders: systemAnalytics.pendingOrders,
             totalRevenue: systemAnalytics.totalRevenue,
-            type: 'statistics'
-          }],
-          ids: [`stats_${new Date().getTime()}`]
+            monthlyRevenue: systemAnalytics.monthlyRevenue,
+            weeklyRevenue: systemAnalytics.weeklyRevenue
+          }
         }),
       });
 
@@ -1116,7 +1138,17 @@ Giọng điệu: Thân thiện, chuyên nghiệp, hữu ích.`,
   const handleViewCollection = async (collectionName: string) => {
     setLoadingCollectionData(true);
     try {
-      const response = await fetch(`${AI_SERVICE_URL}/chroma/collection/${collectionName}`);
+      // Use analytics endpoints instead of chroma
+      let response;
+      if (collectionName === 'business_data') {
+        response = await fetch(`${AI_SERVICE_URL}/api/analytics/data/all?limit=100`);
+      } else {
+        // For other collections, show empty for now
+        setCollectionData({ documents: [], count: 0 });
+        setLoadingCollectionData(false);
+        return;
+      }
+
       if (response.ok) {
         const data = await response.json();
         setCollectionData(data);
@@ -1133,34 +1165,10 @@ Giọng điệu: Thân thiện, chuyên nghiệp, hữu ích.`,
   };
 
   const handleDeleteCollection = async (collectionName: string) => {
-    if (!confirm(`Bạn có chắc muốn xóa collection "${collectionName}"?`)) {
-      return;
-    }
-
-    setDeletingCollection(collectionName);
-    try {
-      const response = await fetch(`${AI_SERVICE_URL}/chroma/collection/${collectionName}`, {
-        method: 'DELETE',
-      });
-      
-      if (response.ok) {
-        alert('Xóa collection thành công!');
-        // Reload collections
-        loadData();
-        // Close modal if viewing this collection
-        if (selectedCollection === collectionName) {
-          setSelectedCollection(null);
-          setCollectionData(null);
-        }
-      } else {
-        alert('Không thể xóa collection');
-      }
-    } catch (error) {
-      console.error('Error deleting collection:', error);
-      alert('Lỗi khi xóa collection');
-    } finally {
-      setDeletingCollection(null);
-    }
+    // Note: Collection deletion is not available in the new separated architecture
+    // Collections are managed automatically
+    alert('Xóa collection không khả dụng trong kiến trúc mới. Collections được quản lý tự động.');
+    console.log(`ℹ️  Collection deletion not available for: ${collectionName}`);
   };
 
   const handleCloseCollectionModal = () => {
@@ -1171,57 +1179,7 @@ Giọng điệu: Thân thiện, chuyên nghiệp, hữu ích.`,
   const userData = apiClient.getUserData();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-lg sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link href="/admin" className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                <svg className="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-              </Link>
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                  Quản lý AI Service
-                </h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Python AI Service - {AI_SERVICE_URL}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4">
-              {/* Service Status */}
-              <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${
-                serviceHealth?.status === 'healthy' 
-                  ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                  : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-              }`}>
-                <span className={`w-2 h-2 rounded-full ${
-                  serviceHealth?.status === 'healthy' ? 'bg-green-500 animate-pulse' : 'bg-red-500'
-                }`}></span>
-                <span className="text-sm font-medium">
-                  {serviceHealth?.status === 'healthy' ? 'Đang hoạt động' : 'Không kết nối'}
-                </span>
-              </div>
-
-              <button
-                onClick={loadData}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                title="Làm mới"
-              >
-                <svg className={`w-5 h-5 text-gray-600 dark:text-gray-400 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Navigation Tabs */}
+    <AdminLayout userData={userData} currentPage="ai-service">
       <div className="bg-white dark:bg-gray-800 shadow-md">
         <div className="container mx-auto px-4">
           <div className="flex gap-2 overflow-x-auto">
@@ -1632,33 +1590,10 @@ Giọng điệu: Thân thiện, chuyên nghiệp, hữu ích.`,
                           key={model.id}
                           onClick={async () => {
                             if (savingConfig) return;
-                            
-                            // Save to user preference instead of global config
-                            const userData = apiClient.getUserData();
-                            const userId = userData?.userId?.toString() || 'anonymous';
-                            
-                            try {
-                              console.log('[Admin] Saving Gemini preference:', { userId, provider: 'gemini', model: model.id });
-                              const response = await fetch(`${AI_SERVICE_URL}/ai-config/user-preference`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                  user_id: userId,
-                                  provider: 'gemini',
-                                  model: model.id
-                                })
-                              });
-                              
-                              if (response.ok) {
-                                const result = await response.json();
-                                console.log('[Admin] Saved successfully:', result);
-                                setSelectedModel(model.id);
-                              } else {
-                                console.error('[Admin] Failed to save:', response.status);
-                              }
-                            } catch (error) {
-                              console.error('Failed to save Gemini model preference:', error);
-                            }
+
+                            // Note: User preference saving is not implemented in the new separated architecture
+                            console.log('[Admin] ℹ️  Gemini model preference stored locally:', model.id);
+                            setSelectedModel(model.id);
                           }}
                           className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
                             selectedModel === model.id
@@ -3169,6 +3104,6 @@ Giọng điệu: Thân thiện, chuyên nghiệp, hữu ích.`,
           </div>
         </div>
       )}
-    </div>
+    </AdminLayout>
   );
 }

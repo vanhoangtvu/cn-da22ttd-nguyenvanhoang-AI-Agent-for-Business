@@ -1,4 +1,5 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://113.178.203.147:8089/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://14.183.200.75:8089/api/v1';
+const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'http://14.183.200.75:5000';
 
 // Types based on Spring Service DTOs
 export interface RegisterRequest {
@@ -18,6 +19,29 @@ export interface LoginResponse {
   username: string;
   email: string;
   role: 'ADMIN' | 'BUSINESS' | 'CUSTOMER';
+}
+
+export interface ActivityLogDTO {
+  id: number;
+  action: string;
+  entityType: string;
+  entityId: number | null;
+  description: string;
+  details: string | null;
+  userId: number | null;
+  username: string | null;
+  userRole: string | null;
+  createdAt: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+  timeAgo: string;
+  iconType: string;
+  actionColor: string;
+  actionDescription: string;
+  entityInfo: string;
+  iconBgColor: string;
+  iconColor: string;
+  iconPath: string;
 }
 
 // API Client Class
@@ -458,6 +482,12 @@ class ApiClient {
     return this.fetch('/admin/dashboard/system-report');
   }
 
+  // System Analytics API
+  async getSystemAnalytics() {
+    // Call Spring service for system analytics
+    return this.fetch('/admin/analytics/system-data');
+  }
+
   // Business Documents API
   async uploadDocument(file: File, description?: string) {
     const formData = new FormData();
@@ -519,6 +549,14 @@ class ApiClient {
     }
 
     return response.blob();
+  }
+
+  async getRecentActivities(limit: number = 20): Promise<ActivityLogDTO[]> {
+    return this.fetch(`/admin/dashboard/recent-activities?limit=${limit}`);
+  }
+
+  async getRecentActivitiesForBusiness(limit: number = 20): Promise<ActivityLogDTO[]> {
+    return this.fetch(`/admin/dashboard/business/recent-activities?limit=${limit}`);
   }
 }
 

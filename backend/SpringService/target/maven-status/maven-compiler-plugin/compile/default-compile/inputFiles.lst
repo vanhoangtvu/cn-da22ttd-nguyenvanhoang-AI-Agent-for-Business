@@ -17,6 +17,7 @@
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/controller/ProfileController.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/controller/ShopController.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/controller/UserController.java
+/home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/dto/ActivityLogDTO.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/dto/AddToCartRequest.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/dto/BusinessDashboardDTO.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/dto/BusinessDocumentDTO.java
@@ -39,6 +40,7 @@
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/dto/SystemReportDTO.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/dto/UpdateCartItemRequest.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/dto/UserDTO.java
+/home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/entity/ActivityLog.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/entity/BusinessDocument.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/entity/Cart.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/entity/CartItem.java
@@ -51,6 +53,7 @@
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/enums/OrderStatus.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/enums/Role.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/enums/Status.java
+/home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/repository/ActivityLogRepository.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/repository/BusinessDocumentRepository.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/repository/CartItemRepository.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/repository/CartRepository.java
@@ -62,6 +65,7 @@
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/security/JwtAuthenticationFilter.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/security/JwtUtil.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/security/RoleAuthorizationFilter.java
+/home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/service/ActivityLogService.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/service/AnalyticsService.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/service/AuthService.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/service/BusinessDocumentService.java

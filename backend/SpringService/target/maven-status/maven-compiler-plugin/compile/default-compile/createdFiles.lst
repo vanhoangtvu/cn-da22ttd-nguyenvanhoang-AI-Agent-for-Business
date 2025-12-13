@@ -1,3 +1,4 @@
+com/business/springservice/entity/ActivityLog.class
 com/business/springservice/dto/OrderCreateRequest$OrderItemRequest.class
 com/business/springservice/dto/SystemReportDTO$BusinessStatistics.class
 com/business/springservice/entity/OrderItem.class
@@ -11,6 +12,7 @@ com/business/springservice/service/CartService$1.class
 com/business/springservice/entity/Cart.class
 com/business/springservice/service/ProductService$1.class
 com/business/springservice/dto/SystemAnalyticsDataDTO$RevenueByBusinessDTO.class
+com/business/springservice/dto/ActivityLogDTO.class
 com/business/springservice/dto/SystemAnalyticsDataDTO$BusinessPerformanceDTO.class
 com/business/springservice/dto/SystemReportDTO$RevenueOverview$RevenueOverviewBuilder.class
 com/business/springservice/dto/SystemAnalyticsDataDTO$ProductAnalyticsDTO.class
@@ -59,6 +61,7 @@ com/business/springservice/dto/SystemReportDTO$SystemReportDTOBuilder.class
 com/business/springservice/service/CartService.class
 com/business/springservice/dto/SystemReportDTO$DailyRevenueDTO$DailyRevenueDTOBuilder.class
 com/business/springservice/dto/SystemReportDTO$OrderStatistics.class
+com/business/springservice/service/ActivityLogService.class
 com/business/springservice/service/BusinessDocumentService.class
 com/business/springservice/controller/CategoryManagementController.class
 com/business/springservice/entity/Product.class
@@ -66,6 +69,7 @@ com/business/springservice/dto/SystemReportDTO$TopProductDTO.class
 com/business/springservice/SpringServiceApplication.class
 com/business/springservice/service/AuthService.class
 com/business/springservice/service/DashboardService.class
+com/business/springservice/entity/ActivityLog$ActivityLogBuilder.class
 com/business/springservice/dto/BusinessDashboardDTO.class
 com/business/springservice/controller/CartController.class
 com/business/springservice/entity/Order.class
@@ -78,12 +82,14 @@ com/business/springservice/enums/AccountStatus.class
 com/business/springservice/config/SecurityConfig.class
 com/business/springservice/dto/SystemReportDTO$CustomerStatistics.class
 com/business/springservice/enums/Role.class
+com/business/springservice/repository/ActivityLogRepository.class
 com/business/springservice/controller/OrderController.class
 com/business/springservice/repository/ProductRepository.class
 com/business/springservice/dto/SystemAnalyticsDataDTO$CategorySummaryDTO.class
 com/business/springservice/repository/CategoryRepository.class
 com/business/springservice/dto/ProductDTO.class
 com/business/springservice/dto/RegisterRequest.class
+com/business/springservice/dto/ActivityLogDTO$ActivityLogDTOBuilder.class
 com/business/springservice/service/ProductService.class
 com/business/springservice/entity/CartItem.class
 com/business/springservice/dto/DashboardStatsDTO.class

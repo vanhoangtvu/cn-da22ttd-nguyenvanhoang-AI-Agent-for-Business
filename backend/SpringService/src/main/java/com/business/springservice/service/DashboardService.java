@@ -1,5 +1,6 @@
 package com.business.springservice.service;
 
+import com.business.springservice.dto.ActivityLogDTO;
 import com.business.springservice.dto.BusinessDashboardDTO;
 import com.business.springservice.dto.DashboardStatsDTO;
 import com.business.springservice.dto.RevenueReportDTO;
@@ -36,6 +37,7 @@ public class DashboardService {
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
     private final BusinessDocumentRepository documentRepository;
+    private final ActivityLogService activityLogService;
     
     @Transactional(readOnly = true)
     public DashboardStatsDTO getAdminDashboardStats() {
@@ -554,5 +556,174 @@ public class DashboardService {
                 .topSellingProducts(topSellingProducts)
                 .dailyRevenue(dailyRevenue)
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActivityLogDTO> getRecentActivities(int limit) {
+        return activityLogService.getRecentActivities(limit)
+                .stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<ActivityLogDTO> getRecentActivitiesForBusiness(Long businessId, int limit) {
+        return activityLogService.getActivitiesForBusiness(businessId, limit)
+                .stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    private ActivityLogDTO convertToDTO(com.business.springservice.entity.ActivityLog activityLog) {
+        String actionDescription = getActionDescription(activityLog);
+        String entityInfo = getEntityInfo(activityLog);
+        String[] iconInfo = getIconInfo(activityLog.getEntityType(), activityLog.getAction());
+        
+        return ActivityLogDTO.builder()
+                .id(activityLog.getId())
+                .action(activityLog.getAction())
+                .entityType(activityLog.getEntityType())
+                .entityId(activityLog.getEntityId())
+                .description(activityLog.getDescription())
+                .details(activityLog.getDetails())
+                .userId(activityLog.getUserId())
+                .username(activityLog.getUsername())
+                .userRole(activityLog.getUserRole())
+                .createdAt(activityLog.getCreatedAt())
+                .ipAddress(activityLog.getIpAddress())
+                .userAgent(activityLog.getUserAgent())
+                .timeAgo(calculateTimeAgo(activityLog.getCreatedAt()))
+                .iconType(getIconType(activityLog.getEntityType(), activityLog.getAction()))
+                .actionColor(getActionColor(activityLog.getAction()))
+                .actionDescription(actionDescription)
+                .entityInfo(entityInfo)
+                .iconBgColor(iconInfo[0])
+                .iconColor(iconInfo[1])
+                .iconPath(iconInfo[2])
+                .build();
+    }
+
+    private String calculateTimeAgo(LocalDateTime createdAt) {
+        LocalDateTime now = LocalDateTime.now();
+        long minutes = java.time.Duration.between(createdAt, now).toMinutes();
+
+        if (minutes < 1) return "vừa xong";
+        if (minutes < 60) return minutes + " phút trước";
+
+        long hours = minutes / 60;
+        if (hours < 24) return hours + " giờ trước";
+
+        long days = hours / 24;
+        if (days < 7) return days + " ngày trước";
+
+        long weeks = days / 7;
+        if (weeks < 4) return weeks + " tuần trước";
+
+        long months = days / 30;
+        return months + " tháng trước";
+    }
+
+    private String getIconType(String entityType, String action) {
+        switch (entityType.toLowerCase()) {
+            case "product":
+                return action.contains("CREATE") ? "plus" :
+                       action.contains("UPDATE") ? "edit" :
+                       action.contains("DELETE") ? "trash" : "package";
+            case "order":
+                return action.contains("CREATE") ? "shopping-cart" :
+                       action.contains("UPDATE") ? "refresh" : "clipboard";
+            case "user":
+                return "user";
+            case "category":
+                return "tag";
+            default:
+                return "activity";
+        }
+    }
+
+    private String getActionColor(String action) {
+        if (action.contains("CREATE")) return "text-green-600";
+        if (action.contains("UPDATE")) return "text-blue-600";
+        if (action.contains("DELETE")) return "text-red-600";
+        return "text-gray-600";
+    }
+
+    private String getActionDescription(com.business.springservice.entity.ActivityLog activityLog) {
+        String action = activityLog.getAction();
+        String entityType = activityLog.getEntityType();
+        
+        switch (entityType.toLowerCase()) {
+            case "product":
+                if (action.contains("CREATE")) return "Sản phẩm mới được thêm";
+                if (action.contains("UPDATE")) return "Sản phẩm được cập nhật";
+                if (action.contains("DELETE")) return "Sản phẩm được xóa";
+                break;
+            case "order":
+                if (action.contains("CREATE")) return "Đơn hàng được tạo";
+                if (action.contains("CANCEL")) return "Đơn hàng đã bị hủy";
+                if (action.contains("UPDATE")) return "Đơn hàng được cập nhật";
+                if (action.contains("STATUS")) return "Trạng thái đơn hàng được cập nhật";
+                break;
+            case "category":
+                if (action.contains("CREATE")) return "Danh mục mới được tạo";
+                if (action.contains("UPDATE")) return "Danh mục được cập nhật";
+                if (action.contains("DELETE")) return "Danh mục được xóa";
+                break;
+            case "user":
+                if (action.contains("CREATE")) return "Người dùng mới đăng ký";
+                if (action.contains("UPDATE")) return "Thông tin người dùng được cập nhật";
+                break;
+        }
+        return activityLog.getDescription() != null ? activityLog.getDescription() : "Hoạt động hệ thống";
+    }
+
+    private String getEntityInfo(com.business.springservice.entity.ActivityLog activityLog) {
+        if (activityLog.getDescription() != null && !activityLog.getDescription().isEmpty()) {
+            return activityLog.getDescription();
+        }
+        return activityLog.getEntityType() + " #" + activityLog.getEntityId();
+    }
+
+    private String[] getIconInfo(String entityType, String action) {
+        String bgColor, iconColor, iconPath;
+        
+        switch (entityType.toLowerCase()) {
+            case "product":
+                bgColor = action.contains("CREATE") ? "bg-blue-100 dark:bg-blue-900" :
+                          action.contains("UPDATE") ? "bg-yellow-100 dark:bg-yellow-900" :
+                          action.contains("DELETE") ? "bg-red-100 dark:bg-red-900" : "bg-gray-100 dark:bg-gray-900";
+                iconColor = action.contains("CREATE") ? "text-blue-600" :
+                            action.contains("UPDATE") ? "text-yellow-600" :
+                            action.contains("DELETE") ? "text-red-600" : "text-gray-600";
+                iconPath = action.contains("CREATE") ? "M12 6v6m0 0v6m0-6h6m-6 0H6" :
+                           action.contains("UPDATE") ? "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" :
+                           "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16";
+                break;
+            case "order":
+                bgColor = action.contains("CREATE") ? "bg-green-100 dark:bg-green-900" :
+                          action.contains("CANCEL") ? "bg-red-100 dark:bg-red-900" :
+                          action.contains("UPDATE") || action.contains("STATUS") ? "bg-blue-100 dark:bg-blue-900" : "bg-gray-100 dark:bg-gray-900";
+                iconColor = action.contains("CREATE") ? "text-green-600" :
+                            action.contains("CANCEL") ? "text-red-600" :
+                            action.contains("UPDATE") || action.contains("STATUS") ? "text-blue-600" : "text-gray-600";
+                iconPath = "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z";
+                break;
+            case "category":
+                bgColor = "bg-purple-100 dark:bg-purple-900";
+                iconColor = "text-purple-600";
+                iconPath = "M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z";
+                break;
+            case "user":
+                bgColor = "bg-indigo-100 dark:bg-indigo-900";
+                iconColor = "text-indigo-600";
+                iconPath = "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z";
+                break;
+            default:
+                bgColor = "bg-gray-100 dark:bg-gray-900";
+                iconColor = "text-gray-600";
+                iconPath = "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z";
+        }
+        
+        return new String[]{bgColor, iconColor, iconPath};
     }
 }
