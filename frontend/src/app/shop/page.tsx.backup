@@ -26,7 +26,6 @@ import {
   Zap,
   Sparkles,
   Award,
-  Briefcase,
   Clock,
   TrendingUp,
   Users,
@@ -68,6 +67,22 @@ interface Category {
   name: string;
   description: string;
   imageUrl: string;
+  status: string;
+}
+
+interface CartItem {
+  id: number;
+  productId: number;
+  quantity: number;
+  price: number;
+  product?: Product;
+}
+
+interface Cart {
+  id: number;
+  userId: number;
+  items: CartItem[];
+  totalAmount: number;
   status: string;
 }
 
@@ -153,6 +168,40 @@ export default function ShopPage() {
     setIsClient(true);
   }, []);
 
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchKeyword(searchKeyword);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchKeyword]);
+
+  // Mobile menu keyboard and click outside handling
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isMobileMenuOpen) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (isMobileMenuOpen && !target.closest('.mobile-menu-container')) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    if (isMobileMenuOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isMobileMenuOpen]);
+
   // Debounce search keyword
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -187,6 +236,8 @@ export default function ShopPage() {
     };
   }, [isMobileMenuOpen]);
 
+  return (
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -211,8 +262,8 @@ export default function ShopPage() {
 
   const loadCartCount = async () => {
     try {
-      const cart = await apiClient.getCart();
-      const count = cart?.items?.reduce((total, item) => total + item.quantity, 0) || 0;
+      const cart = await apiClient.getCart() as Cart;
+      const count = cart?.items?.reduce((total: number, item: CartItem) => total + item.quantity, 0) || 0;
       setCartCount(count);
     } catch (err) {
       console.error('Không thể tải số lượng giỏ hàng:', err);
@@ -262,19 +313,62 @@ export default function ShopPage() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-4 group">
+            <Link href="/" className="flex items-center gap-4 group cursor-pointer">
               <div className="relative">
-                <div className="w-14 h-14 bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 rounded-2xl flex items-center justify-center shadow-2xl group-hover:shadow-3xl transition-all duration-500 group-hover:scale-110 group-hover:rotate-3">
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                  <Briefcase className="w-8 h-8 text-white relative z-10 group-hover:scale-110 transition-transform duration-300" />
+                {/* Magnetic outer glow */}
+                <div className="absolute -inset-2 bg-gradient-to-r from-blue-500/30 via-indigo-500/30 to-purple-500/30 rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-all duration-700 animate-pulse"></div>
+
+                {/* Secondary glow */}
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-400/20 via-indigo-400/20 to-purple-400/20 rounded-3xl blur-lg opacity-0 group-hover:opacity-100 transition-all duration-500 delay-100"></div>
+
+                {/* Main logo container */}
+                <div className="relative w-16 h-16 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 rounded-3xl flex items-center justify-center shadow-2xl group-hover:shadow-blue-500/25 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6 overflow-hidden border border-white/10 group-hover:border-white/20">
+                  {/* Animated mesh background */}
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_30%,rgba(255,255,255,0.1),transparent_50%),radial-gradient(circle_at_70%_70%,rgba(255,255,255,0.05),transparent_50%)] opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
+
+                  {/* Floating particles effect */}
+                  <div className="absolute inset-0">
+                    <div className="absolute top-2 left-3 w-1 h-1 bg-white/40 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-500 delay-200 animate-bounce"></div>
+                    <div className="absolute bottom-3 right-2 w-0.5 h-0.5 bg-white/60 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-500 delay-300 animate-ping"></div>
+                    <div className="absolute top-1/2 right-1 w-0.5 h-0.5 bg-white/30 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-500 delay-400"></div>
+                  </div>
+
+                  {/* Icon with enhanced effects */}
+                  <div className="relative z-10 transform group-hover:scale-110 group-hover:-rotate-3 transition-all duration-500">
+                    <TrendingUp className="w-9 h-9 text-white drop-shadow-2xl filter group-hover:brightness-110" />
+                    {/* Icon glow */}
+                    <div className="absolute inset-0 w-9 h-9 bg-white/20 rounded-lg blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-10"></div>
+                  </div>
+
+                  {/* Dynamic corner accents */}
+                  <div className="absolute top-1 right-1 w-2 h-2 bg-white/30 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-400 delay-200 group-hover:animate-pulse"></div>
+                  <div className="absolute bottom-1 left-1 w-1.5 h-1.5 bg-white/20 rounded-full opacity-0 group-hover:opacity-100 transition-all duration-400 delay-300"></div>
                 </div>
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-full animate-pulse"></div>
+
+                {/* Breathing ring effect */}
+                <div className="absolute inset-0 rounded-3xl border-2 border-blue-400/20 opacity-0 group-hover:opacity-100 transition-all duration-1000 animate-ping"></div>
               </div>
-              <div>
-                <span className="text-2xl font-black bg-gradient-to-r from-slate-800 via-blue-800 to-indigo-800 dark:from-slate-200 dark:via-blue-200 dark:to-indigo-200 bg-clip-text text-transparent tracking-tight">
-                  BizOps
-                </span>
-                <div className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-wide">Smart Business Solutions</div>
+
+              <div className="flex flex-col">
+                {/* Main Logo Text */}
+                <div className="relative">
+                  <span className="text-3xl font-black tracking-tight bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-700 bg-clip-text text-transparent group-hover:from-blue-500 group-hover:via-indigo-500 group-hover:to-purple-600 transition-all duration-500 drop-shadow-sm">
+                    The BizOps
+                  </span>
+                  {/* Text glow effect */}
+                  <div className="absolute inset-0 text-3xl font-black tracking-tight bg-gradient-to-r from-blue-400/20 via-indigo-400/20 to-purple-400/20 bg-clip-text text-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-sm">
+                    The BizOps
+                  </div>
+                </div>
+
+                {/* Tagline with modern typography */}
+                <div className="relative mt-1">
+                  <span className="text-sm font-medium tracking-wide text-gray-600 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-all duration-300 uppercase">
+                    Business Operations Excellence
+                  </span>
+                  {/* Subtle underline effect */}
+                  <div className="absolute bottom-0 left-0 w-0 h-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 group-hover:w-full transition-all duration-500 ease-out"></div>
+                </div>
               </div>
             </Link>
 
@@ -416,38 +510,42 @@ export default function ShopPage() {
       )}
 
       {/* Hero Banner */}
-      <div className="relative h-[500px] bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 overflow-hidden">
-        {/* Animated Background */}
-        <div className="absolute inset-0 opacity-30">
-          <div className="absolute top-0 -left-4 w-72 h-72 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
-          <div className="absolute top-0 -right-4 w-72 h-72 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
-          <div className="absolute -bottom-8 left-20 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
+      <div className="relative h-[500px] bg-gradient-to-r from-slate-900 via-blue-900 to-indigo-900 overflow-hidden">
+        {/* Enhanced Animated Background */}
+        <div className="absolute inset-0 opacity-40">
+          <div className="absolute top-0 -left-4 w-96 h-96 bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-full mix-blend-multiply filter blur-3xl animate-blob"></div>
+          <div className="absolute top-0 -right-4 w-96 h-96 bg-gradient-to-r from-violet-400 to-purple-400 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-2000"></div>
+          <div className="absolute -bottom-8 left-20 w-96 h-96 bg-gradient-to-r from-pink-400 to-rose-400 rounded-full mix-blend-multiply filter blur-3xl animate-blob animation-delay-4000"></div>
+          <div className="absolute top-1/2 right-1/4 w-64 h-64 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-full mix-blend-multiply filter blur-2xl animate-blob animation-delay-6000"></div>
         </div>
+
+        {/* Mesh overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-transparent via-blue-900/20 to-transparent"></div>
 
         {/* Banner Content */}
         <div className="relative container mx-auto px-4 h-full flex items-center">
           <div className="max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-xl rounded-full text-white text-sm font-semibold mb-6 border border-white/30">
-              <Sparkles className="w-5 h-5" />
-              Chào mừng đến với BizOps
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-white/20 to-white/10 backdrop-blur-xl rounded-full text-white text-sm font-semibold mb-6 border border-white/30 shadow-lg">
+              <Sparkles className="w-5 h-5 text-yellow-300" />
+              Chào mừng đến với The BizOps
             </div>
-            <h1 className="text-5xl md:text-6xl font-bold text-white mb-6 animate-slide-up">
+            <h1 className="text-5xl md:text-6xl font-bold text-white mb-6 animate-slide-up leading-tight">
               Khám phá sản phẩm <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 to-pink-200">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-300 via-cyan-300 to-blue-300 drop-shadow-lg">
                 tuyệt vời nhất
               </span>
             </h1>
-            <p className="text-xl text-white/90 mb-8 animate-slide-up animation-delay-200">
-              Giải pháp kinh doanh thông minh với công nghệ AI tiên tiến
+            <p className="text-xl text-white/90 mb-8 animate-slide-up animation-delay-200 leading-relaxed">
+              Hàng ngàn sản phẩm chất lượng với giá cả tốt nhất thị trường
             </p>
             <div className="flex gap-4 animate-slide-up animation-delay-400">
               <button
                 onClick={() => setSelectedCategory(null)}
-                className="px-8 py-4 bg-white text-blue-600 rounded-xl font-semibold hover:bg-gray-100 transition-all hover:scale-105 shadow-lg"
+                className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white rounded-xl font-semibold hover:shadow-xl hover:shadow-emerald-500/25 transition-all hover:scale-105 shadow-lg"
               >
                 Mua sắm ngay
               </button>
-              <button className="px-8 py-4 bg-white/10 backdrop-blur-sm text-white rounded-xl font-semibold hover:bg-white/20 transition-all border-2 border-white/30">
+              <button className="px-8 py-4 bg-white/10 backdrop-blur-xl text-white rounded-xl font-semibold hover:bg-white/20 transition-all border-2 border-white/30 hover:border-white/50 hover:shadow-lg">
                 Tìm hiểu thêm
               </button>
             </div>
@@ -477,15 +575,15 @@ export default function ShopPage() {
       </div>
 
       {/* Breadcrumbs */}
-      <div className="bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm border-b border-gray-200/50 dark:border-gray-700/50">
+      <div className="bg-gradient-to-r from-white/80 via-slate-50/80 to-white/80 dark:from-slate-800/80 dark:via-slate-700/80 dark:to-slate-800/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-600/50 shadow-sm">
         <div className="container mx-auto px-4 py-3">
           <nav className="flex items-center gap-2 text-sm">
-            <Link href="/" className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+            <Link href="/" className="flex items-center gap-2 text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors font-medium">
               <Home className="w-4 h-4" />
               Trang chủ
             </Link>
-            <ChevronRight className="w-4 h-4 text-gray-400" />
-            <span className="text-gray-900 dark:text-gray-100 font-medium">
+            <ChevronRight className="w-4 h-4 text-slate-400" />
+            <span className="text-slate-900 dark:text-slate-100 font-semibold">
               {selectedCategory ? categories.find(cat => cat.id === selectedCategory)?.name || 'Cửa hàng' : 'Cửa hàng'}
             </span>
           </nav>
@@ -493,32 +591,32 @@ export default function ShopPage() {
       </div>
 
       {/* Welcome Message */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-b border-blue-200/50 dark:border-blue-800/50">
+      <div className="bg-gradient-to-r from-emerald-50/80 via-cyan-50/60 to-blue-50/80 dark:from-emerald-900/20 dark:via-cyan-900/15 dark:to-blue-900/20 border-b border-emerald-200/50 dark:border-emerald-700/30 shadow-sm">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full flex items-center justify-center">
+              <div className="w-10 h-10 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center shadow-lg">
                 <HeartHandshake className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h2 className="font-semibold text-gray-900 dark:text-gray-100">
-                  Chào mừng bạn đến với BizOps! 🎉
+                <h2 className="font-semibold text-slate-900 dark:text-slate-100">
+                  Chào mừng bạn đến với The BizOps! 🎉
                 </h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Nâng tầm hiệu quả kinh doanh với các giải pháp công nghệ và sản phẩm chất lượng cao
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Khám phá hàng ngàn sản phẩm chất lượng với trải nghiệm mua sắm thông minh
                 </p>
               </div>
             </div>
             <div className="hidden sm:flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-1 text-green-600 dark:text-green-400">
+              <div className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
                 <CheckCircle className="w-4 h-4" />
                 <span>Miễn phí vận chuyển</span>
               </div>
-              <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+              <div className="flex items-center gap-1 text-cyan-600 dark:text-cyan-400">
                 <Shield className="w-4 h-4" />
                 <span>Bảo hành chính hãng</span>
               </div>
-              <div className="flex items-center gap-1 text-purple-600 dark:text-purple-400">
+              <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
                 <Award className="w-4 h-4" />
                 <span>Chất lượng đảm bảo</span>
               </div>
@@ -533,9 +631,9 @@ export default function ShopPage() {
           <div className="w-64 flex-shrink-0 hidden lg:block">
             {/* Sidebar - Categories */}
             <aside className="mb-6">
-              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 dark:border-gray-700/50 p-6">
-                <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                  <Tag className="w-6 h-6 text-blue-600" />
+              <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-200/50 dark:border-slate-600/30 p-6">
+                <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                  <Tag className="w-6 h-6 text-emerald-600" />
                   Danh mục
                 </h2>
                 <div className="space-y-3">
@@ -543,8 +641,8 @@ export default function ShopPage() {
                     onClick={() => setSelectedCategory(null)}
                     className={`w-full p-3 rounded-xl transition-all hover:shadow-md ${
                       selectedCategory === null
-                        ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg'
-                        : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-lg shadow-emerald-500/25'
+                        : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300'
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -560,12 +658,12 @@ export default function ShopPage() {
                       onClick={() => setSelectedCategory(category.id)}
                       className={`w-full p-3 rounded-xl transition-all hover:shadow-md ${
                         selectedCategory === category.id
-                          ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg'
-                          : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-white shadow-lg shadow-emerald-500/25'
+                          : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300'
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 flex items-center justify-center flex-shrink-0">
+                        <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-gradient-to-br from-emerald-100 to-cyan-100 dark:from-emerald-900/30 dark:to-cyan-900/30 flex items-center justify-center flex-shrink-0">
                           {category.imageUrl ? (
                             <img
                               src={category.imageUrl}
@@ -577,7 +675,7 @@ export default function ShopPage() {
                                 const parent = e.currentTarget.parentElement;
                                 if (parent && !parent.querySelector('svg')) {
                                   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                                  svg.setAttribute('class', 'w-5 h-5 text-blue-600 dark:text-blue-400');
+                                  svg.setAttribute('class', 'w-5 h-5 text-emerald-600 dark:text-emerald-400');
                                   svg.setAttribute('fill', 'none');
                                   svg.setAttribute('stroke', 'currentColor');
                                   svg.setAttribute('viewBox', '0 0 24 24');
@@ -587,7 +685,7 @@ export default function ShopPage() {
                               }}
                             />
                           ) : (
-                            <Tag className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            <Tag className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                           )}
                         </div>
                         <span className="font-medium text-left line-clamp-2">{category.name}</span>
@@ -600,22 +698,22 @@ export default function ShopPage() {
 
             {/* Sidebar - Filters */}
             <aside>
-              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 dark:border-gray-700/50 p-6 sticky top-24">
-                <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-                  <Filter className="w-6 h-6 text-blue-600" />
+              <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-2xl shadow-xl border border-slate-200/50 dark:border-slate-600/30 p-6 sticky top-24">
+                <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-slate-900 dark:text-slate-100">
+                  <Filter className="w-6 h-6 text-emerald-600" />
                   Bộ lọc
                 </h2>
 
                 {/* Quick Filters */}
                 <div className="mb-6">
-                  <h3 className="font-semibold mb-3 text-gray-700 dark:text-gray-300">Lọc nhanh</h3>
+                  <h3 className="font-semibold mb-3 text-slate-700 dark:text-slate-300">Lọc nhanh</h3>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => setSortBy('price-asc')}
                       className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                         sortBy === 'price-asc'
-                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                          : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
+                          : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300'
                       }`}
                     >
                       <TrendingUp className="w-4 h-4 inline mr-1" />
@@ -625,8 +723,8 @@ export default function ShopPage() {
                       onClick={() => setSortBy('price-desc')}
                       className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                         sortBy === 'price-desc'
-                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                          : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
+                          : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300'
                       }`}
                     >
                       <TrendingUp className="w-4 h-4 inline mr-1 rotate-180" />
@@ -636,8 +734,8 @@ export default function ShopPage() {
                       onClick={() => setViewMode('grid')}
                       className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                         viewMode === 'grid'
-                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                          : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
+                          : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300'
                       }`}
                     >
                       <Grid3X3 className="w-4 h-4 inline mr-1" />
@@ -647,8 +745,8 @@ export default function ShopPage() {
                       onClick={() => setViewMode('list')}
                       className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                         viewMode === 'list'
-                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                          : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400'
+                          : 'bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300'
                       }`}
                     >
                       <List className="w-4 h-4 inline mr-1" />
@@ -659,18 +757,18 @@ export default function ShopPage() {
 
                 {/* Price Range Filter Placeholder */}
                 <div>
-                  <h3 className="font-semibold mb-3 text-gray-700 dark:text-gray-300">Khoảng giá</h3>
+                  <h3 className="font-semibold mb-3 text-slate-700 dark:text-slate-300">Khoảng giá</h3>
                   <div className="space-y-2 text-sm">
-                    <button className="w-full text-left px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all">
+                    <button className="w-full text-left px-4 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-all text-slate-700 dark:text-slate-300">
                       Dưới 100.000đ
                     </button>
-                    <button className="w-full text-left px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all">
+                    <button className="w-full text-left px-4 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-all text-slate-700 dark:text-slate-300">
                       100.000đ - 500.000đ
                     </button>
-                    <button className="w-full text-left px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all">
+                    <button className="w-full text-left px-4 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-all text-slate-700 dark:text-slate-300">
                       500.000đ - 1.000.000đ
                     </button>
-                    <button className="w-full text-left px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all">
+                    <button className="w-full text-left px-4 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-all text-slate-700 dark:text-slate-300">
                       Trên 1.000.000đ
                     </button>
                   </div>
@@ -681,29 +779,29 @@ export default function ShopPage() {
 
           {/* Mobile Filter Bar */}
           <div className="lg:hidden mb-6">
-            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-xl p-4 border border-white/20 dark:border-gray-700/50">
+            <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-2xl shadow-xl p-4 border border-slate-200/50 dark:border-slate-600/30">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-2">
-                  <SlidersHorizontal className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                  <span className="font-medium text-gray-700 dark:text-gray-300">Bộ lọc</span>
+                  <SlidersHorizontal className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+                  <span className="font-medium text-slate-700 dark:text-slate-300">Bộ lọc</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as any)}
-                    className="px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="px-3 py-2 bg-slate-100 dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all text-slate-700 dark:text-slate-300"
                   >
                     <option value="name">Tên A-Z</option>
                     <option value="price-asc">Giá thấp</option>
                     <option value="price-desc">Giá cao</option>
                   </select>
-                  <div className="flex gap-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+                  <div className="flex gap-1 bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
                     <button
                       onClick={() => setViewMode('grid')}
                       className={`p-2 rounded-md transition-all ${
                         viewMode === 'grid'
-                          ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                          : 'text-gray-600 dark:text-gray-400'
+                          ? 'bg-white dark:bg-slate-600 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                          : 'text-slate-600 dark:text-slate-400'
                       }`}
                     >
                       <Grid3X3 className="w-4 h-4" />
@@ -712,8 +810,8 @@ export default function ShopPage() {
                       onClick={() => setViewMode('list')}
                       className={`p-2 rounded-md transition-all ${
                         viewMode === 'list'
-                          ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                          : 'text-gray-600 dark:text-gray-400'
+                          ? 'bg-white dark:bg-slate-600 text-emerald-600 dark:text-emerald-400 shadow-sm'
+                          : 'text-slate-600 dark:text-slate-400'
                       }`}
                     >
                       <List className="w-4 h-4" />
@@ -808,12 +906,12 @@ export default function ShopPage() {
                 <p className="text-red-600 dark:text-red-400 font-bold text-xl">{error}</p>
               </div>
             ) : filteredProducts.length === 0 ? (
-              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-xl p-12 text-center border border-white/20 dark:border-gray-700/50">
-                <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-full mb-6">
-                  <Package className="w-12 h-12 text-blue-600 dark:text-blue-400" />
+              <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-2xl shadow-xl p-12 text-center border border-slate-200/50 dark:border-slate-600/30">
+                <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-emerald-100 to-cyan-100 dark:from-emerald-900/30 dark:to-cyan-900/30 rounded-full mb-6">
+                  <Package className="w-12 h-12 text-emerald-600 dark:text-emerald-400" />
                 </div>
-                <h3 className="text-2xl font-bold mb-2">Không tìm thấy sản phẩm</h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto">
+                <h3 className="text-2xl font-bold mb-2 text-slate-900 dark:text-slate-100">Không tìm thấy sản phẩm</h3>
+                <p className="text-slate-600 dark:text-slate-400 mb-8 max-w-md mx-auto">
                   {searchKeyword
                     ? `Không có sản phẩm nào khớp với "${searchKeyword}". Hãy thử tìm kiếm với từ khóa khác hoặc duyệt các danh mục phổ biến.`
                     : 'Không có sản phẩm nào trong danh mục này. Hãy khám phá các danh mục khác!'
@@ -827,7 +925,7 @@ export default function ShopPage() {
                       setSelectedCategory(null);
                       setSearchKeyword('');
                     }}
-                    className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
+                    className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-xl font-semibold hover:shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2 shadow-emerald-500/25"
                   >
                     <Grid3X3 className="w-5 h-5" />
                     Xem tất cả sản phẩm
@@ -843,13 +941,13 @@ export default function ShopPage() {
 
                 {/* Popular Categories */}
                 <div className="border-t border-gray-200 dark:border-gray-700 pt-8">
-                  <h4 className="text-lg font-semibold mb-4">Danh mục phổ biến</h4>
+                  <h4 className="text-lg font-semibold mb-4 text-slate-900 dark:text-slate-100">Danh mục phổ biến</h4>
                   <div className="flex flex-wrap justify-center gap-3">
                     {categories.slice(0, 6).map((category) => (
                       <button
                         key={category.id}
                         onClick={() => setSelectedCategory(category.id)}
-                        className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 rounded-lg transition-all hover:scale-105 flex items-center gap-2"
+                        className="px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-slate-700 dark:text-slate-300 hover:text-emerald-600 dark:hover:text-emerald-400 rounded-lg transition-all hover:scale-105 flex items-center gap-2"
                       >
                         <Tag className="w-4 h-4" />
                         {category.name}
@@ -871,12 +969,12 @@ export default function ShopPage() {
                     key={product.id}
                     onMouseEnter={() => setHoveredProduct(product.id)}
                     onMouseLeave={() => setHoveredProduct(null)}
-                    className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden group border border-white/20 dark:border-gray-700/50 ${
+                    className={`bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300 overflow-hidden group border border-slate-200/50 dark:border-slate-600/30 ${
                       viewMode === 'list' ? 'flex' : ''
                     } ${hoveredProduct === product.id ? 'scale-[1.02] -translate-y-1' : ''}`}
                   >
                     {/* Image */}
-                    <div className={`relative overflow-hidden bg-gray-100 dark:bg-gray-700 ${viewMode === 'list' ? 'w-64' : 'aspect-square'}`}>
+                    <div className={`relative overflow-hidden bg-slate-100 dark:bg-slate-700 ${viewMode === 'list' ? 'w-64' : 'aspect-square'}`}>
                       <img
                         src={product.imageUrls?.[0] || 'https://via.placeholder.com/400'}
                         alt={product.name}
@@ -895,7 +993,7 @@ export default function ShopPage() {
                           </div>
                         ) : (
                           <div className="w-full flex gap-2">
-                            <button className="flex-1 px-3 py-2 bg-white/90 backdrop-blur-sm text-gray-900 rounded-lg font-semibold hover:bg-white transition-all text-sm">
+                            <button className="flex-1 px-3 py-2 bg-white/90 backdrop-blur-sm text-slate-900 rounded-lg font-semibold hover:bg-white transition-all text-sm">
                               Xem nhanh
                             </button>
                             <button className="p-2 bg-white/90 backdrop-blur-sm text-red-500 rounded-lg hover:bg-white transition-all">
