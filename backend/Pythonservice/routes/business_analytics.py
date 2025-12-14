@@ -14,7 +14,19 @@ import chromadb
 from groq import Groq
 import requests
 
+# Import services
+from services.document_processing_service import get_document_processor
+from services.analytics_rag_service import AnalyticsRAGService
+
 router = APIRouter()
+
+# Global analytics RAG service instance
+analytics_rag_service = None
+
+def set_analytics_rag_service(service: AnalyticsRAGService):
+    """Set the global analytics RAG service instance"""
+    global analytics_rag_service
+    analytics_rag_service = service
 
 # Helper functions for safe type conversion
 def safe_decimal(value):
@@ -41,6 +53,22 @@ def safe_str(value):
         return ""
     return str(value)
 
+def sanitize_metadata(metadata_dict):
+    """Sanitize metadata dictionary for ChromaDB compatibility"""
+    sanitized = {}
+    for key, value in metadata_dict.items():
+        if isinstance(value, (str, int, float, bool)):
+            # Ensure strings are not too long and don't contain null bytes
+            if isinstance(value, str):
+                value = value.replace('\x00', '').replace('\r', '').replace('\n', ' ')
+                if len(value) > 10000:  # Limit string length
+                    value = value[:10000] + '...'
+            sanitized[key] = value
+        else:
+            # Convert other types to string
+            sanitized[key] = str(value)
+    return sanitized
+
 # Configure Gemini API
 GEMINI_API_KEY = os.getenv('GOOGLE_API_KEY')
 if GEMINI_API_KEY:
@@ -55,6 +83,49 @@ if GROQ_API_KEY:
 # Cache for models
 _cached_models = None
 _models_cache_time = None
+
+def resolve_spring_file_path(relative_path):
+    """
+    Resolve đường dẫn file tương đối từ Spring Service thành đường dẫn tuyệt đối
+    
+    Args:
+        relative_path: Đường dẫn tương đối từ Spring Service (vd: 'uploads/documents/file.xlsx')
+        
+    Returns:
+        Đường dẫn tuyệt đối hoặc None nếu không tìm thấy
+    """
+    if not relative_path:
+        return None
+    
+    # Nếu đã là đường dẫn tuyệt đối, trả về luôn
+    if os.path.isabs(relative_path):
+        return relative_path if os.path.exists(relative_path) else None
+    
+    # Các đường dẫn có thể có của Spring Service uploads
+    possible_base_paths = [
+        # Đường dẫn từ thư mục Python service đến Spring service
+        os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'SpringService', relative_path),
+        # Đường dẫn tuyệt đối dựa trên cấu trúc project
+        os.path.join('/home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService', relative_path),
+        # Đường dẫn từ environment variable nếu có
+        os.path.join(os.getenv('SPRING_UPLOAD_PATH', ''), relative_path) if os.getenv('SPRING_UPLOAD_PATH') else None,
+    ]
+    
+    # Thử từng đường dẫn có thể
+    for base_path in possible_base_paths:
+        if base_path and os.path.exists(base_path):
+            print(f"[File Resolver] Found file at: {base_path}")
+            return base_path
+    
+    # Nếu không tìm thấy ở các vị trí chuẩn, thử tìm trong thư mục hiện tại
+    current_dir = os.getcwd()
+    fallback_path = os.path.join(current_dir, relative_path)
+    if os.path.exists(fallback_path):
+        print(f"[File Resolver] Found file at fallback location: {fallback_path}")
+        return fallback_path
+    
+    print(f"[File Resolver] File not found at any location for: {relative_path}")
+    return None
 
 def get_available_models_from_apis():
     """Fetch available models from Gemini and Groq APIs"""
@@ -174,13 +245,15 @@ def get_business_data():
         try:
             business_collection = chroma_client.get_collection(name="business_data")
             orders_collection = chroma_client.get_collection(name="orders_analytics")
+            revenue_collection = chroma_client.get_collection(name="revenue_overview")
         except Exception as e:
             print(f"Error getting collections: {e}")
-            return {'products': [], 'orders': [], 'categories': [], 'discounts': [], 'business_performance': [], 'users': [], 'documents': []}
+            return {'products': [], 'orders': [], 'categories': [], 'discounts': [], 'business_performance': [], 'users': [], 'documents': [], 'revenue_overview': []}
         
         # Lấy tất cả dữ liệu từ collections
         business_data = business_collection.get(include=['metadatas'])
         orders_data = orders_collection.get(include=['metadatas'])
+        revenue_data = revenue_collection.get(include=['metadatas'])
         
         # Parse metadata từ business_collection theo data_type
         all_business_metadatas = business_data.get('metadatas', [])
@@ -194,6 +267,9 @@ def get_business_data():
         
         # Parse orders từ orders_analytics collection  
         orders = orders_data.get('metadatas', [])
+        
+        # Parse revenue overview từ revenue_overview collection
+        revenue_overview = revenue_data.get('metadatas', [])
         
         # Convert string fields back to proper types
         for product in products:
@@ -234,7 +310,8 @@ def get_business_data():
             'discounts': discounts,
             'business_performance': business_performance,
             'users': users,
-            'documents': documents
+            'documents': documents,
+            'revenue_overview': revenue_overview
         }
     except Exception as e:
         print(f"Error fetching business data from ChromaDB: {e}")
@@ -247,7 +324,8 @@ def get_business_data():
             'discounts': [],
             'business_performance': [],
             'users': [],
-            'documents': []
+            'documents': [],
+            'revenue_overview': []
         }
 
 def calculate_statistics(data):
@@ -255,14 +333,27 @@ def calculate_statistics(data):
     products = data.get('products', [])
     orders = data.get('orders', [])
     categories = data.get('categories', [])
+    revenue_overview = data.get('revenue_overview', [])
     
     # Thống kê tổng quan
     total_products = len(products)
     total_orders = len(orders)
     total_categories = len(categories)
     
-    # Tính tổng doanh thu
-    total_revenue = sum(order.get('totalAmount', 0) for order in orders)
+    # Sử dụng dữ liệu doanh thu từ revenue_overview nếu có, nếu không thì tính từ orders
+    if revenue_overview:
+        # Lấy dữ liệu từ revenue_overview collection
+        revenue_data = revenue_overview[0] if revenue_overview else {}
+        total_revenue = revenue_data.get('total_revenue', 0)
+        monthly_revenue = revenue_data.get('monthly_revenue', 0)
+        weekly_revenue = revenue_data.get('weekly_revenue', 0)
+        daily_revenue = revenue_data.get('daily_revenue', 0)
+    else:
+        # Fallback: tính từ orders data
+        total_revenue = sum(order.get('totalAmount', 0) for order in orders)
+        monthly_revenue = 0  # Không thể tính từ orders data
+        weekly_revenue = 0
+        daily_revenue = 0
     
     # Tính doanh thu theo trạng thái
     revenue_by_status = {}
@@ -364,6 +455,9 @@ def calculate_statistics(data):
             'total_orders': total_orders,
             'total_categories': total_categories,
             'total_revenue': total_revenue,
+            'monthly_revenue': monthly_revenue,
+            'weekly_revenue': weekly_revenue,
+            'daily_revenue': daily_revenue,
             'avg_order_value': total_revenue / total_orders if total_orders > 0 else 0
         },
         'revenue_by_status': revenue_by_status_array,
@@ -398,14 +492,38 @@ async def get_analytics_data():
 
 @router.post('/ai-insights')
 async def get_ai_insights(request: AIInsightsRequest):
-    """Sử dụng AI để phân tích và đề xuất chiến lược kinh doanh"""
+    """Sử dụng AI để phân tích và đề xuất chiến lược kinh doanh với RAG từ documents"""
     try:
         # Lấy dữ liệu kinh doanh từ ChromaDB
         business_data = get_business_data()
         statistics = calculate_statistics(business_data)
         
-        # Tạo prompt cho AI dựa trên loại phân tích
-        prompt = create_analysis_prompt(request.type, statistics, business_data)
+        # 🔍 SEARCH BUSINESS DOCUMENTS FOR RELEVANT INFORMATION
+        document_context = ""
+        if analytics_rag_service:
+            try:
+                # Search for document content related to the analysis type
+                search_query = request.type
+                doc_results = analytics_rag_service.search_business_data(
+                    query=search_query,
+                    n_results=5
+                )
+                
+                if doc_results:
+                    document_context = "\\n\\n📄 THÔNG TIN TỪ TÀI LIỆU DOANH NGHIỆP:\\n"
+                    for i, doc in enumerate(doc_results, 1):
+                        content = doc.get('content', '')[:1000]  # Limit content length
+                        document_context += f"\\n--- Tài liệu {i} ---\\n{content}\\n"
+                    
+                    print(f"[AI Insights] Found {len(doc_results)} relevant documents")
+                else:
+                    print("[AI Insights] No relevant documents found")
+                    
+            except Exception as e:
+                print(f"[AI Insights] Error searching documents: {e}")
+        
+        # Tạo prompt cho AI dựa trên loại phân tích + document context
+        prompt = create_analysis_prompt(request.type, statistics, business_data, document_context)
         
         # Use the selected model from request
         model_name = request.model if request.model else 'llama-3.3-70b-versatile'
@@ -471,8 +589,8 @@ async def get_ai_insights(request: AIInsightsRequest):
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
-def create_analysis_prompt(analysis_type, statistics, business_data):
-    """Tạo prompt cho AI dựa trên loại phân tích"""
+def create_analysis_prompt(analysis_type, statistics, business_data, document_context=""):
+    """Tạo prompt cho AI dựa trên loại phân tích và thông tin từ tài liệu"""
     
     overview = statistics.get('overview', {})
     revenue_by_status = statistics.get('revenue_by_status', [])
@@ -532,6 +650,8 @@ def create_analysis_prompt(analysis_type, statistics, business_data):
 🏢 HIỆU SUẤT NGƯỜI BÁN:
    • Tổng số người bán: {len(business_performance)}
    • Tổng doanh thu tất cả: {sum([bp.get('revenue', 0) for bp in business_performance]):,.0f} VNĐ
+
+{document_context}
 """
 
     if analysis_type == 'general':
@@ -1004,6 +1124,116 @@ class SyncDataRequest(BaseModel):
     clear_existing: Optional[bool] = True
 
 
+class ProcessDocumentRequest(BaseModel):
+    """Request model for document processing"""
+    file_path: str
+    business_id: str
+    business_username: str
+    file_name: str
+    file_type: str
+    description: Optional[str] = None
+
+
+@router.post("/process-document")
+async def process_business_document(request: ProcessDocumentRequest):
+    """
+    Xử lý tài liệu doanh nghiệp và lưu vào ChromaDB collection riêng
+
+    Args:
+        request: Thông tin tài liệu cần xử lý
+
+    Returns:
+        Dict chứa kết quả xử lý
+    """
+    try:
+        global chroma_client
+        if chroma_client is None:
+            raise HTTPException(status_code=500, detail="ChromaDB client chưa được khởi tạo")
+
+        # Khởi tạo document processor
+        doc_processor = get_document_processor()
+
+        # Extract text content từ file
+        print(f"[Document Processing] Processing file: {request.file_path}")
+        extracted_text, metadata = doc_processor.extract_text_from_file(
+            request.file_path,
+            request.file_type
+        )
+
+        if not metadata.get("extraction_success", False):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Không thể xử lý tài liệu: {metadata.get('error', 'Unknown error')}"
+            )
+
+        # Chuẩn bị metadata cho ChromaDB
+        doc_metadata = {
+            "data_type": "document",
+            "document_id": f"doc_{request.business_id}_{int(datetime.now().timestamp())}",
+            "business_id": request.business_id,
+            "business_username": request.business_username,
+            "file_name": request.file_name,
+            "file_type": request.file_type,
+            "file_path": request.file_path,
+            "description": request.description or "",
+            "processed_at": datetime.now().isoformat(),
+            "content_length": metadata.get("content_length", 0),
+            "extraction_success": True
+        }
+
+        # Thêm metadata từ quá trình processing nếu có
+        if "sheets" in metadata:
+            doc_metadata["excel_sheets"] = json.dumps(metadata["sheets"])
+        if "columns" in metadata:
+            doc_metadata["csv_columns"] = metadata["columns"]
+        if "rows" in metadata:
+            doc_metadata["data_rows"] = metadata["rows"]
+
+        # Validate and sanitize metadata
+        sanitized_metadata = sanitize_metadata(doc_metadata)
+
+        # Tạo content đầy đủ với extracted text + metadata
+        doc_content = f"""
+DOCUMENT CONTENT:
+{extracted_text}
+
+---
+METADATA:
+Document ID: {doc_metadata["document_id"]}
+Business: {request.business_username}
+File Name: {request.file_name}
+File Type: {request.file_type}
+Description: {request.description or ""}
+Processing Status: Success
+Content Length: {len(extracted_text)} characters
+Processed At: {doc_metadata["processed_at"]}
+"""
+
+        # Lưu vào documents collection riêng biệt
+        analytics_rag_service = AnalyticsRAGService()
+        result = analytics_rag_service.store_business_document(
+            document_id=doc_metadata["document_id"],
+            document_content=doc_content,
+            metadata=sanitized_metadata
+        )
+
+        print(f"[Document Processing] Successfully processed and stored document: {doc_metadata['document_id']}")
+
+        return {
+            "success": True,
+            "document_id": doc_metadata["document_id"],
+            "content_length": len(extracted_text),
+            "metadata": sanitized_metadata,
+            "message": "Tài liệu đã được xử lý và lưu thành công"
+        }
+
+    except Exception as e:
+        print(f"[Document Processing] Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Lỗi xử lý tài liệu: {str(e)}")
+
+
 @router.post("/sync-from-spring")
 async def sync_data_from_spring(request: SyncDataRequest):
     """
@@ -1060,12 +1290,14 @@ async def sync_data_from_spring(request: SyncDataRequest):
         # Collection 1: business_data - chứa products, categories, business performance, discounts
         # Collection 2: orders_analytics - chứa orders
         # Collection 3: trends - chứa insights và trends (tương lai)
+        # Collection 4: revenue_overview - chứa dữ liệu tổng quan doanh thu và thống kê hệ thống
+        # Collection 5: business_documents - chứa tài liệu doanh nghiệp đã xử lý cho RAG
         
         if request.clear_existing:
             print("[Sync] Clearing existing data...")
             try:
                 # Xóa các collections cũ
-                for collection_name in ["business_data", "orders_analytics", "trends"]:
+                for collection_name in ["business_data", "orders_analytics", "trends", "revenue_overview", "business_documents"]:
                     try:
                         chroma_client.delete_collection(name=collection_name)
                         print(f"[Sync] Deleted old {collection_name} collection")
@@ -1085,7 +1317,15 @@ async def sync_data_from_spring(request: SyncDataRequest):
                     name="trends",
                     metadata={"description": "Business trends and insights"}
                 )
-                print("[Sync] Created new collections: business_data, orders_analytics, trends")
+                revenue_collection = chroma_client.create_collection(
+                    name="revenue_overview",
+                    metadata={"description": "Revenue overview and system statistics"}
+                )
+                documents_collection = chroma_client.create_collection(
+                    name="business_documents",
+                    metadata={"description": "Business documents for RAG analysis"}
+                )
+                print("[Sync] Created new collections: business_data, orders_analytics, trends, revenue_overview, business_documents")
                 
             except Exception as e:
                 print(f"[Sync] Error clearing data: {e}")
@@ -1106,7 +1346,15 @@ async def sync_data_from_spring(request: SyncDataRequest):
                 name="trends",
                 metadata={"description": "Business trends and insights"}
             )
-            print("[Sync] Collections ready: business_data, orders_analytics, trends")
+            revenue_collection = chroma_client.get_or_create_collection(
+                name="revenue_overview",
+                metadata={"description": "Revenue overview and system statistics"}
+            )
+            documents_collection = chroma_client.get_or_create_collection(
+                name="business_documents",
+                metadata={"description": "Business documents for RAG analysis"}
+            )
+            print("[Sync] Collections ready: business_data, orders_analytics, trends, revenue_overview, business_documents")
         
         # Đồng bộ Products với details đầy đủ
         if data.get('products'):
@@ -1243,10 +1491,13 @@ Seller: {product.get('sellerUsername', '')}
                         except:
                             pass
                     
+                    # Validate and sanitize metadata for ChromaDB compatibility
+                    sanitized_metadata = sanitize_metadata(product_metadata)
+                    
                     # Lưu vào collection
                     business_collection.upsert(
                         documents=[product_content],
-                        metadatas=[product_metadata],
+                        metadatas=[sanitized_metadata],
                         ids=[f"product_{product_id}"]
                     )
                     
@@ -1315,10 +1566,13 @@ Created: {order.get('createdAt', '')}
                         "stored_at": datetime.now().isoformat()
                     }
                     
+                    # Validate and sanitize metadata for ChromaDB compatibility
+                    sanitized_order_metadata = sanitize_metadata(order_metadata)
+                    
                     # Lưu vào orders_analytics collection
                     orders_collection.upsert(
                         documents=[order_content],
-                        metadatas=[order_metadata],
+                        metadatas=[sanitized_order_metadata],
                         ids=[f"order_{order_id}"]
                     )
                     
@@ -1364,10 +1618,13 @@ Product Count: {category.get('productCount', 0)}
                         "stored_at": datetime.now().isoformat()
                     }
                     
+                    # Validate and sanitize metadata for ChromaDB compatibility
+                    sanitized_category_metadata = sanitize_metadata(category_metadata)
+                    
                     # Use business_collection directly
                     business_collection.upsert(
                         documents=[category_content],
-                        metadatas=[category_metadata],
+                        metadatas=[sanitized_category_metadata],
                         ids=[f"category_{category_id}"]
                     )
                     
@@ -1432,10 +1689,13 @@ Average Order Value: {business.get('averageOrderValue', 0)} VND
                         "stored_at": datetime.now().isoformat()
                     }
                     
+                    # Validate and sanitize metadata for ChromaDB compatibility
+                    sanitized_business_metadata = sanitize_metadata(business_metadata)
+                    
                     # Use business_collection directly
                     business_collection.upsert(
                         documents=[business_content],
-                        metadatas=[business_metadata],
+                        metadatas=[sanitized_business_metadata],
                         ids=[f"business_{business_id}"]
                     )
                     
@@ -1513,10 +1773,13 @@ Usage Count: {discount.get('usageCount', 0)}
                         "stored_at": datetime.now().isoformat()
                     }
                     
+                    # Validate and sanitize metadata for ChromaDB compatibility
+                    sanitized_discount_metadata = sanitize_metadata(discount_metadata)
+                    
                     # Use business_collection directly
                     business_collection.upsert(
                         documents=[discount_content],
-                        metadatas=[discount_metadata],
+                        metadatas=[sanitized_discount_metadata],
                         ids=[f"discount_{discount_id}"]
                     )
                     
@@ -1558,9 +1821,12 @@ Address: {user.get('address', '')}
                         "stored_at": datetime.now().isoformat()
                     }
                     
+                    # Validate and sanitize metadata for ChromaDB compatibility
+                    sanitized_user_metadata = sanitize_metadata(user_metadata)
+                    
                     business_collection.upsert(
                         documents=[user_content],
-                        metadatas=[user_metadata],
+                        metadatas=[sanitized_user_metadata],
                         ids=[f"user_{user_id}"]
                     )
                     
@@ -1571,19 +1837,65 @@ Address: {user.get('address', '')}
                     error_msg = f"User {user.get('id', 'unknown')}: {str(e)}"
                     sync_results["errors"].append(error_msg)
         
-        # Đồng bộ Business Documents (nếu có)
+        # Đồng bộ Business Documents (nếu có) - LƯU VÀO COLLECTION RIÊNG BIỆT
         if data.get('businessDocuments'):
             sync_results["documents"] = {"total": len(data['businessDocuments']), "success": 0, "errors": 0}
             print(f"[Sync] Syncing {len(data['businessDocuments'])} business documents...")
             
+            # Tạo collection riêng cho documents nếu chưa có
+            try:
+                documents_collection = chroma_client.get_or_create_collection(
+                    name="business_documents",
+                    metadata={"description": "Business documents for RAG analysis"}
+                )
+                print("[Sync] Documents collection ready")
+            except Exception as e:
+                print(f"[Sync] Error creating documents collection: {e}")
+                sync_results["errors"].append(f"Documents collection error: {str(e)}")
+                documents_collection = None
+            
             for doc in data['businessDocuments']:
                 try:
                     doc_id = str(doc.get('id', ''))
+                    file_path = doc.get('filePath', '')
+                    file_type = doc.get('fileType', '')
                     
+                    # Resolve đường dẫn file từ Spring Service
+                    resolved_file_path = resolve_spring_file_path(file_path)
+                    print(f"[Sync] Original path: {file_path} -> Resolved path: {resolved_file_path}")
+                    
+                    # Khởi tạo document processor
+                    doc_processor = get_document_processor()
+                    
+                    # Extract text content từ file
+                    extracted_text = ""
+                    processing_metadata = {}
+                    
+                    if resolved_file_path and os.path.exists(resolved_file_path):
+                        try:
+                            extracted_text, processing_metadata = doc_processor.extract_text_from_file(
+                                resolved_file_path, file_type
+                            )
+                            print(f"[Sync] Successfully extracted {len(extracted_text)} characters from {doc.get('fileName', '')}")
+                        except Exception as extract_error:
+                            print(f"[Sync] Error extracting text from {resolved_file_path}: {extract_error}")
+                            # Fallback: tạo content từ metadata
+                            extracted_text = f"Error extracting content from file: {str(extract_error)}"
+                    else:
+                        print(f"[Sync] File not found: {resolved_file_path} (original: {file_path})")
+                        extracted_text = "File not found during sync process"
+                    
+                    # Tạo document content với text đã extract + metadata
                     file_size = doc.get('fileSize')
                     file_size_int = int(file_size) if file_size is not None else 0
                     
+                    # Kết hợp extracted text với metadata để tạo content đầy đủ
                     doc_content = f"""
+DOCUMENT CONTENT:
+{extracted_text}
+
+---
+METADATA:
 Document ID: {doc.get('id')}
 Business: {doc.get('businessUsername', '')}
 File Name: {doc.get('fileName', '')}
@@ -1591,6 +1903,8 @@ File Type: {doc.get('fileType', '')}
 Description: {doc.get('description', '')}
 Size: {file_size_int} bytes
 Uploaded: {doc.get('uploadedAt', '')}
+Processing Status: {'Success' if processing_metadata.get('extraction_success') else 'Failed'}
+Content Length: {len(extracted_text)} characters
 """
                     
                     doc_metadata = {
@@ -1600,18 +1914,44 @@ Uploaded: {doc.get('uploadedAt', '')}
                         "business_username": doc.get('businessUsername', ''),
                         "file_name": doc.get('fileName', ''),
                         "file_type": doc.get('fileType', ''),
-                        "file_path": doc.get('filePath', ''),
+                        "file_path_original": doc.get('filePath', ''),  # Đường dẫn gốc từ Spring
+                        "file_path_resolved": resolved_file_path or '',  # Đường dẫn đã resolve
                         "file_size": file_size_int,
                         "description": doc.get('description', ''),
                         "uploaded_at": doc.get('uploadedAt', ''),
-                        "stored_at": datetime.now().isoformat()
+                        "stored_at": datetime.now().isoformat(),
+                        "extraction_success": processing_metadata.get('extraction_success', False),
+                        "content_length": len(extracted_text),
+                        "processing_timestamp": processing_metadata.get('processing_timestamp', datetime.now().isoformat())
                     }
                     
-                    business_collection.upsert(
-                        documents=[doc_content],
-                        metadatas=[doc_metadata],
-                        ids=[f"document_{doc_id}"]
-                    )
+                    # Thêm metadata từ quá trình processing nếu có
+                    if "sheets" in processing_metadata:
+                        doc_metadata["excel_sheets"] = json.dumps(processing_metadata["sheets"])
+                    if "columns" in processing_metadata:
+                        doc_metadata["csv_columns"] = processing_metadata["columns"]
+                    if "rows" in processing_metadata:
+                        doc_metadata["data_rows"] = processing_metadata["rows"]
+                    
+                    # Validate and sanitize metadata for ChromaDB compatibility
+                    sanitized_doc_metadata = sanitize_metadata(doc_metadata)
+                    
+                    # Lưu vào collection riêng biệt cho documents
+                    if documents_collection:
+                        documents_collection.upsert(
+                            documents=[doc_content],
+                            metadatas=[sanitized_doc_metadata],
+                            ids=[f"document_{doc_id}"]
+                        )
+                        print(f"[Sync] Stored document {doc_id} in separate collection")
+                    else:
+                        # Fallback: lưu vào business_collection nếu không tạo được collection riêng
+                        business_collection.upsert(
+                            documents=[doc_content],
+                            metadatas=[sanitized_doc_metadata],
+                            ids=[f"document_{doc_id}"]
+                        )
+                        print(f"[Sync] Fallback: Stored document {doc_id} in business collection")
                     
                     sync_results["documents"]["success"] += 1
                     
@@ -1627,6 +1967,42 @@ Uploaded: {doc.get('uploadedAt', '')}
             "weekly_revenue": safe_decimal(data.get('weeklyRevenue')),
             "daily_revenue": safe_decimal(data.get('dailyRevenue')),
         }
+        
+        # Lưu revenue overview vào ChromaDB để AI có thể truy vấn
+        try:
+            revenue_content = f"""
+Revenue Overview - System Statistics
+Total Revenue: {sync_results["revenue_overview"]["total_revenue"]} VND
+Monthly Revenue: {sync_results["revenue_overview"]["monthly_revenue"]} VND
+Weekly Revenue: {sync_results["revenue_overview"]["weekly_revenue"]} VND
+Daily Revenue: {sync_results["revenue_overview"]["daily_revenue"]} VND
+Last Updated: {datetime.now().isoformat()}
+"""
+            
+            revenue_metadata = {
+                "data_type": "revenue_overview",
+                "total_revenue": sync_results["revenue_overview"]["total_revenue"],
+                "monthly_revenue": sync_results["revenue_overview"]["monthly_revenue"],
+                "weekly_revenue": sync_results["revenue_overview"]["weekly_revenue"],
+                "daily_revenue": sync_results["revenue_overview"]["daily_revenue"],
+                "stored_at": datetime.now().isoformat(),
+                "purpose": "analytics"
+            }
+            
+            # Validate and sanitize metadata
+            sanitized_revenue_metadata = sanitize_metadata(revenue_metadata)
+            
+            revenue_collection.upsert(
+                documents=[revenue_content],
+                metadatas=[sanitized_revenue_metadata],
+                ids=["revenue_overview_system"]
+            )
+            
+            print("[Sync] Stored revenue overview in ChromaDB")
+            
+        except Exception as e:
+            print(f"[Sync] Error storing revenue overview: {str(e)}")
+            sync_results["errors"].append(f"Revenue overview storage error: {str(e)}")
         
         # Thêm top selling products từ data gốc
         if data.get('topSellingProducts'):

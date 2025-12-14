@@ -22,9 +22,61 @@
 | POST | `/api/analytics/data` | Lưu dữ liệu kinh doanh |
 | POST | `/api/analytics/orders` | Lưu dữ liệu đơn hàng |
 | POST | `/api/analytics/trends` | Lưu xu hướng kinh doanh |
-| GET | `/api/analytics/data/all` | Lấy tất cả dữ liệu |
+| POST | `/api/analytics/sync-from-spring` | Đồng bộ dữ liệu từ Spring Service (tự động xử lý documents) |
+| POST | `/api/analytics/process-document` | Xử lý tài liệu doanh nghiệp và lưu vào ChromaDB |
+| GET | `/api/analytics/data/all` | Lấy tất cả dữ liệu analytics |
 | GET | `/api/analytics/stats` | Xem thống kê analytics |
 | GET | `/api/analytics/models` | Xem AI models có sẵn |
+
+### 📄 Document Processing APIs
+
+**Collection Target:** `business_documents` (ChromaDB)
+
+#### Xử lý tài liệu riêng lẻ
+| Method | Endpoint | Request Body | Response |
+|--------|----------|--------------|----------|
+| **POST** | `/api/analytics/process-document` | ```json<br>{<br>  "file_path": "path/to/file.xlsx",<br>  "business_id": "biz_123",<br>  "business_username": "company",<br>  "file_name": "prices.xlsx",<br>  "file_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",<br>  "description": "Market prices"<br>}``` | ```json<br>{<br>  "success": true,<br>  "document_id": "doc_biz_123_123456",<br>  "content_length": 15432,<br>  "message": "Processed successfully"<br>}``` |
+
+#### Đồng bộ tự động (từ Spring Service)
+| Method | Endpoint | Auto Processing |
+|--------|----------|----------------|
+| **POST** | `/api/analytics/sync-from-spring` | ✅ Tự động detect và xử lý tất cả documents<br>✅ Extract text từ PDF, Excel, Word<br>✅ Lưu vào `business_documents` collection<br>✅ AI có thể search ngay lập tức |
+
+#### Định dạng file hỗ trợ
+| Format | MIME Type | Processing Features |
+|--------|-----------|-------------------|
+| **PDF** | `application/pdf` | Multi-page text extraction |
+| **Excel** | `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` | Multi-sheet, data analysis |
+| **Word** | `application/vnd.openxmlformats-officedocument.wordprocessingml.document` | Tables, formatting |
+| **CSV** | `text/csv` | Column detection, data preview |
+| **Text** | `text/plain` | Auto-encoding detection |
+
+### 🎯 AI Integration
+
+**Analytics AI tự động sử dụng documents:**
+```bash
+POST /api/analytics/analyze
+{
+  "query": "so sánh giá iPhone với thị trường",
+  "data_types": ["business"]
+}
+```
+
+**AI Workflow:**
+1. 🔍 Search `business_documents` collection
+2. 📊 Extract pricing data từ Excel files  
+3. 💡 Generate market comparison insights
+4. 📈 Cross-reference với business data khác
+
+### 📊 ChromaDB Architecture
+
+| Collection | Purpose | Data Structure | AI Access |
+|------------|---------|----------------|-----------|
+| `business_data` | Products, categories, metrics | JSON objects | ✅ Searchable |
+| `orders_analytics` | Order patterns & analytics | JSON objects | ✅ Searchable |
+| `business_documents` | **Processed documents** | **Extracted text + metadata** | ✅ **AI Search** |
+| `trends` | Business insights | JSON objects | ✅ Searchable |
+| `revenue_overview` | Revenue statistics | JSON objects | ✅ Searchable |
 
 ### 3️⃣ **System APIs** (Backward Compatibility)
 

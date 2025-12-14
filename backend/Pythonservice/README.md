@@ -60,6 +60,167 @@ Script sẽ tự động:
 - **POST** `/chroma/documents` - Thêm documents vào collection
 - **POST** `/chroma/query` - Tìm kiếm trong collection
 
+### 📊 Business Analytics
+- **POST** `/api/analytics/analyze` - Phân tích dữ liệu kinh doanh với AI
+- **POST** `/api/analytics/sync-from-spring` - Đồng bộ dữ liệu từ Spring Service
+- **POST** `/api/analytics/process-document` - Xử lý tài liệu doanh nghiệp
+- **GET** `/api/analytics/data/all` - Lấy tất cả dữ liệu analytics
+- **GET** `/api/analytics/stats` - Thống kê ChromaDB collections
+
+---
+
+## 📄 Document Processing Service
+
+Hệ thống xử lý tài liệu doanh nghiệp tự động với AI search capabilities.
+
+### 🎯 Tính năng chính
+
+- **Đa dạng định dạng**: PDF, DOCX, XLSX, XLS, CSV, TXT
+- **Trích xuất thông minh**: Tự động detect MIME type và xử lý phù hợp
+- **Lưu trữ vector**: Documents được vectorize và lưu trong ChromaDB
+- **AI Search**: Tích hợp với analytics AI để tìm kiếm nội dung
+- **Metadata đầy đủ**: Lưu trữ thông tin file, processing status, timestamps
+
+### 🔄 Workflow xử lý tài liệu
+
+```
+Upload File → Spring Service → Sync API → DocumentProcessor → 
+Extract Text → ChromaDB (business_documents) → AI Search
+```
+
+### 📋 Định dạng hỗ trợ
+
+| Định dạng | MIME Type | Tính năng đặc biệt |
+|-----------|-----------|-------------------|
+| **PDF** | `application/pdf` | Extract text từ tất cả pages |
+| **DOCX** | `application/vnd.openxmlformats-officedocument.wordprocessingml.document` | Tables, paragraphs |
+| **XLSX/XLS** | `application/vnd.openxmlformats-officedocument.spreadsheetml.sheet` | Multiple sheets, data analysis |
+| **CSV** | `text/csv` | Column detection, data preview |
+| **TXT** | `text/plain` | Encoding detection (UTF-8, Latin-1) |
+
+### 🚀 Sử dụng
+
+#### Xử lý tài liệu riêng lẻ
+
+```bash
+curl -X POST http://14.183.200.75:5000/api/analytics/process-document \
+  -H "Content-Type: application/json" \
+  -d '{
+    "file_path": "/path/to/document.xlsx",
+    "business_id": "biz_123",
+    "business_username": "company_name",
+    "file_name": "market_prices.xlsx",
+    "file_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "description": "Market price reference"
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "document_id": "doc_biz_123_1640995200",
+  "content_length": 15432,
+  "metadata": {
+    "business_id": "biz_123",
+    "file_name": "market_prices.xlsx",
+    "extraction_success": true,
+    "content_length": 15432
+  },
+  "message": "Tài liệu đã được xử lý và lưu thành công"
+}
+```
+
+#### Đồng bộ từ Spring Service
+
+```bash
+curl -X POST http://14.183.200.75:5000/api/analytics/sync-from-spring \
+  -H "Content-Type: application/json" \
+  -d '{
+    "spring_service_url": "http://localhost:8089/api/v1",
+    "auth_token": "your_jwt_token",
+    "clear_existing": false
+  }'
+```
+
+**Tự động xử lý:**
+- ✅ Phát hiện documents trong `businessDocuments`
+- ✅ Resolve đường dẫn file từ Spring Service
+- ✅ Extract text content từ tất cả files
+- ✅ Lưu vào `business_documents` collection
+- ✅ Cập nhật metadata và processing status
+
+#### AI Search trong documents
+
+```bash
+curl -X POST http://14.183.200.75:5000/api/analytics/analyze \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "giá thị trường iPhone",
+    "data_types": ["business"],
+    "model": "gemini-2.5-flash"
+  }'
+```
+
+**AI sẽ tự động:**
+- 🔍 Search trong `business_documents` collection
+- 📊 Analyze pricing data từ Excel files
+- 💡 Generate insights về market prices
+- 📈 Compare với business data khác
+
+### 📊 ChromaDB Collections
+
+| Collection | Mục đích | Data Types |
+|------------|----------|------------|
+| `business_data` | Products, categories, business metrics | JSON objects |
+| `orders_analytics` | Order data và patterns | JSON objects |
+| `trends` | Business trends và insights | JSON objects |
+| `business_documents` | **Documents đã xử lý** | **Extracted text + metadata** |
+| `revenue_overview` | Revenue statistics | JSON objects |
+
+### 🔧 Cấu hình Document Processing
+
+#### Dependencies cần thiết
+```txt
+PyPDF2==3.0.1          # PDF processing
+python-docx==1.1.0     # Word documents
+pandas==2.1.4          # Excel/CSV processing
+openpyxl==3.1.2        # Excel file support
+```
+
+#### File Path Resolution
+- **Spring Service**: Lưu đường dẫn tương đối `uploads/documents/filename.xlsx`
+- **Python Service**: Tự động resolve thành đường dẫn tuyệt đối
+- **Fallback**: Tìm trong thư mục hiện tại nếu không tìm thấy
+
+#### Error Handling
+- **File not found**: Fallback với metadata-only content
+- **Unsupported format**: Skip với error logging
+- **Extraction failed**: Lưu error message trong content
+- **Processing status**: Tracked trong metadata
+
+### 📈 Monitoring & Stats
+
+```bash
+# Xem thống kê ChromaDB
+curl http://14.183.200.75:5000/api/analytics/stats
+
+# Response
+{
+  "business_documents": {
+    "count": 5,
+    "total_content_length": 125000,
+    "extraction_success_rate": 0.95
+  },
+  "business_data": {
+    "count": 156,
+    "collections": ["products", "categories", "users"]
+  }
+}
+```
+
+**📖 Chi tiết Document Processing:** [`README_DOCUMENT_PROCESSING.md`](./README_DOCUMENT_PROCESSING.md)
+
 ---
 
 ## 📖 Hướng dẫn sử dụng
@@ -161,15 +322,23 @@ curl -X POST http://14.183.200.75:5000/gemini/chat/rag \
 ---
 
 ## 🔧 Cấu hình
+# AI API Keys (Shared between customer chat and analytics)
+GOOGLE_API_KEY=
+GROQ_API_KEY=
 
-### File `.env`
-```env
-FLASK_APP=app.py
-FLASK_ENV=development
-PORT=5000
-GOOGLE_API_KEY=your_api_key_here
-```
+# Server Configuration
+SERVER_HOST=0.0.0.0
+SERVER_PORT=5000
+SERVER_IP=14.183.200.75
 
+# Spring Service Configuration
+SPRING_SERVICE_HOST=14.183.200.75
+SPRING_SERVICE_PORT=8089
+SPRING_SERVICE_URL=http://14.183.200.75:8089/api/v1
+
+# ChromaDB Paths (Separated databases)
+CHROMA_CUSTOMER_PATH=./chroma_customer
+CHROMA_ANALYTICS_PATH=./chroma_analytics
 ### Cấu trúc thư mục
 ```
 backend/Pythonservice/
@@ -186,6 +355,7 @@ backend/Pythonservice/
 ├── start.sh           # Start script
 ├── test_stream.html   # Test streaming chat
 ├── README.md          # Main documentation
+├── README_DOCUMENT_PROCESSING.md  # Document processing guide
 └── README_RAG.md      # RAG system detailed guide
 ```
 

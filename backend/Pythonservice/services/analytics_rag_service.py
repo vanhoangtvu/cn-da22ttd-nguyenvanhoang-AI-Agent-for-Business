@@ -23,6 +23,7 @@ class AnalyticsRAGService:
         self.business_data_collection_name = "business_data"
         self.orders_analytics_collection_name = "orders_analytics"
         self.trends_collection_name = "trends"
+        self.business_documents_collection_name = "business_documents"
         self._init_collections()
         print(f"[Analytics RAG] Initialized with storage at: {chroma_path}")
     
@@ -43,7 +44,12 @@ class AnalyticsRAGService:
             metadata={"description": "Business trends and insights"}
         )
         
-        print(f"[Analytics RAG] Collections initialized: {self.business_data_collection_name}, {self.orders_analytics_collection_name}, {self.trends_collection_name}")
+        self.business_documents_collection = self.chroma_client.get_or_create_collection(
+            name=self.business_documents_collection_name,
+            metadata={"description": "Business documents for AI search"}
+        )
+        
+        print(f"[Analytics RAG] Collections initialized: {self.business_data_collection_name}, {self.orders_analytics_collection_name}, {self.trends_collection_name}, {self.business_documents_collection_name}")
     
     def store_business_data(
         self,
@@ -513,7 +519,7 @@ Daily Revenue: {overview.get('daily_revenue', 0)} VND
             data_items = []
             
             # Search in actual collections with data
-            search_collections = ['products', 'orders', 'categories', 'business', 'users']
+            search_collections = ['products', 'orders', 'categories', 'business', 'users', 'business_documents']
             
             for collection_name in search_collections:
                 try:
@@ -713,3 +719,96 @@ Daily Revenue: {overview.get('daily_revenue', 0)} VND
                 "storage_path": "./chroma_analytics",
                 "error": str(e)
             }
+
+    def store_business_document(
+        self,
+        document_id: str,
+        document_content: str,
+        metadata: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Store business document in ChromaDB for AI search
+        
+        Args:
+            document_id: Unique document identifier
+            document_content: Full text content of the document
+            metadata: Document metadata
+            
+        Returns:
+            Dict containing storage result
+        """
+        try:
+            # Store in business documents collection
+            self.business_documents_collection.add(
+                documents=[document_content],
+                metadatas=[metadata],
+                ids=[document_id]
+            )
+            
+            print(f"[Analytics RAG] Stored business document: {document_id}")
+            
+            return {
+                "success": True,
+                "document_id": document_id,
+                "collection": self.business_documents_collection_name,
+                "message": "Document stored successfully"
+            }
+            
+        except Exception as e:
+            print(f"[Analytics RAG] Error storing business document {document_id}: {e}")
+            return {
+                "success": False,
+                "document_id": document_id,
+                "error": str(e),
+                "message": "Failed to store document"
+            }
+
+    def search_business_documents(
+        self,
+        query: str,
+        business_id: Optional[str] = None,
+        limit: int = 5
+    ) -> List[Dict[str, Any]]:
+        """
+        Search business documents using semantic search
+        
+        Args:
+            query: Search query
+            business_id: Optional business ID filter
+            limit: Maximum results to return
+            
+        Returns:
+            List of matching documents with metadata
+        """
+        try:
+            # Build search filter if business_id provided
+            search_filter = None
+            if business_id:
+                search_filter = {"business_id": business_id}
+            
+            results = self.business_documents_collection.query(
+                query_texts=[query],
+                n_results=limit,
+                where=search_filter
+            )
+            
+            # Format results
+            documents = []
+            if results['documents'] and len(results['documents']) > 0:
+                for i, doc in enumerate(results['documents'][0]):
+                    metadata = results['metadatas'][0][i] if results['metadatas'] else {}
+                    distance = results['distances'][0][i] if results['distances'] else None
+                    
+                    documents.append({
+                        "document_id": results['ids'][0][i],
+                        "content": doc,
+                        "metadata": metadata,
+                        "similarity_score": 1 - distance if distance else None
+                    })
+            
+            print(f"[Analytics RAG] Found {len(documents)} business documents for query: {query}")
+            return documents
+            
+        except Exception as e:
+            print(f"[Analytics RAG] Error searching business documents: {e}")
+            return []

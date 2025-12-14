@@ -18,7 +18,7 @@ from services.analytics_rag_service import AnalyticsRAGService
 # Import routers
 from routes.health import router as health_router
 from routes.analytics import router as analytics_router, set_analytics_rag_service
-from routes.business_analytics import set_chroma_client, router as business_analytics_router
+from routes.business_analytics import set_chroma_client, router as business_analytics_router, set_analytics_rag_service
 from routes.data_sync import router as data_sync_router
 
 # Initialize FastAPI app
@@ -47,6 +47,7 @@ print(f"[AI Service] Initialized with {len(ai_service.get_available_models())} m
 analytics_chroma_path = os.getenv('CHROMA_ANALYTICS_PATH', './chroma_analytics')
 analytics_rag_service = AnalyticsRAGService(chroma_path=analytics_chroma_path)
 set_analytics_rag_service(analytics_rag_service)
+print(f"[Analytics RAG] Service initialized for all routes")
 print(f"[Analytics RAG] Initialized at {analytics_chroma_path}")
 
 # Initialize ChromaDB client for business analytics (shared with analytics_rag_service)
