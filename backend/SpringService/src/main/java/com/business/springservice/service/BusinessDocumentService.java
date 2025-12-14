@@ -41,10 +41,10 @@ public class BusinessDocumentService {
             throw new RuntimeException("File is empty");
         }
         
-        // Validate file type (PDF, DOC, DOCX, JPG, PNG)
+        // Validate file type (PDF, DOC, DOCX, XLS, XLSX, CSV, JPG, PNG)
         String contentType = file.getContentType();
         if (contentType == null || !isValidFileType(contentType)) {
-            throw new RuntimeException("Invalid file type. Only PDF, DOC, DOCX, JPG, PNG are allowed");
+            throw new RuntimeException("Invalid file type. Only PDF, DOC, DOCX, XLS, XLSX, CSV, JPG, PNG are allowed");
         }
         
         // Validate file size (max 10MB)
@@ -128,6 +128,9 @@ public class BusinessDocumentService {
         return contentType.equals("application/pdf") ||
                contentType.equals("application/msword") ||
                contentType.equals("application/vnd.openxmlformats-officedocument.wordprocessingml.document") ||
+               contentType.equals("application/vnd.ms-excel") ||
+               contentType.equals("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet") ||
+               contentType.equals("text/csv") ||
                contentType.equals("image/jpeg") ||
                contentType.equals("image/jpg") ||
                contentType.equals("image/png");

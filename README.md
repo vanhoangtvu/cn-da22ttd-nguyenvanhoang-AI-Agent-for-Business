@@ -52,7 +52,7 @@
 ✅ **Kiến trúc đa service**: Frontend (Next.js) – Backend (Spring Boot) – AI Service (FastAPI)  
 ✅ **RAG-Powered**: Kết hợp tìm kiếm vector với Gemini AI  
 ✅ **Real-time Communication**: Hỗ trợ real-time chat (WebSocket hoặc long-polling tuỳ cấu hình)  
-✅ **Đa định dạng**: Xử lý PDF, DOC/DOCX, TXT, Excel  
+✅ **Đa định dạng**: Xử lý PDF, DOC/DOCX, TXT, Excel, CSV  
 ✅ **Scalable & Secure**: JWT authentication, RBAC, Redis caching  
 
 ---

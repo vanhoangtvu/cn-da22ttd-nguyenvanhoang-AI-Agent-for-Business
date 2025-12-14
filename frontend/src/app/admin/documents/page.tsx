@@ -69,13 +69,16 @@ export default function DocumentsPage() {
       'application/pdf',
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'text/csv',
       'image/jpeg',
       'image/jpg',
       'image/png'
     ];
 
     if (!allowedTypes.includes(file.type)) {
-      alert('Chỉ hỗ trợ file PDF, DOC, DOCX, JPG, PNG');
+      alert('Chỉ hỗ trợ file PDF, DOC, DOCX, XLS, XLSX, CSV, JPG, PNG');
       return;
     }
 
@@ -383,7 +386,7 @@ export default function DocumentsPage() {
                     type="file"
                     id="file-upload"
                     onChange={handleFileSelect}
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png"
                     className="hidden"
                   />
                   <label htmlFor="file-upload" className="cursor-pointer">
@@ -396,7 +399,7 @@ export default function DocumentsPage() {
                       {selectedFile ? selectedFile.name : 'Nhấp để chọn file hoặc kéo thả vào đây'}
                     </p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      PDF, DOC, DOCX, JPG, PNG (tối đa 10MB)
+                      PDF, DOC, DOCX, XLS, XLSX, CSV, JPG, PNG (tối đa 10MB)
                     </p>
                   </label>
                 </div>

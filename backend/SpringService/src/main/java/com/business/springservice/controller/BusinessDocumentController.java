@@ -28,7 +28,7 @@ public class BusinessDocumentController {
     private final BusinessDocumentService documentService;
     
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Operation(summary = "Upload business document", description = "Upload business document (PDF, DOC, DOCX, JPG, PNG). Max size 10MB.")
+    @Operation(summary = "Upload business document", description = "Upload business document (PDF, DOC, DOCX, XLS, XLSX, CSV, JPG, PNG). Max size 10MB.")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "201", description = "Document uploaded successfully"),
         @ApiResponse(responseCode = "400", description = "Invalid file type or size"),

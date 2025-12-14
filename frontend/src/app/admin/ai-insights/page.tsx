@@ -125,8 +125,55 @@ export default function AIInsightsPage() {
       console.log('[Effect] chromaStats.total_documents:', chromaStats.total_documents);
       const needSync = chromaStats.total_documents === 0;
       console.log('[Effect] needSync:', needSync);
+      
+      // If ChromaDB has data but systemData is not loaded, load it for display
+      if (chromaHasData() && !systemData) {
+        console.log('[Effect] ChromaDB has data but systemData not loaded - loading systemData for display');
+        loadSystemDataForDisplay();
+      }
     }
   }, [chromaStats]);
+
+  const loadSystemDataForDisplay = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        console.error('No auth token found');
+        return;
+      }
+
+      console.log('[LoadSystemDataForDisplay] Fetching system data from Spring Service...');
+      const springResponse = await fetch(`${API_BASE_URL}/admin/analytics/system-data`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!springResponse.ok) {
+        if (springResponse.status === 401) {
+          console.error('Unauthorized - Token invalid or expired');
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('userData');
+          router.push('/login');
+          return;
+        } else {
+          console.error('Failed to fetch system data for display:', springResponse.status);
+          return;
+        }
+      }
+
+      const data = await springResponse.json();
+      console.log(`[LoadSystemDataForDisplay] Received data with ${data.products?.length || 0} products`);
+      
+      // Set system data for display only
+      setSystemData(data);
+      setStatistics(data);
+      setInsights('');
+    } catch (error) {
+      console.error('[LoadSystemDataForDisplay] Error loading system data:', error);
+    }
+  };
 
   const loadSystemData = async () => {
     setSyncLoading(true);
@@ -203,9 +250,21 @@ export default function AIInsightsPage() {
         console.log('[Sync] loadChromaStats completed, chromaStats should be updated');
       } else {
         console.error('[Sync] Step 2 failed:', syncResponse.status);
-        const errorText = await syncResponse.text();
-        console.error('[Sync] Error details:', errorText);
-        alert('Cảnh báo: Dữ liệu đã được tải nhưng không thể đồng bộ vào ChromaDB. Vui lòng thử lại.');
+        let errorMessage = 'Cảnh báo: Dữ liệu đã được tải nhưng không thể đồng bộ vào ChromaDB. Vui lòng thử lại.';
+        
+        try {
+          const errorData = await syncResponse.json();
+          if (errorData.detail) {
+            errorMessage += `\n\nChi tiết lỗi: ${errorData.detail}`;
+          }
+        } catch (e) {
+          const errorText = await syncResponse.text();
+          if (errorText) {
+            errorMessage += `\n\nChi tiết lỗi: ${errorText}`;
+          }
+        }
+        
+        alert(errorMessage);
       }
 
     } catch (error) {
@@ -258,7 +317,7 @@ export default function AIInsightsPage() {
   const chromaHasData = () => {
     console.log('[chromaHasData] chromaStats:', chromaStats);
     if (!chromaStats) {
-      console.log('[chromaHasData] chromaStats is null/undefined - returning false');
+      console.log('[chromaHasData] chromaStats is null/undefined - returning false (still loading)');
       return false;
     }
     console.log('[chromaHasData] total_documents:', chromaStats.total_documents, 'type:', typeof chromaStats.total_documents);
@@ -281,47 +340,6 @@ export default function AIInsightsPage() {
     return result;
   };
 
-  // Debug function to check ChromaDB data
-  const debugChromaDB = async () => {
-    console.log('=== CHROMADB DEBUG CHECK ===');
-    
-    // Check chromaStats state
-    console.log('[DEBUG] === chromaStats state ===');
-    console.log('[DEBUG] chromaStats:', chromaStats);
-    if (chromaStats) {
-      console.log('[DEBUG] total_documents:', chromaStats.total_documents, 'type:', typeof chromaStats.total_documents);
-      console.log('[DEBUG] collections:', Object.keys(chromaStats.collections_stats || {}));
-      Object.entries(chromaStats.collections_stats || {}).forEach(([name, col]: any) => {
-        console.log(`[DEBUG]   ${name}: ${col.documents_count} docs`);
-      });
-      
-      // Test the logic
-      const testHasData = chromaStats.total_documents > 0;
-      const testNeedsSync = !testHasData;
-      console.log('[DEBUG] testHasData:', testHasData);
-      console.log('[DEBUG] testNeedsSync:', testNeedsSync);
-    }
-    
-    // Check server
-    try {
-      console.log('[DEBUG] === Fetching FRESH data from server ===');
-      const response = await fetch(`${AI_SERVICE_URL}/api/business/chroma-stats`);
-      if (response.ok) {
-        const data = await response.json();
-        console.log('[DEBUG] Server stats:', data);
-        console.log('[DEBUG] Server total_documents:', data.total_documents, 'type:', typeof data.total_documents);
-        console.log('[DEBUG] Server chromaStats exact:', JSON.stringify(data, null, 2));
-        Object.entries(data.collections_stats || {}).forEach(([name, col]: any) => {
-          console.log(`[DEBUG]   ${name}: ${col.documents_count} docs`);
-        });
-      } else {
-        console.error('[DEBUG] Server returned:', response.status);
-      }
-    } catch (e) {
-      console.error('[DEBUG] Error fetching from server:', e);
-    }
-  };
-
   const loadChromaData = async () => {
     try {
       setChromaLoading(true);
@@ -337,36 +355,6 @@ export default function AIInsightsPage() {
       console.error('Error loading ChromaDB data:', error);
     } finally {
       setChromaLoading(false);
-    }
-  };
-
-  // Test function to debug sync logic
-  const testSyncLogic = () => {
-    console.log('=== TEST SYNC LOGIC ===');
-    console.log('[TEST] chromaStats:', chromaStats);
-    
-    if (!chromaStats) {
-      console.log('[TEST] chromaStats is null - need sync');
-      return;
-    }
-    
-    console.log('[TEST] chromaStats.total_documents:', chromaStats.total_documents);
-    console.log('[TEST] Type:', typeof chromaStats.total_documents);
-    
-    const hasData = chromaHasData();
-    console.log('[TEST] chromaHasData() returned:', hasData);
-    
-    const needSync = needsSync();
-    console.log('[TEST] needsSync() returned:', needSync);
-    
-    if (hasData && needSync) {
-      console.error('[TEST] ❌ ERROR: hasData=true but needSync=true (logic bug!)');
-    } else if (hasData && !needSync) {
-      console.log('[TEST] ✅ OK: hasData=true, needSync=false (sync button hidden)');
-    } else if (!hasData && needSync) {
-      console.log('[TEST] ✅ OK: hasData=false, needSync=true (sync button shown)');
-    } else {
-      console.error('[TEST] ❌ ERROR: hasData=false, needSync=false (unexpected state)');
     }
   };
 
@@ -416,7 +404,8 @@ export default function AIInsightsPage() {
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Control Panel */}
-          <div className="lg:col-span-1 space-y-6">
+          <div className="lg:col-span-1 max-h-[calc(100vh-200px)] overflow-y-auto">
+            <div className="space-y-6">
             {/* Analysis Type */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Loại phân tích</h3>
@@ -540,7 +529,7 @@ export default function AIInsightsPage() {
             {/* Generate Button */}
             <button
               onClick={generateInsights}
-              disabled={loading || syncLoading || !systemData}
+              disabled={loading || syncLoading || !chromaHasData()}
               className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-bold rounded-lg shadow-lg transition-all transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed"
             >
               {loading ? (
@@ -548,12 +537,12 @@ export default function AIInsightsPage() {
                   <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
                   <span>Đang phân tích...</span>
                 </div>
-              ) : !systemData ? (
+              ) : !chromaHasData() ? (
                 <div className="flex items-center justify-center gap-2">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                   </svg>
-                  <span>Cần đồng bộ dữ liệu trước</span>
+                  <span>{chromaStats ? 'ChromaDB trống - Cần đồng bộ' : 'Đang tải dữ liệu...'}</span>
                 </div>
               ) : (
                 <div className="flex items-center justify-center gap-2">
@@ -619,72 +608,24 @@ export default function AIInsightsPage() {
                   ChromaDB Analytics Data
                 </h3>
                 <div className="flex gap-2">
-                  {/* Show sync button only if ChromaDB is empty */}
-                  {console.log('[UI] Rendering - needsSync():', needsSync(), 'chromaStats:', chromaStats)}
-                  {needsSync() && (
-                    <button
-                      key={`sync-button-${chromaStats?.total_documents || 0}`}
-                      onClick={loadSystemData}
-                      disabled={syncLoading}
-                      className="px-3 py-1 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 text-sm flex items-center gap-2"
-                      title="ChromaDB trống - Cần đồng bộ dữ liệu"
-                    >
-                      {syncLoading ? (
-                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                      ) : (
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                      )}
-                      Đồng bộ ngay
-                    </button>
-                  )}
-                  
-                  {/* Show stats button always */}
+                  {/* Always show sync button */}
                   <button
-                    onClick={loadChromaStats}
-                    disabled={chromaLoading}
-                    className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 text-sm flex items-center gap-2"
-                    title="Xem thống kê ChromaDB"
+                    onClick={loadSystemData}
+                    disabled={syncLoading}
+                    className="px-3 py-1 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 text-sm flex items-center gap-2"
+                    title="Đồng bộ dữ liệu từ Spring Service vào ChromaDB"
                   >
-                    {chromaLoading ? (
+                    {syncLoading ? (
                       <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
                     ) : (
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                       </svg>
                     )}
-                    Thống kê
-                  </button>
-                  
-                  {/* Debug button */}
-                  <button
-                    onClick={debugChromaDB}
-                    className="px-3 py-1 bg-purple-500 text-white rounded-lg hover:bg-purple-600 text-sm flex items-center gap-2"
-                    title="Debug ChromaDB (Xem console)"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4m0 0l-4 4m4-4H3" />
-                    </svg>
-                    Debug
-                  </button>
-                  
-                  {/* Test logic button */}
-                  <button
-                    onClick={testSyncLogic}
-                    className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm flex items-center gap-2"
-                    title="Test sync logic (Xem console)"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Test
+                    Đồng bộ dữ liệu
                   </button>
                 </div>
               </div>
@@ -807,9 +748,10 @@ export default function AIInsightsPage() {
               </div>
             )}
           </div>
+          </div>
 
           {/* Insights Display */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-2 max-h-[calc(100vh-200px)] overflow-y-auto">
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 min-h-[600px] relative">
               {syncLoading && (
                 <div className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 flex items-center justify-center z-10 rounded-xl">

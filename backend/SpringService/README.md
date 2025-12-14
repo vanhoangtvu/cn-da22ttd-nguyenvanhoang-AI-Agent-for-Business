@@ -368,7 +368,7 @@ Hệ thống có 3 loại role:
 ### 📄 Business Documents (Business)
 
 #### POST `/admin/business-documents`
-**Mô tả:** Upload tài liệu doanh nghiệp (PDF, DOC, DOCX, JPG, PNG - Max 10MB)  
+**Mô tả:** Upload tài liệu doanh nghiệp (PDF, DOC, DOCX, XLS, XLSX, CSV, JPG, PNG - Max 10MB)  
 **Role:** ADMIN, BUSINESS  
 **Headers:** 
 - Authorization: Bearer {token}
