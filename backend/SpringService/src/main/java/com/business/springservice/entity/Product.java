@@ -46,6 +46,9 @@ public class Product {
     @JoinColumn(name = "seller_id", nullable = false)
     private User seller;
     
+    @Column(name = "details", columnDefinition = "JSON")
+    private String details;
+    
     @Column(name = "created_at")
     private LocalDateTime createdAt;
     

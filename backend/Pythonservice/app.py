@@ -18,7 +18,7 @@ from services.analytics_rag_service import AnalyticsRAGService
 # Import routers
 from routes.health import router as health_router
 from routes.analytics import router as analytics_router, set_analytics_rag_service
-from routes.business_analytics import set_chroma_client
+from routes.business_analytics import set_chroma_client, router as business_analytics_router
 from routes.data_sync import router as data_sync_router
 
 # Initialize FastAPI app
@@ -57,6 +57,7 @@ print(f"[ChromaDB] Initialized shared client at {analytics_chroma_path}")
 # Register routers
 app.include_router(health_router, tags=["Health"])
 app.include_router(analytics_router, prefix="/api/analytics", tags=["Business Analytics"])
+app.include_router(business_analytics_router, prefix="/api/business", tags=["Business Analytics Extended"])
 app.include_router(data_sync_router, tags=["Data Synchronization"])
 
 @app.get("/")
@@ -68,6 +69,7 @@ async def root():
         "architecture": "business_analytics",
         "services": {
             "analytics": "/api/analytics/*",
+            "business_extended": "/api/business/*",
             "data_sync": "/admin/analytics/*"
         },
         "docs": "/docs"
@@ -84,6 +86,7 @@ if __name__ == "__main__":
     print(f"📍 Server: http://{host}:{port}")
     print(f"📚 Docs: http://{host}:{port}/docs")
     print(f"📊 Analytics: http://{host}:{port}/api/analytics/*")
+    print(f"🏢 Business Extended: http://{host}:{port}/api/business/*")
     print(f"🔄 Data Sync: http://{host}:{port}/admin/analytics/*")
     print(f"{'='*60}\n")
     

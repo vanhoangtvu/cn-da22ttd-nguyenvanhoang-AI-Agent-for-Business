@@ -50,6 +50,13 @@ public class SystemAnalyticsDataDTO {
     private Long totalDocuments;
     private List<BusinessDocumentSummaryDTO> businessDocuments;
     
+    // Discount analytics
+    private Long totalDiscounts;
+    private Long activeDiscounts;
+    private Long totalDiscountUsage;
+    private BigDecimal totalDiscountSavings;
+    private List<DiscountAnalyticsDTO> discounts;
+    
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -79,6 +86,7 @@ public class SystemAnalyticsDataDTO {
         private Integer totalSold;
         private BigDecimal totalRevenue;
         private String imageUrls;
+        private String details; // JSON string containing detailed product specifications
     }
     
     @Data
@@ -168,5 +176,32 @@ public class SystemAnalyticsDataDTO {
         private Long fileSize;
         private String description;
         private String uploadedAt;
+    }
+    
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class DiscountAnalyticsDTO {
+        private Long id;
+        private String code;
+        private String name;
+        private String description;
+        private String discountType; // PERCENTAGE, FIXED_AMOUNT, FREE_SHIPPING
+        private BigDecimal discountValue;
+        private BigDecimal minOrderValue;
+        private BigDecimal maxDiscountAmount;
+        private Integer usageLimit;
+        private Integer usedCount;
+        private String status;
+        private String startDate;
+        private String endDate;
+        private String createdByUsername;
+        private Long createdById;
+        private Boolean isValid;
+        private Boolean isExpired;
+        private Boolean usageLimitReached;
+        private Double usagePercentage;
+        private BigDecimal totalSavings;
+        private String createdAt;
     }
 }

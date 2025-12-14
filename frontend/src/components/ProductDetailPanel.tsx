@@ -9,6 +9,42 @@ interface ProductDetailPanelProps {
   onClose: () => void;
 }
 
+interface ProductDetails {
+  rating?: number;
+  reviews?: number;
+  discount?: number;
+  originalPrice?: number;
+  sku?: string;
+  brand?: string;
+  model?: string;
+  warranty?: string;
+  weight?: number | string;
+  dimensions?: string;
+  material?: string;
+  color?: string;
+  storage?: string;
+  type?: string;
+  specifications?: Record<string, string>;
+  deliveryTime?: string;
+  returnPolicy?: string;
+  isFeatured?: boolean;
+  features?: string[];
+  connectivity?: string[];
+  accessories?: string[];
+}
+
+// Helper function to parse product details
+function parseProductDetails(detailsJson?: string): ProductDetails {
+  if (!detailsJson) return {};
+  
+  try {
+    return JSON.parse(detailsJson) as ProductDetails;
+  } catch (error) {
+    console.error('Error parsing product details:', error);
+    return {};
+  }
+}
+
 interface ProductDetail {
   id: number;
   name: string;
@@ -21,6 +57,7 @@ interface ProductDetail {
   categoryId: number;
   sellerUsername?: string;
   sellerId?: number;
+  details?: string;  // JSON string for product details
   createdAt?: string;
   updatedAt?: string;
 }
@@ -122,6 +159,12 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
       </div>
     );
   }
+
+  // Parse product details from JSON
+  const details = parseProductDetails(product.details);
+  const discountedPrice = details.discount 
+    ? Math.round(product.price * (1 - details.discount / 100))
+    : product.price;
 
   return (
     <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 dark:from-gray-900 dark:via-slate-900/50 dark:to-gray-900 relative overflow-hidden">
@@ -318,13 +361,54 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
 
         {/* Product Info - Modern Cards */}
         <div className="space-y-6">
-          {/* Price - Premium Design */}
+          {/* Price - Premium Design with Discount Support */}
           <div className="text-center space-y-2">
             <div className="inline-flex items-baseline gap-3 px-8 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-3xl border border-blue-100 dark:border-blue-800/50">
-              <span className="text-5xl md:text-6xl font-black text-blue-600 dark:text-blue-400">
-                {formatPrice(product.price)}
-              </span>
+              {details.discount && details.discount > 0 && details.originalPrice ? (
+                <div className="flex flex-col items-center gap-2">
+                  {/* Discount badge */}
+                  <div className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-bold">
+                    -{details.discount}% OFF
+                  </div>
+                  <div className="flex items-baseline gap-3">
+                    <span className="text-5xl md:text-6xl font-black text-blue-600 dark:text-blue-400">
+                      {formatPrice(discountedPrice)}
+                    </span>
+                    <span className="text-xl text-gray-400 line-through">
+                      {formatPrice(details.originalPrice)}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <span className="text-5xl md:text-6xl font-black text-blue-600 dark:text-blue-400">
+                  {formatPrice(product.price)}
+                </span>
+              )}
             </div>
+            
+            {/* Rating if available */}
+            {details.rating && (
+              <div className="flex items-center justify-center gap-2">
+                <div className="flex gap-1">
+                  {[...Array(5)].map((_, i) => (
+                    <svg
+                      key={i}
+                      className={`w-5 h-5 ${
+                        i < Math.round(details.rating!)
+                          ? 'text-yellow-400 fill-current'
+                          : 'text-gray-300 fill-current'
+                      }`}
+                      viewBox="0 0 20 20"
+                    >
+                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                    </svg>
+                  ))}
+                </div>
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  {details.rating.toFixed(1)} ({details.reviews || 0} đánh giá)
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Status Cards - Modern Grid */}
@@ -419,6 +503,214 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
               </div>
             </div>
           )}
+
+          {/* Product Specifications */}
+          {details.specifications && Object.keys(details.specifications).length > 0 && (
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl p-8 shadow-xl border border-white/50 dark:border-gray-700/50">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center shadow-lg">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold text-gray-800 dark:text-white">Thông số kỹ thuật</h3>
+              </div>
+              <div className="space-y-3">
+                {Object.entries(details.specifications).map(([key, value]) => (
+                  <div
+                    key={key}
+                    className="flex justify-between items-start py-3 border-b border-gray-100 dark:border-gray-700/50 last:border-b-0"
+                  >
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      {key}:
+                    </span>
+                    <span className="text-sm text-gray-900 dark:text-white font-semibold max-w-[60%] text-right">
+                      {value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Product Details - Enhanced Layout */}
+          <div className="space-y-6">
+            {/* Basic Info Grid */}
+            {(details.brand || details.model || details.color || details.warranty) && (
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl p-8 shadow-xl border border-white/50 dark:border-gray-700/50">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-800 dark:text-white">Thông tin cơ bản</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  {details.brand && (
+                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700/50 dark:to-gray-800/50 p-4 rounded-2xl border border-gray-200 dark:border-gray-600/50">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Thương hiệu</p>
+                      <p className="font-bold text-gray-900 dark:text-white">{details.brand}</p>
+                    </div>
+                  )}
+                  {details.model && (
+                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700/50 dark:to-gray-800/50 p-4 rounded-2xl border border-gray-200 dark:border-gray-600/50">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Model</p>
+                      <p className="font-bold text-gray-900 dark:text-white">{details.model}</p>
+                    </div>
+                  )}
+                  {details.color && (
+                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700/50 dark:to-gray-800/50 p-4 rounded-2xl border border-gray-200 dark:border-gray-600/50">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Màu sắc</p>
+                      <p className="font-bold text-gray-900 dark:text-white">{details.color}</p>
+                    </div>
+                  )}
+                  {details.warranty && (
+                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700/50 dark:to-gray-800/50 p-4 rounded-2xl border border-gray-200 dark:border-gray-600/50">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Bảo hành</p>
+                      <p className="font-bold text-gray-900 dark:text-white">{details.warranty}</p>
+                    </div>
+                  )}
+                  {details.storage && (
+                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700/50 dark:to-gray-800/50 p-4 rounded-2xl border border-gray-200 dark:border-gray-600/50">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Dung lượng</p>
+                      <p className="font-bold text-gray-900 dark:text-white">{details.storage}</p>
+                    </div>
+                  )}
+                  {details.type && (
+                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700/50 dark:to-gray-800/50 p-4 rounded-2xl border border-gray-200 dark:border-gray-600/50">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Loại</p>
+                      <p className="font-bold text-gray-900 dark:text-white">{details.type}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Features */}
+            {details.features && details.features.length > 0 && (
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl p-8 shadow-xl border border-white/50 dark:border-gray-700/50">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center shadow-lg">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-800 dark:text-white">Tính năng nổi bật</h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {details.features.map((feature, index) => (
+                    <span key={index} className="px-3 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 rounded-full text-sm font-medium">
+                      {feature}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Connectivity */}
+            {details.connectivity && details.connectivity.length > 0 && (
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl p-8 shadow-xl border border-white/50 dark:border-gray-700/50">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-800 dark:text-white">Kết nối</h3>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {details.connectivity.map((conn, index) => (
+                    <span key={index} className="px-3 py-1 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 rounded-full text-sm font-medium">
+                      {conn}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Accessories */}
+            {details.accessories && details.accessories.length > 0 && (
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl p-8 shadow-xl border border-white/50 dark:border-gray-700/50">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl flex items-center justify-center shadow-lg">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-800 dark:text-white">Phụ kiện đi kèm</h3>
+                </div>
+                <ul className="space-y-2">
+                  {details.accessories.map((accessory, index) => (
+                    <li key={index} className="flex items-center gap-3">
+                      <div className="w-2 h-2 bg-orange-500 rounded-full flex-shrink-0"></div>
+                      <span className="text-gray-700 dark:text-gray-300">{accessory}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Dimensions & Weight */}
+            {(details.dimensions || details.weight) && (
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl p-8 shadow-xl border border-white/50 dark:border-gray-700/50">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-12 h-12 bg-gradient-to-br from-gray-500 to-gray-700 rounded-2xl flex items-center justify-center shadow-lg">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4a1 1 0 011-1h4m12 0v4m0 8v4a1 1 0 01-1 1h-4M4 16v4a1 1 0 001 1h4m-4-8h16" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-800 dark:text-white">Kích thước & Trọng lượng</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {details.dimensions && (
+                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700/50 dark:to-gray-800/50 p-4 rounded-2xl border border-gray-200 dark:border-gray-600/50">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Kích thước</p>
+                      <p className="font-bold text-gray-900 dark:text-white">{details.dimensions}</p>
+                    </div>
+                  )}
+                  {details.weight && (
+                    <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700/50 dark:to-gray-800/50 p-4 rounded-2xl border border-gray-200 dark:border-gray-600/50">
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Trọng lượng</p>
+                      <p className="font-bold text-gray-900 dark:text-white">{details.weight}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Delivery & Return Policy */}
+          <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-900/20 dark:via-indigo-900/20 dark:to-purple-900/20 rounded-3xl p-6 border border-blue-100/50 dark:border-blue-800/30 shadow-lg">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-500 rounded-2xl flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">Giao hàng</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {details.deliveryTime || 'Giao trong 2-3 ngày'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-green-500 rounded-2xl flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">Đổi trả</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {details.returnPolicy || 'Đổi trả trong 30 ngày'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
 
           {/* Quantity Selector - Modern Minimal */}
           {product.quantity > 0 && (

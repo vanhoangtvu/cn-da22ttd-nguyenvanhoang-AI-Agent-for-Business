@@ -274,7 +274,7 @@ export default function ShopPage() {
                   <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
                   <Briefcase className="w-8 h-8 text-white relative z-10 group-hover:scale-110 transition-transform duration-300" />
                 </div>
-                <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-full animate-pulse"></div>
+                <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-full"></div>
               </div>
               <div>
                 <span className="text-2xl font-black bg-gradient-to-r from-slate-800 via-blue-800 to-indigo-800 dark:from-slate-200 dark:via-blue-200 dark:to-indigo-200 bg-clip-text text-transparent tracking-tight">
@@ -457,7 +457,7 @@ export default function ShopPage() {
 
           {/* Geometric Shapes */}
           <div className="absolute top-20 left-10 w-32 h-32 border border-white/10 rounded-full animate-spin-slow"></div>
-          <div className="absolute bottom-20 right-20 w-24 h-24 bg-gradient-to-br from-cyan-400/10 to-blue-400/10 rounded-lg rotate-45 animate-pulse"></div>
+          <div className="absolute bottom-20 right-20 w-24 h-24 bg-gradient-to-br from-cyan-400/10 to-blue-400/10 rounded-lg rotate-45"></div>
           <div className="absolute top-1/2 left-1/4 w-16 h-16 border-2 border-white/5 rounded-full animate-bounce"></div>
         </div>
 
@@ -466,7 +466,7 @@ export default function ShopPage() {
           <div className="max-w-4xl">
             {/* Badge */}
             <div className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 backdrop-blur-xl rounded-full text-white text-sm font-semibold mb-8 border border-white/20 shadow-2xl">
-              <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+              <div className="w-2 h-2 bg-emerald-400 rounded-full"></div>
               <span>🚀 BizOps Platform</span>
               <Sparkles className="w-4 h-4" />
             </div>
@@ -502,19 +502,55 @@ export default function ShopPage() {
               </button>
             </div>
 
-            {/* Stats */}
-            <div className="flex flex-wrap gap-8 mt-16 animate-slide-up animation-delay-1000">
+            {/* Technology Stack */}
+            <div className="flex flex-wrap gap-6 mt-12 animate-slide-up animation-delay-1000 max-w-2xl mx-auto">
               <div className="text-center">
-                <div className="text-3xl font-bold text-white mb-1">10K+</div>
-                <div className="text-white/70 text-sm">Doanh nghiệp</div>
+                <div className="flex justify-center mb-1">
+                  <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M11.572 0c-.176 0-.31.001-.358.007a19.76 19.76 0 0 1-.364.033C7.443.346 4.25 2.185 2.228 5.012a11.875 11.875 0 0 0-2.119 5.243c-.096.659-.108.854-.108 1.747s.012 1.089.108 1.748c.652 4.506 3.86 8.292 8.209 9.695.779.25 1.6.422 2.534.525.363.04 1.935.04 2.299 0 1.611-.178 2.977-.577 4.323-1.264.207-.106.247-.134.219-.158-.02-.013-.9-1.193-1.955-2.62l-1.919-2.592-2.404-3.558a338.739 338.739 0 0 0-2.422-3.556c-.009-.002-.018 1.579-.023 3.51-.007 3.38-.01 3.515-.052 3.595a.426.426 0 0 1-.206.214c-.075.037-.14.044-.495.044H7.81l-.108-.068a.438.438 0 0 1-.157-.171l-.05-.106.006-4.703.007-4.705.072-.092a.645.645 0 0 1 .174-.143c.096-.047.134-.051.54-.051.478 0 .558.018.682.154.035.038 1.337 1.999 2.895 4.361a10760.433 10760.433 0 0 0 4.735 7.17l1.9 2.879.096-.063a12.317 12.317 0 0 0 2.466-2.163 11.944 11.944 0 0 0 2.824-6.134c.096-.66.108-.854.108-1.748 0-.893-.012-1.088-.108-1.747-.652-4.506-3.859-8.292-8.208-9.695a12.597 12.597 0 0 0-2.499-.523A33.119 33.119 0 0 0 11.573 0zm4.069 7.217c.347 0 .408.005.486.047a.473.473 0 0 1 .237.277c.018.06.023 1.365.018 4.304l-.006 4.218-.744-1.14-.746-1.14v-3.066c0-1.982.01-3.097.023-3.15a.478.478 0 0 1 .233-.296c.096-.05.13-.054.5-.054z"/>
+                  </svg>
+                </div>
+                <div className="text-sm font-semibold text-white mb-0.5">Next.js</div>
+                <div className="text-white/60 text-xs">Frontend</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-white mb-1">500+</div>
-                <div className="text-white/70 text-sm">Giải pháp</div>
+                <div className="flex justify-center mb-1">
+                  <svg className="w-6 h-6 text-green-400" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M20.205 16.392c-2.469 3.289-7.741 2.179-11.122 2.338 0 0-.599.034-1.201.133 0 0 .228-.097.519-.198 2.374-.821 3.496-.986 4.939-1.727 2.71-1.388 5.408-4.413 5.957-7.555-1.032 3.022-4.17 5.623-7.027 6.679-1.955.722-5.492 1.424-5.493 1.424a5.28 5.28 0 0 1-.143-.076c-2.405-1.17-2.475-6.38 1.894-8.059 1.916-.736 3.747-.332 5.818-.825 2.208-.525 4.766-2.18 5.805-4.344 1.165 3.458 2.565 8.866.054 12.21zm.042-13.28a9.212 9.212 0 0 1-1.065 1.89 9.982 9.982 0 0 0-7.167-3.031C6.492 1.971 2 6.463 2 11.985a9.983 9.983 0 0 0 3.205 7.334l.22.194a.856.856 0 1 1 .001.001l.149.132A9.96 9.96 0 0 0 12.015 22c5.278 0 9.613-4.108 9.984-9.292.274-2.539-.476-5.763-1.752-9.596"/>
+                  </svg>
+                </div>
+                <div className="text-sm font-semibold text-white mb-0.5">Spring Boot</div>
+                <div className="text-white/60 text-xs">Backend</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-white mb-1">99.9%</div>
-                <div className="text-white/70 text-sm">Uptime</div>
+                <div className="flex justify-center mb-1">
+                  <svg className="w-6 h-6 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M14.25.18l.9.2.73.26.59.3.45.32.34.34.25.34.16.33.1.3.04.26.02.2-.01.13V8.5l-.05.63-.13.55-.21.46-.26.38-.3.31-.33.25-.35.19-.35.14-.33.1-.3.07-.26.04-.21.02H8.77l-.69.05-.59.14-.5.22-.41.27-.33.32-.27.35-.2.36-.15.37-.1.35-.07.32-.04.27-.02.21v3.06H3.17l-.21-.03-.28-.07-.32-.12-.35-.18-.36-.26-.36-.36-.35-.46-.32-.59-.28-.73-.21-.88-.14-1.05-.05-1.23.06-1.22.16-1.04.24-.87.32-.71.36-.57.4-.44.42-.33.42-.24.4-.16.36-.1.32-.05.24-.01h.16l.06.01h8.16v-.83H6.18l-.01-2.75-.02-.37.05-.34.11-.31.17-.28.25-.26.31-.23.38-.2.44-.18.51-.15.58-.12.64-.1.71-.06.77-.04.84-.02 1.27.05zm-6.3 1.98l-.23.33-.08.41.08.41.23.34.33.22.41.09.41-.09.33-.22.23-.34.08-.41-.08-.41-.23-.33-.33-.22-.41-.09-.41.09zm13.09 3.95l.28.06.32.12.35.18.36.27.36.35.35.47.32.59.28.73.21.88.14 1.04.05 1.23-.06 1.23-.16 1.04-.24.86-.32.71-.36.57-.4.45-.42.33-.42.24-.4.16-.36.09-.32.05-.24.02-.16-.01h-8.22v.82h5.84l.01 2.76.02.36-.05.34-.11.31-.17.29-.25.25-.31.24-.38.2-.44.17-.51.15-.58.13-.64.09-.71.07-.77.04-.84.01-1.27-.04-1.07-.14-.9-.2-.73-.25-.59-.3-.45-.33-.34-.34-.25-.34-.16-.33-.1-.3-.04-.25-.02-.2.01-.13v-5.34l.05-.64.13-.54.21-.46.26-.38.3-.32.33-.24.35-.2.35-.14.33-.1.3-.06.26-.04.21-.02.13-.01h5.84l.69-.05.59-.14.5-.21.41-.28.33-.32.27-.35.2-.36.15-.36.1-.35.07-.32.04-.28.02-.21V6.07h2.09l.14.01zm-6.47 14.25l-.23.33-.08.41.08.41.23.33.33.23.41.08.41-.08.33-.23.23-.33.08-.41-.08-.41-.23-.33-.33-.23-.41-.08-.41.08z"/>
+                  </svg>
+                </div>
+                <div className="text-sm font-semibold text-white mb-0.5">Python</div>
+                <div className="text-white/60 text-xs">AI Service</div>
+              </div>
+              <div className="text-center">
+                <div className="flex justify-center mb-1">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                    <path d="m21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                    <path d="m3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                  </svg>
+                </div>
+                <div className="text-sm font-semibold text-white mb-0.5">MySQL</div>
+                <div className="text-white/60 text-xs">Database</div>
+              </div>
+              <div className="text-center">
+                <div className="flex justify-center mb-1">
+                  <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+                  </svg>
+                </div>
+                <div className="text-sm font-semibold text-white mb-0.5">LLM</div>
+                <div className="text-white/60 text-xs">AI Engine</div>
               </div>
             </div>
           </div>
@@ -533,16 +569,16 @@ export default function ShopPage() {
                     Nền tảng toàn diện cho quản lý và tối ưu hóa hoạt động kinh doanh với AI thông minh.
                   </p>
                   <div className="flex gap-2 mt-6">
-                    <div className="w-3 h-3 bg-cyan-400 rounded-full animate-pulse"></div>
-                    <div className="w-3 h-3 bg-blue-400 rounded-full animate-pulse animation-delay-200"></div>
-                    <div className="w-3 h-3 bg-purple-400 rounded-full animate-pulse animation-delay-400"></div>
+                    <div className="w-3 h-3 bg-cyan-400 rounded-full"></div>
+                    <div className="w-3 h-3 bg-blue-400 rounded-full animation-delay-200"></div>
+                    <div className="w-3 h-3 bg-purple-400 rounded-full animation-delay-400"></div>
                   </div>
                 </div>
               </div>
 
               {/* Floating Elements */}
               <div className="absolute -top-4 -left-4 w-20 h-20 bg-gradient-to-br from-emerald-400/20 to-cyan-400/20 rounded-full blur-xl animate-bounce"></div>
-              <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full blur-2xl animate-pulse"></div>
+              <div className="absolute -bottom-6 -right-6 w-32 h-32 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full blur-2xl"></div>
             </div>
           </div>
         </div>
@@ -550,7 +586,7 @@ export default function ShopPage() {
         {/* Scroll Indicator */}
         <div className="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce">
           <div className="w-6 h-10 border-2 border-white/30 rounded-full flex justify-center">
-            <div className="w-1 h-3 bg-white/50 rounded-full mt-2 animate-pulse"></div>
+            <div className="w-1 h-3 bg-white/50 rounded-full mt-2"></div>
           </div>
         </div>
       </div>
@@ -981,7 +1017,7 @@ export default function ShopPage() {
                       />
 
                       {/* Loading overlay */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 animate-pulse opacity-0 group-hover:opacity-0 transition-opacity duration-300"></div>
+                      <div className="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 opacity-0 group-hover:opacity-0 transition-opacity duration-300"></div>
 
                       {/* Enhanced Overlay */}
                       <div className={`absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex items-end p-4 ${
@@ -1041,7 +1077,7 @@ export default function ShopPage() {
                         {/* Premium Category Badge */}
                         <div className="mb-3">
                           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 text-blue-700 dark:text-blue-300 text-xs font-bold rounded-xl border border-blue-200/50 dark:border-blue-800/50">
-                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
+                            <div className="w-1.5 h-1.5 bg-blue-500 rounded-full"></div>
                             {product.categoryName}
                           </span>
                         </div>

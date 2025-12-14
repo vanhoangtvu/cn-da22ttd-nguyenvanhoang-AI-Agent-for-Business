@@ -46,6 +46,9 @@ public class ProductDTO {
     @Schema(accessMode = Schema.AccessMode.READ_ONLY, description = "Seller username")
     private String sellerUsername;
     
+    @Schema(description = "Product details in JSON format", example = "{\"rating\": 4.5, \"brand\": \"Apple\"}")
+    private String details;
+    
     @Schema(accessMode = Schema.AccessMode.READ_ONLY, description = "Created timestamp")
     private LocalDateTime createdAt;
     

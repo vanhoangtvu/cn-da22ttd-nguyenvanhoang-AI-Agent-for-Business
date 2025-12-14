@@ -9,6 +9,7 @@ com/business/springservice/repository/UserRepository.class
 com/business/springservice/dto/SystemReportDTO$RevenueOverview.class
 com/business/springservice/repository/OrderItemRepository.class
 com/business/springservice/service/CartService$1.class
+com/business/springservice/dto/DiscountDTO.class
 com/business/springservice/entity/Cart.class
 com/business/springservice/service/ProductService$1.class
 com/business/springservice/dto/SystemAnalyticsDataDTO$RevenueByBusinessDTO.class
@@ -21,17 +22,20 @@ com/business/springservice/controller/AnalyticsController.class
 com/business/springservice/config/OpenApiConfig.class
 com/business/springservice/repository/OrderRepository.class
 com/business/springservice/dto/OrderItemDTO.class
+com/business/springservice/dto/ProductDetailsDTO.class
 com/business/springservice/security/JwtUtil.class
 com/business/springservice/dto/SystemReportDTO$DailyRevenueDTO.class
 com/business/springservice/dto/AddToCartRequest.class
 com/business/springservice/dto/SystemReportDTO$BusinessStatistics$BusinessStatisticsBuilder.class
 com/business/springservice/config/CorsConfig.class
+com/business/springservice/entity/Discount.class
 com/business/springservice/dto/SystemReportDTO$ProductStatistics.class
 com/business/springservice/dto/SystemReportDTO.class
 com/business/springservice/dto/SystemReportDTO$CustomerStatistics$CustomerStatisticsBuilder.class
 com/business/springservice/dto/SystemReportDTO$TopProductDTO$TopProductDTOBuilder.class
 com/business/springservice/enums/Status.class
 com/business/springservice/enums/OrderStatus.class
+com/business/springservice/service/DiscountService$1.class
 com/business/springservice/dto/CategoryDTO.class
 com/business/springservice/dto/SystemAnalyticsDataDTO.class
 com/business/springservice/dto/CartDTO.class
@@ -71,6 +75,8 @@ com/business/springservice/service/AuthService.class
 com/business/springservice/service/DashboardService.class
 com/business/springservice/entity/ActivityLog$ActivityLogBuilder.class
 com/business/springservice/dto/BusinessDashboardDTO.class
+com/business/springservice/service/AnalyticsService$1.class
+com/business/springservice/repository/DiscountRepository.class
 com/business/springservice/controller/CartController.class
 com/business/springservice/entity/Order.class
 com/business/springservice/dto/SystemReportDTO$ProductStatistics$ProductStatisticsBuilder.class
@@ -94,10 +100,14 @@ com/business/springservice/service/ProductService.class
 com/business/springservice/entity/CartItem.class
 com/business/springservice/dto/DashboardStatsDTO.class
 com/business/springservice/dto/SystemAnalyticsDataDTO$UserSummaryDTO.class
+com/business/springservice/controller/DiscountController.class
 com/business/springservice/controller/ProfileController.class
+com/business/springservice/dto/DiscountCreateRequest.class
 com/business/springservice/service/AnalyticsService.class
 com/business/springservice/controller/DashboardController.class
 com/business/springservice/dto/RevenueReportDTO.class
+com/business/springservice/entity/Discount$DiscountType.class
+com/business/springservice/dto/SystemAnalyticsDataDTO$DiscountAnalyticsDTO.class
 com/business/springservice/dto/ProfileUpdateRequest.class
 com/business/springservice/dto/SystemAnalyticsDataDTO$BusinessDocumentSummaryDTO.class
 com/business/springservice/controller/OrderManagementController.class
@@ -105,3 +115,4 @@ com/business/springservice/service/UserService.class
 com/business/springservice/controller/AuthController.class
 com/business/springservice/dto/OrderUpdateAddressRequest.class
 com/business/springservice/entity/Category.class
+com/business/springservice/service/DiscountService.class

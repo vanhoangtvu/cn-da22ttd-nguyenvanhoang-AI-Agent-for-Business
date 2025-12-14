@@ -27,6 +27,7 @@ public class AnalyticsService {
     private final CategoryRepository categoryRepository;
     private final OrderRepository orderRepository;
     private final BusinessDocumentRepository businessDocumentRepository;
+    private final DiscountRepository discountRepository;
     
     @Transactional(readOnly = true)
     public SystemAnalyticsDataDTO getSystemAnalyticsData() {
@@ -81,7 +82,8 @@ public class AnalyticsService {
                         p.getSeller().getId(),
                         productSalesMap.getOrDefault(p.getId(), 0),
                         productRevenueMap.getOrDefault(p.getId(), BigDecimal.ZERO),
-                        p.getImageUrls()
+                        p.getImageUrls(),
+                        p.getDetails() // Include detailed product specifications JSON
                 ))
                 .collect(Collectors.toList()));
         
@@ -282,6 +284,100 @@ public class AnalyticsService {
                         doc.getDescription(),
                         doc.getUploadedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
                 ))
+                .collect(Collectors.toList()));
+        
+        // Discount analytics
+        List<Discount> allDiscounts = discountRepository.findAll();
+        data.setTotalDiscounts((long) allDiscounts.size());
+        data.setActiveDiscounts(allDiscounts.stream()
+                .filter(d -> d.getStatus() == Status.ACTIVE && 
+                            (d.getEndDate() == null || d.getEndDate().isAfter(LocalDateTime.now())))
+                .count());
+        data.setTotalDiscountUsage(allDiscounts.stream()
+                .mapToLong(d -> d.getUsedCount() != null ? d.getUsedCount() : 0)
+                .sum());
+        
+        // Calculate total discount savings (estimate based on usage)
+        BigDecimal totalSavings = allDiscounts.stream()
+                .map(d -> {
+                    if (d.getUsedCount() == null || d.getUsedCount() == 0) return BigDecimal.ZERO;
+                    
+                    // Estimate savings based on discount type
+                    switch (d.getDiscountType()) {
+                        case FIXED_AMOUNT:
+                            return d.getDiscountValue().multiply(new BigDecimal(d.getUsedCount()));
+                        case PERCENTAGE:
+                            // Estimate average order value for percentage discounts
+                            BigDecimal avgOrderValue = BigDecimal.valueOf(1500000); // 1.5M VND average
+                            BigDecimal discountAmount = avgOrderValue.multiply(d.getDiscountValue().divide(BigDecimal.valueOf(100)));
+                            if (d.getMaxDiscountAmount() != null && discountAmount.compareTo(d.getMaxDiscountAmount()) > 0) {
+                                discountAmount = d.getMaxDiscountAmount();
+                            }
+                            return discountAmount.multiply(new BigDecimal(d.getUsedCount()));
+                        case FREE_SHIPPING:
+                            // Estimate shipping cost savings
+                            return BigDecimal.valueOf(30000).multiply(new BigDecimal(d.getUsedCount()));
+                        default:
+                            return BigDecimal.ZERO;
+                    }
+                })
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        data.setTotalDiscountSavings(totalSavings);
+        
+        data.setDiscounts(allDiscounts.stream()
+                .map(d -> {
+                    // Calculate usage percentage
+                    Double usagePercentage = null;
+                    if (d.getUsageLimit() != null && d.getUsageLimit() > 0) {
+                        usagePercentage = (d.getUsedCount() != null ? d.getUsedCount().doubleValue() : 0.0) 
+                                         / d.getUsageLimit().doubleValue() * 100.0;
+                    }
+                    
+                    // Calculate individual discount savings
+                    BigDecimal individualSavings = BigDecimal.ZERO;
+                    if (d.getUsedCount() != null && d.getUsedCount() > 0) {
+                        switch (d.getDiscountType()) {
+                            case FIXED_AMOUNT:
+                                individualSavings = d.getDiscountValue().multiply(new BigDecimal(d.getUsedCount()));
+                                break;
+                            case PERCENTAGE:
+                                BigDecimal avgOrder = BigDecimal.valueOf(1500000);
+                                BigDecimal discountAmt = avgOrder.multiply(d.getDiscountValue().divide(BigDecimal.valueOf(100)));
+                                if (d.getMaxDiscountAmount() != null && discountAmt.compareTo(d.getMaxDiscountAmount()) > 0) {
+                                    discountAmt = d.getMaxDiscountAmount();
+                                }
+                                individualSavings = discountAmt.multiply(new BigDecimal(d.getUsedCount()));
+                                break;
+                            case FREE_SHIPPING:
+                                individualSavings = BigDecimal.valueOf(30000).multiply(new BigDecimal(d.getUsedCount()));
+                                break;
+                        }
+                    }
+                    
+                    return new SystemAnalyticsDataDTO.DiscountAnalyticsDTO(
+                            d.getId(),
+                            d.getCode(),
+                            d.getName(),
+                            d.getDescription(),
+                            d.getDiscountType().name(),
+                            d.getDiscountValue(),
+                            d.getMinOrderValue(),
+                            d.getMaxDiscountAmount(),
+                            d.getUsageLimit(),
+                            d.getUsedCount() != null ? d.getUsedCount() : 0,
+                            d.getStatus().name(),
+                            d.getStartDate() != null ? d.getStartDate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : null,
+                            d.getEndDate() != null ? d.getEndDate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : null,
+                            d.getCreatedBy().getUsername(),
+                            d.getCreatedBy().getId(),
+                            d.isValid(),
+                            d.isExpired(),
+                            d.isUsageLimitReached(),
+                            usagePercentage,
+                            individualSavings,
+                            d.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                    );
+                })
                 .collect(Collectors.toList()));
         
         return data;

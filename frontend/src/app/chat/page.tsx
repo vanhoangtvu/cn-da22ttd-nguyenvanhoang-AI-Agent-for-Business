@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
+import { Briefcase } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -369,10 +371,12 @@ export default function ChatPage() {
   const [userGreeting, setUserGreeting] = useState('Trợ lý thông minh cho doanh nghiệp');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [pageLoading, setPageLoading] = useState(true);
   const [aiProvider, setAiProvider] = useState<'gemini' | 'groq'>('gemini');
   const [userId, setUserId] = useState<string>('anonymous');
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -411,22 +415,44 @@ export default function ChatPage() {
     }
   };
 
+  // Load user profile
+  const loadUserProfile = async () => {
+    if (!apiClient.isAuthenticated()) return;
+    
+    try {
+      const profile = await apiClient.getProfile();
+      setUserProfile(profile);
+    } catch (error) {
+      console.error('[Chat] Error loading user profile:', error);
+    }
+  };
+
   // Set mounted and auth state after mount to avoid hydration mismatch
   useEffect(() => {
     setMounted(true);
     setIsAuthenticated(apiClient.isAuthenticated());
-    
+
     // Get and set actual userId (for chat history and data access)
     const userData = apiClient.getUserData();
     const currentUserId = userData?.userId?.toString() || 'anonymous';
     setUserId(currentUserId);
-    
+
     if (userData) {
       setUserGreeting(`Xin chào, ${userData.username || userData.email}`);
     }
-    
+
     // Load model preference from admin (not from user)
     loadAdminModelPreference();
+
+    // Load user profile for avatar
+    loadUserProfile();
+
+    // Simulate smooth page transition
+    const timer = setTimeout(() => {
+      setPageLoading(false);
+    }, 800);
+
+    return () => clearTimeout(timer);
   }, []);
 
   // Poll for admin model preference changes (every 3 seconds)
@@ -725,103 +751,138 @@ export default function ChatPage() {
   ];
 
   return (
-    <div className="h-screen flex flex-col bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="h-16 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex items-center px-4 gap-4 flex-shrink-0 z-10">
-        <Link
-          href="/shop"
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-        >
-          <svg className="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-        </Link>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+          <header className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50 sticky top-0 z-50 shadow-sm">
+            <div className="container mx-auto px-4 py-4">
+              <div className="flex items-center justify-between">
+                {/* Logo */}
+                <Link href="/" className="flex items-center gap-4 group">
+                  <div className="relative">
+                    <div className="w-14 h-14 bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 rounded-2xl flex items-center justify-center shadow-2xl group-hover:shadow-3xl transition-all duration-500 group-hover:scale-110 group-hover:rotate-3">
+                      <div className="absolute inset-0 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+                      <Briefcase className="w-8 h-8 text-white relative z-10 group-hover:scale-110 transition-transform duration-300" />
+                    </div>
+                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-full animate-pulse"></div>
+                  </div>
+                  <div>
+                    <span className="text-2xl font-black bg-gradient-to-r from-slate-800 via-blue-800 to-indigo-800 dark:from-slate-200 dark:via-blue-200 dark:to-indigo-200 bg-clip-text text-transparent tracking-tight">
+                      BizOps
+                    </span>
+                    <div className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-wide">Smart Business Solutions</div>
+                  </div>
+                </Link>
 
-        <div className="flex-1 flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center">
-            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-gray-800 dark:text-white">AI Agent</h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {userGreeting}
-            </p>
-          </div>
-        </div>
+                {/* Actions */}
+                <div className="flex items-center gap-2 md:gap-4">
+                  {/* Mobile Menu Button */}
+                  <button
+                    className="md:hidden p-2 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  </button>
 
-        {/* Model info */}
-        {allowModelChange ? (
-          <select
-            value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value)}
-            className="px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-medium text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-            <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-            <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite</option>
-          </select>
-        ) : (
-          <div 
-            className="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-400"
-            title={`Provider: ${aiProvider} | Model: ${selectedModel}`}
-          >
-            {(() => {
-              if (aiProvider === 'groq') {
-                const nameMap: Record<string, string> = {
-                  'llama-3.3-70b-versatile': 'Llama 3.3 70B',
-                  'llama-3.1-70b-versatile': 'Llama 3.1 70B',
-                  'llama-3.1-8b-instant': 'Llama 3.1 8B',
-                  'groq/compound': 'Groq Compound',
-                  'groq/compound-mini': 'Groq Compound Mini',
-                  'moonshotai/kimi-k2-instruct-0905': 'Kimi K2',
-                  'moonshotai/kimi-k2-instruct': 'Kimi K2',
-                  'qwen/qwen3-32b': 'Qwen 3 32B',
-                  'openai/gpt-oss-120b': 'GPT OSS 120B',
-                };
-                return nameMap[selectedModel] || selectedModel.split('/').pop() || selectedModel;
-              }
-              return selectedModel.replace('gemini-', 'Gemini ').replace(/-/g, ' ');
-            })()}
-          </div>
-        )}
+                  {/* Shop Button */}
+                  <Link
+                    href="/shop"
+                    className="group relative hidden sm:flex px-4 py-2 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 hover:from-green-600 hover:via-emerald-600 hover:to-teal-600 text-white rounded-xl hover:shadow-xl hover:shadow-green-400/25 transition-all duration-300 font-semibold items-center gap-2 hover:scale-105 overflow-hidden"
+                  >
+                    {/* Animated background */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-green-400 via-emerald-400 to-teal-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 
-        {/* Clear chat button */}
-        {conversation && conversation.messages.length > 0 && (
-          <button
-            onClick={clearConversation}
-            className="p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-colors text-red-500"
-            title="Xóa lịch sử chat"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
-          </button>
-        )}
+                    {/* Shine effect */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
 
-        {/* User Menu */}
-        {mounted && (
-          isAuthenticated ? (
-            <Link
-              href="/profile"
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              <svg className="w-6 h-6 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </Link>
-          ) : (
-            <Link
-              href="/login"
-              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all text-sm"
-            >
-              Đăng nhập
-            </Link>
-          )
-        )}
-      </header>
+                    {/* Icon with animation */}
+                    <div className="relative z-10 p-1 bg-white/20 rounded-lg group-hover:bg-white/30 transition-colors duration-300">
+                      <svg className="w-4 h-4 group-hover:animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                      </svg>
+                    </div>
+
+                    {/* Text */}
+                    <span className="relative z-10 hidden xl:inline text-sm tracking-wide">Cửa hàng</span>
+                  </Link>
+                  {mounted && (
+                    isAuthenticated ? (
+                      <>
+                        {(() => {
+                          const userData = apiClient.getUserData();
+                          const isAdminOrBusiness = userData && (userData.role === 'ADMIN' || userData.role === 'BUSINESS');
+                          return isAdminOrBusiness ? (
+                            <Link
+                              href="/admin"
+                              className="hidden sm:flex px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold items-center gap-2 hover:scale-105"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              <span className="hidden lg:inline">Quản lý</span>
+                            </Link>
+                          ) : null;
+                        })()}
+                        <Link
+                          href="/orders"
+                          className="p-2 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                          title="Đơn hàng"
+                        >
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </Link>
+                        <Link
+                          href="/cart"
+                          className="relative p-2 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                          title="Giỏ hàng"
+                        >
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-1.1 5H19M7 13v8a2 2 0 002 2h10a2 2 0 002-2v-3" />
+                          </svg>
+                        </Link>
+                        <Link
+                          href="/profile"
+                          className="p-2 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                          title="Thông tin cá nhân"
+                        >
+                          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                        </Link>
+                        <button
+                          onClick={() => {
+                            // Handle logout
+                            window.location.href = '/login';
+                          }}
+                          className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 transition-colors rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                          </svg>
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <Link
+                          href="/login"
+                          className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                        >
+                          Đăng nhập
+                        </Link>
+                        <Link
+                          href="/register"
+                          className="px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-lg transition-all"
+                        >
+                          Đăng ký
+                        </Link>
+                      </>
+                    )
+                  )}
+                </div>
+              </div>
+            </div>
+          </header>
 
       {/* Main Content - Split Layout */}
       <div className="flex-1 flex overflow-hidden">
@@ -832,32 +893,52 @@ export default function ChatPage() {
           }`}
         >
           {/* Messages Area */}
-          <main className="flex-1 overflow-y-auto">{!conversation || conversation.messages.length === 0 ? (
+          <main className="flex-1 overflow-y-auto pb-20">{!conversation || conversation.messages.length === 0 ? (
           /* Welcome Screen */
           <div className="h-full flex flex-col items-center justify-center p-8">
-            <div className="max-w-3xl w-full text-center space-y-8">
+            <div className="max-w-6xl w-full text-center space-y-8">
               {/* Logo */}
               <div className="flex justify-center">
                 <div className="w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-2xl">
-                    <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
+                    <Briefcase className="w-12 h-12 text-white" />
                   </div>
                 </div>
 
                 {/* Welcome Text */}
                 <div>
-                  <h2 className="text-4xl font-bold text-gray-800 dark:text-white mb-4">
-                    {mounted && userData ? `Xin chào, ${userData.username || userData.email}! Tôi là AI Agent` : 'Xin chào! Tôi là AI Agent'}
+                  <h2 className="text-5xl md:text-6xl font-bold leading-tight">
+                    Trợ lý AI thông minh
+                    <span className="block bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                      Hỗ trợ doanh nghiệp
+                    </span>
                   </h2>
-                  <p className="text-xl text-gray-600 dark:text-gray-400">
-                    Tôi có thể giúp bạn tư vấn sản phẩm, phân tích kinh doanh và trả lời mọi câu hỏi.
-                    <br />Hãy bắt đầu cuộc trò chuyện!
+                  <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+                    {mounted && userData ? `Xin chào, ${userData.username || userData.email}! Tôi là Trợ lý AI` : 'Xin chào! Tôi là Trợ lý AI'} - Chăm sóc khách hàng tự động, tư vấn sản phẩm thông minh và trả lời mọi câu hỏi của bạn.
                   </p>
+                  <div className="flex flex-col sm:flex-row gap-4 justify-center mt-8">
+                    <button
+                      onClick={() => {
+                        setInputValue("Tôi cần tư vấn về sản phẩm");
+                        inputRef.current?.focus();
+                      }}
+                      className="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold hover:shadow-xl transition-all transform hover:scale-105"
+                    >
+                      Bắt đầu trò chuyện
+                    </button>
+                    <button
+                      onClick={() => {
+                        setInputValue("Phân tích doanh thu tháng này");
+                        inputRef.current?.focus();
+                      }}
+                      className="px-8 py-4 border-2 border-gray-300 dark:border-gray-600 rounded-xl font-semibold hover:border-blue-600 dark:hover:border-blue-400 transition-all"
+                    >
+                      Phân tích kinh doanh
+                    </button>
+                  </div>
                 </div>
 
                 {/* Example Prompts */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
                   {examplePrompts.map((item, index) => (
                     <button
                       key={index}
@@ -865,7 +946,7 @@ export default function ChatPage() {
                         setInputValue(item.prompt);
                         inputRef.current?.focus();
                       }}
-                      className="group p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-left hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-lg transition-all"
+                      className="group p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl text-left hover:border-blue-500 dark:hover:border-blue-500 hover:shadow-xl transition-all"
                     >
                       <div className="flex items-start gap-3">
                         <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -887,31 +968,53 @@ export default function ChatPage() {
                 </div>
 
                 {/* Features */}
-                <div className="flex flex-wrap justify-center gap-4 mt-8">
-                  <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-full text-sm">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                    Phản hồi nhanh
+                <div className="text-center mb-12 mt-16">
+                  <h3 className="text-3xl font-bold mb-4">Tính năng nổi bật</h3>
+                  <p className="text-gray-600 dark:text-gray-400">Giải pháp AI toàn diện cho doanh nghiệp của bạn</p>
+                </div>
+                
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  <div className="p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-xl transition-all">
+                    <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mb-4">
+                      <svg className="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                    </div>
+                    <h4 className="text-xl font-bold mb-3">Chatbot thông minh</h4>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      Chăm sóc khách hàng tự động 24/7 với khả năng hiểu ngữ cảnh và trả lời chính xác
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2 px-4 py-2 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-full text-sm">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                    Dữ liệu bảo mật
+
+                  <div className="p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-xl transition-all">
+                    <div className="w-14 h-14 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center mb-4">
+                      <svg className="w-8 h-8 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                    </div>
+                    <h4 className="text-xl font-bold mb-3">Phân tích kinh doanh</h4>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      Phân tích dữ liệu bán hàng, dự báo xu hướng và đề xuất chiến lược kinh doanh
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2 px-4 py-2 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 rounded-full text-sm">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                    </svg>
-                    Tích hợp RAG
+
+                  <div className="p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-xl transition-all">
+                    <div className="w-14 h-14 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center mb-4">
+                      <svg className="w-8 h-8 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                      </svg>
+                    </div>
+                    <h4 className="text-xl font-bold mb-3">Tư vấn sản phẩm</h4>
+                    <p className="text-gray-600 dark:text-gray-400">
+                      Tư vấn sản phẩm phù hợp dựa trên nhu cầu và sở thích của khách hàng
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
           ) : (
             /* Messages */
-            <div className="max-w-4xl mx-auto py-8 px-4 space-y-6">
+            <div className="max-w-4xl mx-auto py-8 px-4 space-y-6 bg-transparent">
               {conversation.messages.map((message, index) => {
                 // Parse products and orders from message content
                 const { products, cleanContent: contentAfterProducts } = message.products ? 
@@ -929,19 +1032,40 @@ export default function ChatPage() {
                   >
                     {/* Avatar */}
                     <div
-                      className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center ${
+                      className={`flex-shrink-0 w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden ${
                         message.role === 'user'
                           ? 'bg-gradient-to-br from-green-500 to-emerald-600'
                           : 'bg-gradient-to-br from-blue-600 to-indigo-600'
                       }`}
                     >
                       {message.role === 'user' ? (
-                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        userProfile?.avatarUrl ? (
+                          <Image
+                            src={userProfile.avatarUrl}
+                            alt="User Avatar"
+                            width={40}
+                            height={40}
+                            className="w-full h-full object-cover rounded-xl"
+                            onError={(e) => {
+                              // Fallback to SVG if image fails to load
+                              e.currentTarget.style.display = 'none';
+                              e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                            }}
+                          />
+                        ) : null
+                      ) : (
+                        <Briefcase className="w-6 h-6 text-white" />
+                      )}
+                      {/* Fallback SVG for user avatar */}
+                      {message.role === 'user' && userProfile?.avatarUrl && (
+                        <svg className="w-6 h-6 text-white hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
-                      ) : (
+                      )}
+                      {/* Default SVG for user when no profile */}
+                      {message.role === 'user' && !userProfile?.avatarUrl && (
                         <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                         </svg>
                       )}
                     </div>
@@ -1109,54 +1233,6 @@ export default function ChatPage() {
           )}
           </main>
 
-          {/* Input Area - Fixed at bottom of chat */}
-          <div className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4 flex-shrink-0">
-            <div className="max-w-4xl mx-auto">
-              <div className="relative flex items-end gap-3 bg-gray-100 dark:bg-gray-700 rounded-2xl p-2">
-                {/* Attachment Button */}
-                <button className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl transition-colors">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                  </svg>
-                </button>
-
-                {/* Text Input */}
-                <textarea
-                  ref={inputRef}
-                  value={inputValue}
-                  onChange={handleTextareaChange}
-              onKeyPress={handleKeyPress}
-              placeholder="Nhập tin nhắn của bạn..."
-              disabled={isLoading}
-              rows={1}
-              className="flex-1 px-4 py-3 bg-transparent border-none focus:ring-0 resize-none text-gray-800 dark:text-white placeholder-gray-500 max-h-52 disabled:opacity-50"
-              style={{ minHeight: '48px' }}
-            />
-
-            {/* Send Button */}
-            <button
-              onClick={sendMessage}
-              disabled={!inputValue.trim() || isLoading}
-              className="p-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg"
-            >
-              {isLoading ? (
-                <svg className="w-6 h-6 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              ) : (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                </svg>
-              )}
-            </button>
-          </div>
-
-          <p className="text-xs text-gray-400 text-center mt-3">
-            AI Agent sử dụng Google Gemini và dữ liệu RAG từ hệ thống để trả lời. Kết quả chỉ mang tính tham khảo.
-          </p>
-        </div>
-      </div>
         </div>
 
         {/* Product Detail Panel - Slide in from right */}
@@ -1212,6 +1288,55 @@ export default function ChatPage() {
             </div>
           </>
         )}
+      </div>
+
+      {/* Fixed Input Area at bottom */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-t border-gray-200 dark:border-gray-700 p-2 z-40">
+        <div className="max-w-3xl mx-auto">
+          <div className="relative flex items-end gap-2 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-xl p-1.5 shadow-lg">
+            {/* Attachment Button */}
+            <button className="p-1.5 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+              </svg>
+            </button>
+
+            {/* Text Input */}
+            <textarea
+              ref={inputRef}
+              value={inputValue}
+              onChange={handleTextareaChange}
+              onKeyPress={handleKeyPress}
+              placeholder="Nhập tin nhắn của bạn..."
+              disabled={isLoading}
+              rows={1}
+              className="flex-1 px-3 py-2 bg-transparent border-none focus:ring-0 resize-none text-gray-800 dark:text-white placeholder-gray-500 max-h-32 disabled:opacity-50"
+              style={{ minHeight: '40px' }}
+            />
+
+            {/* Send Button */}
+            <button
+              onClick={sendMessage}
+              disabled={!inputValue.trim() || isLoading}
+              className="p-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-lg"
+            >
+              {isLoading ? (
+                <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+              )}
+            </button>
+          </div>
+
+          <p className="text-xs text-gray-400 text-center mt-2">
+            Trợ lý AI sử dụng Google Gemini và dữ liệu RAG từ hệ thống để trả lời. Kết quả chỉ mang tính tham khảo.
+          </p>
+        </div>
       </div>
     </div>
   );

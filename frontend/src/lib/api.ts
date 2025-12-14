@@ -361,6 +361,7 @@ class ApiClient {
     quantity: number;
     categoryId: number;
     imageUrls?: string[];
+    details?: string;  // JSON string for product details
   }) {
     return this.fetch('/admin/products', {
       method: 'POST',
@@ -375,6 +376,7 @@ class ApiClient {
     quantity: number;
     categoryId: number;
     imageUrls?: string[];
+    details?: string;  // JSON string for product details
   }) {
     return this.fetch(`/admin/products/${productId}`, {
       method: 'PATCH',
@@ -557,6 +559,53 @@ class ApiClient {
 
   async getRecentActivitiesForBusiness(limit: number = 20): Promise<ActivityLogDTO[]> {
     return this.fetch(`/admin/dashboard/business/recent-activities?limit=${limit}`);
+  }
+
+  // Discount Management APIs
+  async getAdminDiscounts() {
+    return this.fetch('/admin/discounts');
+  }
+
+  async createDiscount(discountData: any) {
+    return this.fetch('/admin/discounts', {
+      method: 'POST',
+      body: JSON.stringify(discountData),
+    });
+  }
+
+  async updateDiscount(id: number, discountData: any) {
+    return this.fetch(`/admin/discounts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(discountData),
+    });
+  }
+
+  async deleteDiscount(id: number) {
+    return this.fetch(`/admin/discounts/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async updateDiscountStatus(id: number, status: string) {
+    return this.fetch(`/admin/discounts/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+  }
+
+  async applyDiscount(code: string, orderTotal: number) {
+    return this.fetch('/admin/discounts/apply', {
+      method: 'POST',
+      body: JSON.stringify({ code, orderTotal }),
+    });
+  }
+
+  async validateDiscount(code: string) {
+    return this.fetch(`/admin/discounts/validate/${code}`);
+  }
+
+  async getDiscountAnalytics() {
+    return this.fetch('/admin/discounts/analytics');
   }
 }
 

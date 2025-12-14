@@ -4,8 +4,12 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AdminLayout from '@/components/AdminLayout';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
 
 const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'http://14.183.200.75:5000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://14.183.200.75:8089/api/v1';
 
 interface AIModel {
   id: string;
@@ -14,27 +18,60 @@ interface AIModel {
   context_window: number;
 }
 
-interface SystemData {
-  timestamp: string;
-  data_source: string;
-  overview: {
-    total_products: number;
-    total_orders: number;
-    total_customers: number;
-    total_users: number;
-    total_revenue: number;
-    monthly_revenue: number;
-    weekly_revenue: number;
-    daily_revenue: number;
-    last_updated: string;
+interface ChromaStats {
+  instance_path: string;
+  total_collections: number;
+  collections_stats: {
+    [key: string]: {
+      documents_count: number;
+      metadata: any;
+      error?: string;
+    };
   };
-  products: any;
-  orders: any;
-  customers: any;
-  revenue: any;
-  business_performance: any[];
-  business_documents: any;
-  metadata: any;
+  total_documents: number;
+  timestamp: string;
+}
+
+interface ChromaData {
+  instance_path: string;
+  total_collections: number;
+  collections: {
+    [key: string]: {
+      metadata: any;
+      total_documents: number;
+      documents: Array<{
+        id: string;
+        content: string;
+        metadata: any;
+      }>;
+      error?: string;
+    };
+  };
+  timestamp: string;
+}
+
+interface SystemData {
+  totalUsers: number;
+  totalCustomers: number;
+  totalBusinessUsers: number;
+  totalProducts: number;
+  activeProducts: number;
+  totalOrders: number;
+  deliveredOrders: number;
+  pendingOrders: number;
+  totalRevenue: number;
+  monthlyRevenue: number;
+  weeklyRevenue: number;
+  dailyRevenue?: number;
+  totalDiscounts?: number;
+  activeDiscounts?: number;
+  totalDocuments?: number;
+  users?: any[];
+  products?: any[];
+  orders?: any[];
+  categories?: any[];
+  businessPerformance?: any[];
+  discounts?: any[];
 }
 
 export default function AIInsightsPage() {
@@ -48,8 +85,13 @@ export default function AIInsightsPage() {
   const [systemData, setSystemData] = useState<SystemData | null>(null);
   const [syncLoading, setSyncLoading] = useState(false);
   const [userStr, setUserStr] = useState<string | null>(null);
+  const [chromaStats, setChromaStats] = useState<ChromaStats | null>(null);
+  const [chromaData, setChromaData] = useState<ChromaData | null>(null);
+  const [chromaLoading, setChromaLoading] = useState(false);
+  const [showChromaData, setShowChromaData] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<'Groq' | 'Google'>('Groq');
+  const [showChromaModal, setShowChromaModal] = useState(false);
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
@@ -70,35 +112,105 @@ export default function AIInsightsPage() {
     }
 
     loadModels();
-    // Don't auto-load system data, let user trigger it manually
+    // Load ChromaDB stats on page load to check if data exists
+    // Don't use localStorage - always check server
+    console.log('[Init] Loading ChromaDB stats from server...');
+    loadChromaStats();
   }, [router]);
+
+  // Watch chromaStats changes
+  useEffect(() => {
+    console.log('[Effect] chromaStats changed:', chromaStats);
+    if (chromaStats) {
+      console.log('[Effect] chromaStats.total_documents:', chromaStats.total_documents);
+      const needSync = chromaStats.total_documents === 0;
+      console.log('[Effect] needSync:', needSync);
+    }
+  }, [chromaStats]);
 
   const loadSystemData = async () => {
     setSyncLoading(true);
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${AI_SERVICE_URL}/admin/analytics/system-data`, {
+      if (!token) {
+        console.error('No auth token found');
+        alert('Vui lòng đăng nhập lại');
+        router.push('/login');
+        return;
+      }
+
+      // Bước 1: Lấy dữ liệu từ Spring Service
+      console.log('[Sync] Step 1: Fetching data from Spring Service...');
+      const springResponse = await fetch(`${API_BASE_URL}/admin/analytics/system-data`, {
         headers: {
           'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setSystemData(data);
-        // Set statistics from system data for backward compatibility
-        setStatistics({
-          overview: data.overview
-        });
-        // Clear previous insights when new data is loaded
-        setInsights('');
-      } else {
-        console.error('Failed to load system data');
-        setSystemData(null);
-        setStatistics(null);
+      if (!springResponse.ok) {
+        if (springResponse.status === 401) {
+          console.error('Unauthorized - Token invalid or expired');
+          alert('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.');
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('userData');
+          router.push('/login');
+          return;
+        } else if (springResponse.status === 403) {
+          console.error('Access denied - Insufficient permissions');
+          alert('Bạn không có quyền truy cập chức năng này.');
+          return;
+        } else {
+          throw new Error(`Failed to fetch data: ${springResponse.status}`);
+        }
       }
+
+      const data = await springResponse.json();
+      console.log(`[Sync] Step 1 completed: Received data with ${data.products?.length || 0} products`);
+      
+      // Set system data for display
+      setSystemData(data);
+      setStatistics(data);
+      setInsights('');
+
+      // Bước 2: Đồng bộ dữ liệu vào ChromaDB
+      console.log('[Sync] Step 2: Syncing data to ChromaDB...');
+      const syncResponse = await fetch(`${AI_SERVICE_URL}/api/business/sync-from-spring`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          spring_service_url: API_BASE_URL,
+          auth_token: token,
+          clear_existing: true
+        }),
+      });
+
+      if (syncResponse.ok) {
+        const syncResult = await syncResponse.json();
+        console.log('[Sync] Step 2 completed:', syncResult);
+        
+        // Hiển thị kết quả đồng bộ
+        const summary = syncResult.summary;
+        alert(`Đồng bộ thành công!\n\nSản phẩm: ${syncResult.products.success}/${syncResult.products.total} (${syncResult.products.with_details} có details)\nĐơn hàng: ${syncResult.orders.success}/${syncResult.orders.total}\nDanh mục: ${syncResult.categories.success}/${syncResult.categories.total}\n\nTổng: ${summary.total_success} thành công, ${summary.total_errors} lỗi`);
+        
+        console.log('[Sync] Completed successfully, reloading ChromaDB stats...');
+        
+        // Reload ChromaDB stats from server
+        console.log('[Sync] Calling loadChromaStats to refresh...');
+        await loadChromaStats();
+        console.log('[Sync] loadChromaStats completed, chromaStats should be updated');
+      } else {
+        console.error('[Sync] Step 2 failed:', syncResponse.status);
+        const errorText = await syncResponse.text();
+        console.error('[Sync] Error details:', errorText);
+        alert('Cảnh báo: Dữ liệu đã được tải nhưng không thể đồng bộ vào ChromaDB. Vui lòng thử lại.');
+      }
+
     } catch (error) {
-      console.error('Error loading system data:', error);
+      console.error('Error in sync process:', error);
+      alert('Lỗi trong quá trình đồng bộ dữ liệu. Vui lòng kiểm tra kết nối và thử lại.');
       setSystemData(null);
       setStatistics(null);
     } finally {
@@ -118,33 +230,178 @@ export default function AIInsightsPage() {
     }
   };
 
+  const loadChromaStats = async () => {
+    try {
+      setChromaLoading(true);
+      console.log('[LoadChromaStats] Fetching stats from server...');
+      const response = await fetch(`${AI_SERVICE_URL}/api/business/chroma-stats`);
+      if (response.ok) {
+        const data = await response.json();
+        console.log('[LoadChromaStats] Stats received:', data);
+        console.log('[LoadChromaStats] Total documents:', data.total_documents);
+        console.log('[LoadChromaStats] Collections:', Object.keys(data.collections_stats || {}));
+        
+        console.log('[LoadChromaStats] Setting chromaStats state...');
+        setChromaStats(data);
+        console.log('[LoadChromaStats] chromaStats state set. Will re-render.');
+      } else {
+        console.error('[LoadChromaStats] Failed to load stats, status:', response.status);
+      }
+    } catch (error) {
+      console.error('[LoadChromaStats] Error loading stats:', error);
+    } finally {
+      setChromaLoading(false);
+    }
+  };
+
+  // Check if ChromaDB has data
+  const chromaHasData = () => {
+    console.log('[chromaHasData] chromaStats:', chromaStats);
+    if (!chromaStats) {
+      console.log('[chromaHasData] chromaStats is null/undefined - returning false');
+      return false;
+    }
+    console.log('[chromaHasData] total_documents:', chromaStats.total_documents, 'type:', typeof chromaStats.total_documents);
+    
+    // Handle both number and string cases
+    const totalDocs = typeof chromaStats.total_documents === 'string' 
+      ? parseInt(chromaStats.total_documents, 10) 
+      : chromaStats.total_documents;
+    
+    console.log('[chromaHasData] parsed totalDocs:', totalDocs);
+    const hasData = totalDocs > 0;
+    console.log('[chromaHasData] hasData:', hasData, '(totalDocs > 0)');
+    return hasData;
+  };
+
+  // Check if we need to sync (no data in ChromaDB)
+  const needsSync = () => {
+    const result = !chromaHasData();
+    console.log('[needsSync] returning:', result);
+    return result;
+  };
+
+  // Debug function to check ChromaDB data
+  const debugChromaDB = async () => {
+    console.log('=== CHROMADB DEBUG CHECK ===');
+    
+    // Check chromaStats state
+    console.log('[DEBUG] === chromaStats state ===');
+    console.log('[DEBUG] chromaStats:', chromaStats);
+    if (chromaStats) {
+      console.log('[DEBUG] total_documents:', chromaStats.total_documents, 'type:', typeof chromaStats.total_documents);
+      console.log('[DEBUG] collections:', Object.keys(chromaStats.collections_stats || {}));
+      Object.entries(chromaStats.collections_stats || {}).forEach(([name, col]: any) => {
+        console.log(`[DEBUG]   ${name}: ${col.documents_count} docs`);
+      });
+      
+      // Test the logic
+      const testHasData = chromaStats.total_documents > 0;
+      const testNeedsSync = !testHasData;
+      console.log('[DEBUG] testHasData:', testHasData);
+      console.log('[DEBUG] testNeedsSync:', testNeedsSync);
+    }
+    
+    // Check server
+    try {
+      console.log('[DEBUG] === Fetching FRESH data from server ===');
+      const response = await fetch(`${AI_SERVICE_URL}/api/business/chroma-stats`);
+      if (response.ok) {
+        const data = await response.json();
+        console.log('[DEBUG] Server stats:', data);
+        console.log('[DEBUG] Server total_documents:', data.total_documents, 'type:', typeof data.total_documents);
+        console.log('[DEBUG] Server chromaStats exact:', JSON.stringify(data, null, 2));
+        Object.entries(data.collections_stats || {}).forEach(([name, col]: any) => {
+          console.log(`[DEBUG]   ${name}: ${col.documents_count} docs`);
+        });
+      } else {
+        console.error('[DEBUG] Server returned:', response.status);
+      }
+    } catch (e) {
+      console.error('[DEBUG] Error fetching from server:', e);
+    }
+  };
+
+  const loadChromaData = async () => {
+    try {
+      setChromaLoading(true);
+      const response = await fetch(`${AI_SERVICE_URL}/api/business/chroma-data`);
+      if (response.ok) {
+        const data = await response.json();
+        setChromaData(data);
+        setShowChromaModal(true);
+      } else {
+        console.error('Failed to load ChromaDB data');
+      }
+    } catch (error) {
+      console.error('Error loading ChromaDB data:', error);
+    } finally {
+      setChromaLoading(false);
+    }
+  };
+
+  // Test function to debug sync logic
+  const testSyncLogic = () => {
+    console.log('=== TEST SYNC LOGIC ===');
+    console.log('[TEST] chromaStats:', chromaStats);
+    
+    if (!chromaStats) {
+      console.log('[TEST] chromaStats is null - need sync');
+      return;
+    }
+    
+    console.log('[TEST] chromaStats.total_documents:', chromaStats.total_documents);
+    console.log('[TEST] Type:', typeof chromaStats.total_documents);
+    
+    const hasData = chromaHasData();
+    console.log('[TEST] chromaHasData() returned:', hasData);
+    
+    const needSync = needsSync();
+    console.log('[TEST] needsSync() returned:', needSync);
+    
+    if (hasData && needSync) {
+      console.error('[TEST] ❌ ERROR: hasData=true but needSync=true (logic bug!)');
+    } else if (hasData && !needSync) {
+      console.log('[TEST] ✅ OK: hasData=true, needSync=false (sync button hidden)');
+    } else if (!hasData && needSync) {
+      console.log('[TEST] ✅ OK: hasData=false, needSync=true (sync button shown)');
+    } else {
+      console.error('[TEST] ❌ ERROR: hasData=false, needSync=false (unexpected state)');
+    }
+  };
+
   const generateInsights = async () => {
     try {
       setLoading(true);
       setInsights('');
       setStatistics(null);
 
-      const response = await fetch(`${AI_SERVICE_URL}/api/analytics/analyze`, {
+      // Call the correct business analytics endpoint
+      const response = await fetch(`${AI_SERVICE_URL}/api/business/ai-insights`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          query: `Analyze ${analysisType} data and provide insights`,
-          model_id: selectedModel,
+          type: analysisType,  // Send analysis type: general, pricing, inventory, sales
+          model: selectedModel, // Send selected AI model
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate insights');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || 'Failed to generate insights');
       }
 
       const data = await response.json();
-      setInsights(data.analysis || data.insights || '');
-      setStatistics(data.insights || null);
+      console.log('[AI Insights] Response:', data);
+      
+      // Set insights from response
+      setInsights(data.insights || '');
+      setStatistics(data.statistics || null);
     } catch (error) {
       console.error('Error generating insights:', error);
-      alert('Không thể tạo phân tích AI. Vui lòng thử lại.');
+      alert(`Không thể tạo phân tích AI: ${error instanceof Error ? error.message : 'Vui lòng thử lại.'}`);
     } finally {
       setLoading(false);
     }
@@ -313,55 +570,237 @@ export default function AIInsightsPage() {
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="text-lg font-bold text-gray-900 dark:text-white">Thống kê hệ thống</h3>
-                  <button
-                    onClick={loadSystemData}
-                    disabled={syncLoading}
-                    className="text-sm px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 disabled:opacity-50 transition-colors"
-                    title="Làm mới dữ liệu"
-                  >
-                    {syncLoading ? (
-                      <svg className="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                    ) : (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                    )}
-                  </button>
                 </div>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Sản phẩm:</span>
-                    <span className="font-bold text-purple-600 dark:text-purple-400">{systemData.overview.total_products}</span>
+                    <span className="font-bold text-purple-600 dark:text-purple-400">{systemData.totalProducts}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Đơn hàng:</span>
-                    <span className="font-bold text-blue-600 dark:text-blue-400">{systemData.overview.total_orders}</span>
+                    <span className="font-bold text-blue-600 dark:text-blue-400">{systemData.totalOrders}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Khách hàng:</span>
-                    <span className="font-bold text-green-600 dark:text-green-400">{systemData.overview.total_customers}</span>
+                    <span className="font-bold text-green-600 dark:text-green-400">{systemData.totalCustomers}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Người dùng:</span>
-                    <span className="font-bold text-orange-600 dark:text-orange-400">{systemData.overview.total_users}</span>
+                    <span className="font-bold text-orange-600 dark:text-orange-400">{systemData.totalUsers}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Doanh thu:</span>
                     <span className="font-bold text-green-600 dark:text-green-400">
-                      {formatCurrency(systemData.overview.total_revenue || 0)}
+                      {formatCurrency(systemData.totalRevenue || 0)}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Doanh thu tháng:</span>
                     <span className="font-bold text-blue-600 dark:text-blue-400">
-                      {formatCurrency(systemData.overview.monthly_revenue || 0)}
+                      {formatCurrency(systemData.monthlyRevenue || 0)}
                     </span>
                   </div>
                   <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
                     <div className="text-xs text-gray-500 dark:text-gray-400">
-                      Cập nhật: {new Date(systemData.metadata?.cache_timestamp || systemData.timestamp).toLocaleString('vi-VN')}
+                      Cập nhật: {new Date().toLocaleString('vi-VN')}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ChromaDB Data Section */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                  <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                  </svg>
+                  ChromaDB Analytics Data
+                </h3>
+                <div className="flex gap-2">
+                  {/* Show sync button only if ChromaDB is empty */}
+                  {console.log('[UI] Rendering - needsSync():', needsSync(), 'chromaStats:', chromaStats)}
+                  {needsSync() && (
+                    <button
+                      key={`sync-button-${chromaStats?.total_documents || 0}`}
+                      onClick={loadSystemData}
+                      disabled={syncLoading}
+                      className="px-3 py-1 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 text-sm flex items-center gap-2"
+                      title="ChromaDB trống - Cần đồng bộ dữ liệu"
+                    >
+                      {syncLoading ? (
+                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      )}
+                      Đồng bộ ngay
+                    </button>
+                  )}
+                  
+                  {/* Show stats button always */}
+                  <button
+                    onClick={loadChromaStats}
+                    disabled={chromaLoading}
+                    className="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 text-sm flex items-center gap-2"
+                    title="Xem thống kê ChromaDB"
+                  >
+                    {chromaLoading ? (
+                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    ) : (
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    )}
+                    Thống kê
+                  </button>
+                  
+                  {/* Debug button */}
+                  <button
+                    onClick={debugChromaDB}
+                    className="px-3 py-1 bg-purple-500 text-white rounded-lg hover:bg-purple-600 text-sm flex items-center gap-2"
+                    title="Debug ChromaDB (Xem console)"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
+                    Debug
+                  </button>
+                  
+                  {/* Test logic button */}
+                  <button
+                    onClick={testSyncLogic}
+                    className="px-3 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 text-sm flex items-center gap-2"
+                    title="Test sync logic (Xem console)"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Test
+                  </button>
+                </div>
+              </div>
+
+              {chromaStats && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                        {chromaStats.total_collections}
+                      </div>
+                      <div className="text-sm text-blue-600 dark:text-blue-400">Collections</div>
+                    </div>
+                    <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+                      <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                        {chromaStats.total_documents}
+                      </div>
+                      <div className="text-sm text-green-600 dark:text-green-400">Total Documents</div>
+                    </div>
+                    <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
+                      <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                        {new Date(chromaStats.timestamp).toLocaleString('vi-VN')}
+                      </div>
+                      <div className="text-sm text-purple-600 dark:text-purple-400">Last Updated</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h4 className="font-semibold text-gray-900 dark:text-white">Collections Details:</h4>
+                    {Object.entries(chromaStats.collections_stats).map(([name, stats]) => (
+                      <div key={name} className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <h5 className="font-medium text-gray-900 dark:text-white">{name}</h5>
+                          <span className="text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
+                            {stats.documents_count} documents
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {stats.metadata?.description || 'No description'}
+                        </p>
+                        {stats.error && (
+                          <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                            Error: {stats.error}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={loadChromaData}
+                      disabled={chromaLoading}
+                      className="flex-1 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {chromaLoading ? (
+                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      )}
+                      Xem Chi Tiết Dữ Liệu
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!chromaStats && !chromaLoading && (
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  Chưa có dữ liệu ChromaDB. Nhấn Refresh để tải.
+                </div>
+              )}
+            </div>
+
+            {/* System Data Summary */}
+            {systemData && (
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Thống kê hệ thống</h3>
+                </div>
+                <div className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Sản phẩm:</span>
+                    <span className="font-bold text-purple-600 dark:text-purple-400">{systemData.totalProducts}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Đơn hàng:</span>
+                    <span className="font-bold text-blue-600 dark:text-blue-400">{systemData.totalOrders}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Khách hàng:</span>
+                    <span className="font-bold text-green-600 dark:text-green-400">{systemData.totalCustomers}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Người dùng:</span>
+                    <span className="font-bold text-orange-600 dark:text-orange-400">{systemData.totalUsers}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Doanh thu:</span>
+                    <span className="font-bold text-green-600 dark:text-green-400">
+                      {formatCurrency(systemData.totalRevenue || 0)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Doanh thu tháng:</span>
+                    <span className="font-bold text-blue-600 dark:text-blue-400">
+                      {formatCurrency(systemData.monthlyRevenue || 0)}
+                    </span>
+                  </div>
+                  <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      Cập nhật: {new Date().toLocaleString('vi-VN')}
                     </div>
                   </div>
                 </div>
@@ -390,7 +829,7 @@ export default function AIInsightsPage() {
 
               {!insights && !loading && (
                 <div className="flex flex-col items-center justify-center h-[500px] text-center px-8">
-                  {systemData && systemData.overview && (systemData.overview.total_products > 0 || systemData.overview.total_orders > 0) ? (
+                  {systemData && systemData && (systemData.totalProducts > 0 || systemData.totalOrders > 0) ? (
                     // Có dữ liệu - hiển thị thông báo sẵn sàng phân tích
                     <>
                       <div className="mb-6">
@@ -416,25 +855,25 @@ export default function AIInsightsPage() {
                       <div className="grid grid-cols-4 gap-3 w-full max-w-lg mb-6">
                         <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 text-center">
                           <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                            {systemData.overview.total_products || 0}
+                            {systemData.totalProducts || 0}
                           </div>
                           <div className="text-xs text-gray-600 dark:text-gray-400">Sản phẩm</div>
                         </div>
                         <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 text-center">
                           <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                            {systemData.overview.total_orders || 0}
+                            {systemData.totalOrders || 0}
                           </div>
                           <div className="text-xs text-gray-600 dark:text-gray-400">Đơn hàng</div>
                         </div>
                         <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 text-center">
                           <div className="text-xl font-bold text-green-600 dark:text-green-400">
-                            {systemData.overview.total_customers || 0}
+                            {systemData.totalCustomers || 0}
                           </div>
                           <div className="text-xs text-gray-600 dark:text-gray-400">Khách hàng</div>
                         </div>
                         <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 text-center">
                           <div className="text-xl font-bold text-orange-600 dark:text-orange-400">
-                            {formatCurrency(systemData.overview.total_revenue || 0)}
+                            {formatCurrency(systemData.totalRevenue || 0)}
                           </div>
                           <div className="text-xs text-gray-600 dark:text-gray-400">Doanh thu</div>
                         </div>
@@ -504,50 +943,104 @@ export default function AIInsightsPage() {
                 </div>
               )}
 
-              {!insights && !loading && systemData && (
-                <div className="flex flex-col items-center justify-center h-[400px] text-center px-8">
-                  <div className="mb-6">
-                    <svg className="w-16 h-16 text-purple-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                    </svg>
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full text-sm font-medium mb-4">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                      Dữ liệu đã sẵn sàng
-                    </div>
-                  </div>
-
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
-                    Sẵn sàng tạo phân tích AI
-                  </h3>
-
-                  <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md">
-                    Dữ liệu hệ thống đã được đồng bộ. Chọn loại phân tích và mô hình AI để bắt đầu phân tích thông minh.
-                  </p>
-
-                  <div className="text-center">
-                    <p className="text-sm text-gray-500 dark:text-gray-500">
-                      AI sẽ phân tích dữ liệu và đưa ra insights chiến lược
-                    </p>
-                  </div>
-                </div>
-              )}
-
               {insights && !loading && (
-                <div className="prose prose-purple dark:prose-invert max-w-none">
-                  <div 
-                    className="text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap"
-                    dangerouslySetInnerHTML={{ 
-                      __html: (insights || '')
-                        .replace(/\*\*(.+?)\*\*/g, '<strong class="text-purple-600 dark:text-purple-400">$1</strong>')
-                        .replace(/### (.+?)(\n|$)/g, '<h3 class="text-xl font-bold text-gray-900 dark:text-white mt-6 mb-3">$1</h3>')
-                        .replace(/## (.+?)(\n|$)/g, '<h2 class="text-2xl font-bold text-gray-900 dark:text-white mt-8 mb-4">$2</h2>')
-                        .replace(/# (.+?)(\n|$)/g, '<h1 class="text-3xl font-bold text-gray-900 dark:text-white mt-8 mb-4">$1</h1>')
-                        .replace(/\n- /g, '\n• ')
-                        .replace(/\n\n/g, '<br/><br/>')
+                <div className="markdown-content max-w-none">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    rehypePlugins={[rehypeRaw]}
+                    components={{
+                      h1: ({ children }) => (
+                        <h1 className="text-3xl font-bold text-purple-600 dark:text-purple-400 border-b-4 border-purple-600 pb-3 mb-6 mt-8">
+                          {children}
+                        </h1>
+                      ),
+                      h2: ({ children }) => (
+                        <h2 className="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-4 mt-8 flex items-center gap-2">
+                          <span className="text-purple-500">●</span>
+                          {children}
+                        </h2>
+                      ),
+                      h3: ({ children }) => (
+                        <h3 className="text-xl font-semibold text-indigo-600 dark:text-indigo-400 mb-3 mt-6">
+                          {children}
+                        </h3>
+                      ),
+                      p: ({ children }) => (
+                        <p className="mb-4 text-gray-700 dark:text-gray-300 leading-relaxed">
+                          {children}
+                        </p>
+                      ),
+                      ul: ({ children }) => (
+                        <ul className="list-disc list-inside mb-4 space-y-2 text-gray-700 dark:text-gray-300">
+                          {children}
+                        </ul>
+                      ),
+                      ol: ({ children }) => (
+                        <ol className="list-decimal list-inside mb-4 space-y-2 text-gray-700 dark:text-gray-300">
+                          {children}
+                        </ol>
+                      ),
+                      li: ({ children }) => (
+                        <li className="ml-4 pl-2">
+                          {children}
+                        </li>
+                      ),
+                      strong: ({ children }) => (
+                        <strong className="font-bold text-purple-700 dark:text-purple-300">
+                          {children}
+                        </strong>
+                      ),
+                      table: ({ children }) => (
+                        <div className="overflow-x-auto my-6 rounded-lg shadow-lg">
+                          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                            {children}
+                          </table>
+                        </div>
+                      ),
+                      thead: ({ children }) => (
+                        <thead className="bg-purple-600 dark:bg-purple-700">
+                          {children}
+                        </thead>
+                      ),
+                      th: ({ children }) => (
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                          {children}
+                        </th>
+                      ),
+                      tbody: ({ children }) => (
+                        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                          {children}
+                        </tbody>
+                      ),
+                      td: ({ children }) => (
+                        <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
+                          {children}
+                        </td>
+                      ),
+                      code: ({ children, className }) => {
+                        const isInline = !className;
+                        return isInline ? (
+                          <code className="bg-gray-100 dark:bg-gray-700 text-red-600 dark:text-red-400 px-2 py-1 rounded text-sm font-mono">
+                            {children}
+                          </code>
+                        ) : (
+                          <code className={`${className} block bg-gray-900 dark:bg-gray-950 text-gray-100 p-4 rounded-lg overflow-x-auto`}>
+                            {children}
+                          </code>
+                        );
+                      },
+                      blockquote: ({ children }) => (
+                        <blockquote className="border-l-4 border-purple-600 pl-4 my-4 italic text-gray-600 dark:text-gray-400">
+                          {children}
+                        </blockquote>
+                      ),
+                      hr: () => (
+                        <hr className="my-8 border-t-2 border-gray-200 dark:border-gray-700" />
+                      ),
                     }}
-                  />
+                  >
+                    {insights}
+                  </ReactMarkdown>
                 </div>
               )}
             </div>
@@ -667,6 +1160,123 @@ export default function AIInsightsPage() {
                   Không có model nào cho provider này
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ChromaDB Data Modal */}
+      {showChromaModal && chromaData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                </svg>
+                ChromaDB Analytics Data - Chi Tiết
+              </h2>
+              <button
+                onClick={() => setShowChromaModal(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              <div className="mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                      {chromaData.total_collections}
+                    </div>
+                    <div className="text-sm text-blue-600 dark:text-blue-400">Collections</div>
+                  </div>
+                  <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                      {Object.values(chromaData.collections).reduce((sum, col: any) => sum + (col.total_documents || 0), 0)}
+                    </div>
+                    <div className="text-sm text-green-600 dark:text-green-400">Total Documents</div>
+                  </div>
+                  <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
+                    <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                      {new Date(chromaData.timestamp).toLocaleString('vi-VN')}
+                    </div>
+                    <div className="text-sm text-purple-600 dark:text-purple-400">Timestamp</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                {Object.entries(chromaData.collections).map(([collectionName, collection]: [string, any]) => (
+                  <div key={collectionName} className="border border-gray-200 dark:border-gray-700 rounded-lg">
+                    <div className="bg-gray-50 dark:bg-gray-700 px-4 py-3 border-b border-gray-200 dark:border-gray-600">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                          <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                          </svg>
+                          {collectionName}
+                        </h3>
+                        <span className="text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
+                          {collection.total_documents || 0} documents
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        {collection.metadata?.description || 'No description'}
+                      </p>
+                    </div>
+
+                    <div className="p-4">
+                      {collection.error ? (
+                        <div className="text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 p-3 rounded">
+                          Error: {collection.error}
+                        </div>
+                      ) : collection.documents && collection.documents.length > 0 ? (
+                        <div className="space-y-3">
+                          {collection.documents.map((doc: any, index: number) => (
+                            <div key={doc.id || index} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+                              <div className="flex items-center justify-between mb-2">
+                                <h4 className="font-medium text-gray-900 dark:text-white">Document {index + 1}</h4>
+                                <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-1 rounded">
+                                  ID: {doc.id}
+                                </span>
+                              </div>
+
+                              <div className="space-y-3">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Content:</label>
+                                  <div className="mt-1 bg-gray-50 dark:bg-gray-900 p-3 rounded text-sm text-gray-900 dark:text-white font-mono max-h-32 overflow-y-auto">
+                                    {doc.content || 'No content'}
+                                  </div>
+                                </div>
+
+                                {doc.metadata && Object.keys(doc.metadata).length > 0 && (
+                                  <div>
+                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Metadata:</label>
+                                    <div className="mt-1 bg-blue-50 dark:bg-blue-900/20 p-3 rounded text-sm">
+                                      <pre className="text-blue-800 dark:text-blue-200 whitespace-pre-wrap">
+                                        {JSON.stringify(doc.metadata, null, 2)}
+                                      </pre>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                          Không có documents nào trong collection này
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

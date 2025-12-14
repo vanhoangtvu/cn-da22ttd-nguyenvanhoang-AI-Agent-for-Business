@@ -29,4 +29,7 @@ public class ProductCreateRequest {
     
     @Schema(description = "Category ID", example = "1", required = true)
     private Long categoryId;
+    
+    @Schema(description = "Product details in JSON format", example = "{\"rating\": 4.5, \"brand\": \"Apple\"}")
+    private String details;
 }

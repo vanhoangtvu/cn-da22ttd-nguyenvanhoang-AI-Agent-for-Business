@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import AddressSelector from '@/components/AddressSelector';
+import DiscountApplier from '@/components/DiscountApplier';
 
 interface CartItem {
   id: number;
@@ -29,6 +30,10 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  
+  // Discount state
+  const [appliedDiscount, setAppliedDiscount] = useState<any>(null);
+  const [finalTotal, setFinalTotal] = useState(0);
 
   useEffect(() => {
     if (!apiClient.isAuthenticated()) {
@@ -48,12 +53,24 @@ export default function CheckoutPage() {
         return;
       }
       setCart(data);
+      setFinalTotal(data.totalPrice);
     } catch (err) {
       setError('Không thể tải giỏ hàng');
       console.error(err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDiscountApplied = (discount: any, newTotal: number) => {
+    setAppliedDiscount(discount);
+    setFinalTotal(newTotal);
+    setError('');
+  };
+
+  const handleDiscountRemoved = () => {
+    setAppliedDiscount(null);
+    setFinalTotal(cart?.totalPrice || 0);
   };
 
   const handleSubmitOrder = async () => {
@@ -68,6 +85,7 @@ export default function CheckoutPage() {
     try {
       const orderData = {
         note: note.trim() || undefined,
+        discountCode: appliedDiscount?.code || undefined,
         items: cart.items.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
@@ -290,17 +308,44 @@ Ví dụ: Giao hàng buổi chiều, gọi trước khi giao..."
                   <span className="text-gray-600 dark:text-gray-400 font-medium">Tạm tính</span>
                   <span className="font-semibold text-lg">{cart.totalPrice.toLocaleString('vi-VN')}đ</span>
                 </div>
+                
+                {/* Discount section */}
+                <DiscountApplier
+                  orderTotal={cart.totalPrice}
+                  onDiscountApplied={handleDiscountApplied}
+                  onDiscountRemoved={handleDiscountRemoved}
+                  appliedDiscount={appliedDiscount}
+                />
+                
+                {appliedDiscount && (
+                  <div className="flex justify-between items-center py-3 px-4 bg-green-50/50 dark:bg-green-900/10 rounded-xl border border-green-200 dark:border-green-800">
+                    <span className="text-gray-600 dark:text-gray-400 font-medium">Giảm giá</span>
+                    <span className="font-semibold text-green-600 dark:text-green-400">
+                      -{(cart.totalPrice - finalTotal).toLocaleString('vi-VN')}đ
+                    </span>
+                  </div>
+                )}
+                
                 <div className="flex justify-between items-center py-3 px-4 bg-green-50/50 dark:bg-green-900/10 rounded-xl">
                   <span className="text-gray-600 dark:text-gray-400 font-medium">Phí vận chuyển</span>
-                  <span className="font-semibold text-green-600 dark:text-green-400">Miễn phí</span>
+                  <span className="font-semibold text-green-600 dark:text-green-400">
+                    {appliedDiscount?.type === 'FREE_SHIPPING' ? 'Miễn phí (ưu đãi)' : 'Miễn phí'}
+                  </span>
                 </div>
                 <div className="border-t-2 border-gray-200/50 dark:border-gray-700/50 pt-6">
                   <div className="flex justify-between items-center py-4 px-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 rounded-2xl border border-blue-200/50 dark:border-blue-800/50">
                     <span className="text-xl font-bold text-gray-800 dark:text-gray-200">Tổng cộng</span>
                     <span className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                      {cart.totalPrice.toLocaleString('vi-VN')}đ
+                      {finalTotal.toLocaleString('vi-VN')}đ
                     </span>
                   </div>
+                  {appliedDiscount && (
+                    <div className="mt-3 text-center">
+                      <span className="text-sm text-green-600 dark:text-green-400 font-medium">
+                        🎉 Bạn đã tiết kiệm {(cart.totalPrice - finalTotal).toLocaleString('vi-VN')}đ!
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 

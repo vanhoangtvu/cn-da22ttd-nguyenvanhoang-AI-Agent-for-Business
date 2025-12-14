@@ -1,6 +1,7 @@
 package com.business.springservice.config;
 
 import com.business.springservice.entity.*;
+import com.business.springservice.entity.Discount.DiscountType;
 import com.business.springservice.enums.OrderStatus;
 import com.business.springservice.enums.Role;
 import com.business.springservice.enums.Status;
@@ -23,6 +24,7 @@ public class DataInitializer implements CommandLineRunner {
     private final ProductRepository productRepository;
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
+    private final DiscountRepository discountRepository;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
 
     @Override
@@ -123,6 +125,9 @@ public class DataInitializer implements CommandLineRunner {
             initializeAdditionalProducts(business2);
             initializeMoreProducts(business3);
             
+            // Initialize discount codes
+            initializeDiscounts(admin, business1, business2, business3);
+            
             // Initialize sample orders for revenue testing
             initializeSampleOrders(customer1, customer2, customer3, customer4, popularProducts);
         } else {
@@ -150,6 +155,7 @@ public class DataInitializer implements CommandLineRunner {
             iphone15.setPrice(new BigDecimal("29990000"));
             iphone15.setQuantity(50);
             iphone15.setImageUrls("[\"https://images.unsplash.com/photo-1696446702798-8c0b5f7da85c\",\"https://images.unsplash.com/photo-1695048133142-1a20484d2569\"]");
+            iphone15.setDetails("{\"brand\":\"Apple\",\"model\":\"iPhone 15 Pro Max\",\"storage\":\"256GB\",\"color\":\"Titan Tự Nhiên\",\"display\":{\"size\":\"6.7 inch\",\"type\":\"Super Retina XDR OLED\",\"resolution\":\"2796 x 1290\"},\"processor\":\"Apple A17 Pro\",\"camera\":{\"main\":\"48MP\",\"ultra_wide\":\"12MP\",\"telephoto\":\"12MP\",\"front\":\"12MP\"},\"battery\":\"4422mAh\",\"os\":\"iOS 17\",\"connectivity\":[\"5G\",\"Wi-Fi 6E\",\"Bluetooth 5.3\"],\"features\":[\"Face ID\",\"Chống nước IP68\",\"MagSafe\",\"Wireless Charging\"],\"warranty\":\"12 tháng chính hãng\",\"origin\":\"Chính hãng VN/A\"}");
             iphone15.setCategory(phoneCategory);
             iphone15.setSeller(seller);
             iphone15.setStatus(Status.ACTIVE);
@@ -161,6 +167,7 @@ public class DataInitializer implements CommandLineRunner {
             samsung.setPrice(new BigDecimal("27990000"));
             samsung.setQuantity(30);
             samsung.setImageUrls("[\"https://images.unsplash.com/photo-1610945415295-d9bbf067e59c\",\"https://images.unsplash.com/photo-1598327105666-5b89351aff97\"]");
+            samsung.setDetails("{\"brand\":\"Samsung\",\"model\":\"Galaxy S24 Ultra\",\"storage\":\"512GB\",\"color\":\"Titanium Gray\",\"display\":{\"size\":\"6.8 inch\",\"type\":\"Dynamic AMOLED 2X\",\"resolution\":\"3120 x 1440\",\"refresh_rate\":\"120Hz\"},\"processor\":\"Snapdragon 8 Gen 3\",\"ram\":\"12GB\",\"camera\":{\"main\":\"200MP\",\"ultra_wide\":\"12MP\",\"telephoto1\":\"10MP\",\"telephoto2\":\"50MP\",\"front\":\"12MP\"},\"battery\":\"5000mAh\",\"os\":\"Android 14, One UI 6.1\",\"connectivity\":[\"5G\",\"Wi-Fi 7\",\"Bluetooth 5.3\"],\"features\":[\"S Pen\",\"IP68\",\"Wireless Charging\",\"Reverse Charging\"],\"warranty\":\"12 tháng chính hãng\",\"origin\":\"Chính hãng Việt Nam\"}");
             samsung.setCategory(phoneCategory);
             samsung.setSeller(seller);
             samsung.setStatus(Status.ACTIVE);
@@ -181,6 +188,7 @@ public class DataInitializer implements CommandLineRunner {
             macbook.setPrice(new BigDecimal("52990000"));
             macbook.setQuantity(20);
             macbook.setImageUrls("[\"https://images.unsplash.com/photo-1517336714731-489689fd1ca8\",\"https://images.unsplash.com/photo-1611186871348-b1ce696e52c9\"]");
+            macbook.setDetails("{\"brand\":\"Apple\",\"model\":\"MacBook Pro 14\",\"processor\":\"Apple M3 Pro\",\"ram\":\"18GB\",\"storage\":\"512GB SSD\",\"display\":{\"size\":\"14.2 inch\",\"type\":\"Liquid Retina XDR\",\"resolution\":\"3024 x 1964\",\"brightness\":\"1600 nits\"},\"graphics\":\"11-core GPU\",\"ports\":[\"3x Thunderbolt 4\",\"HDMI\",\"MagSafe 3\",\"3.5mm audio\"],\"battery\":\"70Wh - 18 giờ\",\"os\":\"macOS Sonoma\",\"connectivity\":[\"Wi-Fi 6E\",\"Bluetooth 5.3\"],\"features\":[\"Touch ID\",\"Magic Keyboard\",\"Force Touch trackpad\"],\"weight\":\"1.61kg\",\"warranty\":\"12 tháng chính hãng Apple\",\"origin\":\"Chính hãng VN/A\"}");
             macbook.setCategory(laptopCategory);
             macbook.setSeller(seller);
             macbook.setStatus(Status.ACTIVE);
@@ -192,6 +200,7 @@ public class DataInitializer implements CommandLineRunner {
             dell.setPrice(new BigDecimal("35990000"));
             dell.setQuantity(15);
             dell.setImageUrls("[\"https://images.unsplash.com/photo-1593642632823-8f785ba67e45\",\"https://images.unsplash.com/photo-1588872657578-7efd1f1555ed\"]");
+            dell.setDetails("{\"brand\":\"Dell\",\"model\":\"XPS 15 9530\",\"processor\":\"Intel Core i7-13700H\",\"ram\":\"16GB DDR5\",\"storage\":\"512GB NVMe SSD\",\"display\":{\"size\":\"15.6 inch\",\"type\":\"InfinityEdge Touch\",\"resolution\":\"3456 x 2160\",\"brightness\":\"500 nits\"},\"graphics\":\"NVIDIA RTX 4050 6GB\",\"ports\":[\"2x Thunderbolt 4\",\"USB-C 3.2\",\"3.5mm audio\",\"microSD\"],\"battery\":\"86Wh - 10-12 giờ\",\"os\":\"Windows 11 Home\",\"connectivity\":[\"Wi-Fi 6E\",\"Bluetooth 5.2\"],\"features\":[\"Windows Hello\",\"Precision Trackpad\",\"Bàn phím có đèn nền\"],\"weight\":\"2.05kg\",\"warranty\":\"24 tháng chính hãng Dell\",\"origin\":\"Chính hãng Việt Nam\"}");
             dell.setCategory(laptopCategory);
             dell.setSeller(seller);
             dell.setStatus(Status.ACTIVE);
@@ -212,6 +221,7 @@ public class DataInitializer implements CommandLineRunner {
             airpods.setPrice(new BigDecimal("6490000"));
             airpods.setQuantity(100);
             airpods.setImageUrls("[\"https://images.unsplash.com/photo-1606841837239-c5a1a4a07af7\",\"https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1\"]");
+            airpods.setDetails("{\"brand\":\"Apple\",\"model\":\"AirPods Pro 2nd Gen\",\"type\":\"True Wireless\",\"anc\":\"Active Noise Cancellation\",\"transparency_mode\":true,\"drivers\":\"Custom Apple drivers\",\"battery\":{\"earbuds\":\"6 giờ\",\"case\":\"30 giờ\",\"quick_charge\":\"5 phút = 1 giờ\"},\"connectivity\":[\"Bluetooth 5.3\",\"H2 chip\"],\"controls\":[\"Touch controls\",\"Siri\"],\"features\":[\"Spatial Audio\",\"Adaptive EQ\",\"Find My\",\"MagSafe\"],\"water_resistance\":\"IPX4\",\"compatibility\":\"iOS 16+\",\"warranty\":\"12 tháng chính hãng Apple\",\"origin\":\"Chính hãng VN/A\"}");
             airpods.setCategory(headphoneCategory);
             airpods.setSeller(seller);
             airpods.setStatus(Status.ACTIVE);
@@ -223,6 +233,7 @@ public class DataInitializer implements CommandLineRunner {
             sony.setPrice(new BigDecimal("8990000"));
             sony.setQuantity(40);
             sony.setImageUrls("[\"https://images.unsplash.com/photo-1545127398-14699f92334b\",\"https://images.unsplash.com/photo-1484704849700-f032a568e944\"]");
+            sony.setDetails("{\"brand\":\"Sony\",\"model\":\"WH-1000XM5\",\"type\":\"Over-Ear\",\"anc\":\"Industry Leading ANC\",\"drivers\":\"30mm\",\"frequency_response\":\"4Hz-40kHz\",\"battery\":{\"anc_on\":\"30 giờ\",\"anc_off\":\"40 giờ\",\"quick_charge\":\"3 phút = 3 giờ\"},\"connectivity\":[\"Bluetooth 5.2\",\"LDAC\",\"NFC\"],\"controls\":[\"Touch controls\",\"Google Assistant\",\"Alexa\"],\"features\":[\"360 Reality Audio\",\"Speak-to-Chat\",\"Adaptive Sound Control\"],\"weight\":\"250g\",\"foldable\":true,\"warranty\":\"12 tháng chính hãng Sony\",\"origin\":\"Nhập khẩu chính hãng\"}");
             sony.setCategory(headphoneCategory);
             sony.setSeller(seller);
             sony.setStatus(Status.ACTIVE);
@@ -243,6 +254,7 @@ public class DataInitializer implements CommandLineRunner {
             appleWatch.setPrice(new BigDecimal("10990000"));
             appleWatch.setQuantity(25);
             appleWatch.setImageUrls("[\"https://images.unsplash.com/photo-1434493789847-2f02dc6ca35d\"]");
+            appleWatch.setDetails("{\"brand\":\"Apple\",\"model\":\"Apple Watch Series 9\",\"size\":\"45mm\",\"case_material\":\"Aluminum\",\"display\":{\"type\":\"Always-On Retina LTPO OLED\",\"size\":\"1.9 inch\",\"resolution\":\"484 x 396\",\"brightness\":\"2000 nits\"},\"processor\":\"S9 SiP\",\"storage\":\"64GB\",\"connectivity\":[\"GPS\",\"Wi-Fi\",\"Bluetooth 5.3\"],\"sensors\":[\"Heart Rate\",\"Blood Oxygen\",\"ECG\",\"Temperature\"],\"battery\":\"18 giờ\",\"water_resistance\":\"50m\",\"features\":[\"Siri\",\"Apple Pay\",\"Family Setup\"],\"compatibility\":\"iPhone 8 trở lên\",\"warranty\":\"12 tháng chính hãng Apple\",\"origin\":\"Chính hãng VN/A\"}");
             appleWatch.setCategory(smartwatchCategory);
             appleWatch.setSeller(seller);
             appleWatch.setStatus(Status.ACTIVE);
@@ -273,6 +285,7 @@ public class DataInitializer implements CommandLineRunner {
             xiaomi.setPrice(new BigDecimal("24990000"));
             xiaomi.setQuantity(40);
             xiaomi.setImageUrls("[\"https://images.unsplash.com/photo-1598327105666-5b89351aff97\"]");
+            xiaomi.setDetails("{\"brand\":\"Xiaomi\",\"model\":\"14 Ultra\",\"storage\":\"512GB\",\"color\":\"Titanium Black\",\"display\":{\"size\":\"6.73 inch\",\"type\":\"LTPO AMOLED\",\"resolution\":\"3200 x 1440\",\"refresh_rate\":\"120Hz\"},\"processor\":\"Snapdragon 8 Gen 3\",\"ram\":\"16GB\",\"camera\":{\"main\":\"50MP Leica\",\"ultra_wide\":\"50MP\",\"telephoto\":\"50MP\",\"front\":\"32MP\"},\"battery\":\"5300mAh\",\"charging\":\"90W wired, 80W wireless\",\"os\":\"MIUI 15, Android 14\",\"connectivity\":[\"5G\",\"Wi-Fi 7\",\"Bluetooth 5.4\"],\"features\":[\"IP68\",\"Wireless charging\",\"Reverse charging\"],\"warranty\":\"18 tháng chính hãng\",\"origin\":\"Chính hãng Việt Nam\"}");
             xiaomi.setCategory(phoneCategory);
             xiaomi.setSeller(seller);
             xiaomi.setStatus(Status.ACTIVE);
@@ -284,6 +297,7 @@ public class DataInitializer implements CommandLineRunner {
             oppo.setPrice(new BigDecimal("22990000"));
             oppo.setQuantity(35);
             oppo.setImageUrls("[\"https://images.unsplash.com/photo-1511707171634-5f897ff02aa9\"]");
+            oppo.setDetails("{\"brand\":\"OPPO\",\"model\":\"Find X7 Pro\",\"storage\":\"256GB\",\"color\":\"Ocean Blue\",\"display\":{\"size\":\"6.82 inch\",\"type\":\"LTPO AMOLED\",\"resolution\":\"3168 x 1440\",\"refresh_rate\":\"120Hz\"},\"processor\":\"Dimensity 9300\",\"ram\":\"12GB\",\"camera\":{\"main\":\"50MP\",\"ultra_wide\":\"50MP\",\"telephoto\":\"64MP periscope\",\"front\":\"32MP\"},\"battery\":\"5400mAh\",\"charging\":\"100W SuperVOOC\",\"os\":\"ColorOS 14, Android 14\",\"connectivity\":[\"5G\",\"Wi-Fi 6E\",\"Bluetooth 5.4\"],\"features\":[\"IP68\",\"Hasselblad camera\",\"Ultra-thin design\"],\"warranty\":\"12 tháng chính hãng\",\"origin\":\"Chính hãng Việt Nam\"}");
             oppo.setCategory(phoneCategory);
             oppo.setSeller(seller);
             oppo.setStatus(Status.ACTIVE);
@@ -307,6 +321,7 @@ public class DataInitializer implements CommandLineRunner {
             google.setPrice(new BigDecimal("21990000"));
             google.setQuantity(30);
             google.setImageUrls("[\"https://images.unsplash.com/photo-1598327105666-5b89351aff97\"]");
+            google.setDetails("{\"brand\":\"Google\",\"model\":\"Pixel 8 Pro\",\"storage\":\"256GB\",\"color\":\"Obsidian\",\"display\":{\"size\":\"6.7 inch\",\"type\":\"LTPO OLED\",\"resolution\":\"2992 x 1344\",\"refresh_rate\":\"120Hz\"},\"processor\":\"Google Tensor G3\",\"ram\":\"12GB\",\"camera\":{\"main\":\"50MP\",\"ultra_wide\":\"48MP\",\"telephoto\":\"48MP\",\"front\":\"10.5MP\"},\"battery\":\"5050mAh\",\"charging\":\"30W wired, 23W wireless\",\"os\":\"Android 14\",\"connectivity\":[\"5G\",\"Wi-Fi 6E\",\"Bluetooth 5.3\"],\"features\":[\"Magic Eraser\",\"Live Translate\",\"IP68\"],\"warranty\":\"12 tháng chính hãng\",\"origin\":\"Chính hãng Việt Nam\"}");
             google.setCategory(phoneCategory);
             google.setSeller(seller);
             google.setStatus(Status.ACTIVE);
@@ -321,6 +336,7 @@ public class DataInitializer implements CommandLineRunner {
             asus.setPrice(new BigDecimal("42990000"));
             asus.setQuantity(12);
             asus.setImageUrls("[\"https://images.unsplash.com/photo-1603302576837-37561b2e2302\"]");
+            asus.setDetails("{\"brand\":\"ASUS\",\"model\":\"ROG Zephyrus G14\",\"processor\":\"AMD Ryzen 9 7940HS\",\"ram\":\"16GB DDR5\",\"storage\":\"1TB NVMe SSD\",\"display\":{\"size\":\"14 inch\",\"type\":\"IPS\",\"resolution\":\"2560 x 1600\",\"refresh_rate\":\"165Hz\"},\"graphics\":\"NVIDIA RTX 4060 8GB\",\"ports\":[\"2x USB-C\",\"2x USB-A\",\"HDMI 2.1\",\"3.5mm\"],\"battery\":\"76Wh - 8-10 giờ\",\"os\":\"Windows 11 Pro\",\"connectivity\":[\"Wi-Fi 6E\",\"Bluetooth 5.3\"],\"features\":[\"AniMe Matrix Display\",\"Dolby Atmos\",\"Gaming Mode\"],\"weight\":\"1.65kg\",\"warranty\":\"24 tháng chính hãng ASUS\",\"origin\":\"Chính hãng Việt Nam\"}");
             asus.setCategory(laptopCategory);
             asus.setSeller(seller);
             asus.setStatus(Status.ACTIVE);
@@ -332,6 +348,7 @@ public class DataInitializer implements CommandLineRunner {
             lenovo.setPrice(new BigDecimal("38990000"));
             lenovo.setQuantity(18);
             lenovo.setImageUrls("[\"https://images.unsplash.com/photo-1588872657578-7efd1f1555ed\"]");
+            lenovo.setDetails("{\"brand\":\"Lenovo\",\"model\":\"Legion 5 Pro\",\"processor\":\"Intel Core i7-13700HX\",\"ram\":\"32GB DDR5\",\"storage\":\"1TB NVMe SSD\",\"display\":{\"size\":\"16 inch\",\"type\":\"IPS\",\"resolution\":\"2560 x 1600\",\"refresh_rate\":\"165Hz\"},\"graphics\":\"NVIDIA RTX 4070 8GB\",\"ports\":[\"4x USB-A\",\"2x USB-C\",\"HDMI 2.1\",\"RJ45\"],\"battery\":\"80Wh - 6-8 giờ\",\"os\":\"Windows 11 Home\",\"connectivity\":[\"Wi-Fi 6E\",\"Bluetooth 5.2\"],\"features\":[\"Legion Coldfront\",\"RGB Keyboard\",\"TrueStrike\"],\"weight\":\"2.5kg\",\"warranty\":\"24 tháng chính hãng Lenovo\",\"origin\":\"Chính hãng Việt Nam\"}");
             lenovo.setCategory(laptopCategory);
             lenovo.setSeller(seller);
             lenovo.setStatus(Status.ACTIVE);
@@ -355,6 +372,7 @@ public class DataInitializer implements CommandLineRunner {
             hpProbook.setPrice(new BigDecimal("15990000"));
             hpProbook.setQuantity(38);
             hpProbook.setImageUrls("[\"https://images.unsplash.com/photo-1496181133206-80ce9b88a853\"]");
+            hpProbook.setDetails("{\"brand\":\"HP\",\"model\":\"ProBook 450 G10\",\"processor\":\"Intel Core i5-1335U\",\"ram\":\"8GB DDR4\",\"storage\":\"512GB NVMe SSD\",\"display\":{\"size\":\"15.6 inch\",\"type\":\"IPS\",\"resolution\":\"1920 x 1080\",\"anti_glare\":true},\"graphics\":\"Intel Iris Xe\",\"ports\":[\"2x USB-A\",\"2x USB-C\",\"HDMI\",\"RJ45\",\"3.5mm\"],\"battery\":\"47.36Wh - 8-10 giờ\",\"os\":\"Windows 11 Pro\",\"connectivity\":[\"Wi-Fi 6\",\"Bluetooth 5.3\"],\"features\":[\"Fingerprint Reader\",\"TPM 2.0\",\"HD Webcam\"],\"weight\":\"1.79kg\",\"warranty\":\"12 tháng chính hãng HP\",\"origin\":\"Chính hãng Việt Nam\"}");
             hpProbook.setCategory(laptopCategory);
             hpProbook.setSeller(seller);
             hpProbook.setStatus(Status.ACTIVE);
@@ -369,6 +387,7 @@ public class DataInitializer implements CommandLineRunner {
             jbl.setPrice(new BigDecimal("2990000"));
             jbl.setQuantity(60);
             jbl.setImageUrls("[\"https://images.unsplash.com/photo-1545127398-14699f92334b\"]");
+            jbl.setDetails("{\"brand\":\"JBL\",\"model\":\"Tune 760NC\",\"type\":\"Over-Ear\",\"anc\":\"Active Noise Cancelling\",\"drivers\":\"40mm\",\"frequency_response\":\"20Hz-20kHz\",\"battery\":{\"anc_on\":\"35 giờ\",\"anc_off\":\"50 giờ\",\"quick_charge\":\"5 phút = 2 giờ\"},\"connectivity\":[\"Bluetooth 5.0\",\"3.5mm cable\"],\"controls\":[\"Touch controls\",\"Voice Assistant\"],\"features\":[\"JBL Pure Bass\",\"Multi-point connection\"],\"weight\":\"220g\",\"foldable\":true,\"warranty\":\"12 tháng chính hãng\",\"origin\":\"Nhập khẩu chính hãng\"}");
             jbl.setCategory(headphoneCategory);
             jbl.setSeller(seller);
             jbl.setStatus(Status.ACTIVE);
@@ -380,6 +399,7 @@ public class DataInitializer implements CommandLineRunner {
             anker.setPrice(new BigDecimal("1990000"));
             anker.setQuantity(80);
             anker.setImageUrls("[\"https://images.unsplash.com/photo-1545127398-14699f92334b\"]");
+            anker.setDetails("{\"brand\":\"Anker\",\"model\":\"Soundcore Life Q30\",\"type\":\"Over-Ear\",\"anc\":\"Hybrid ANC\",\"drivers\":\"40mm\",\"frequency_response\":\"16Hz-40kHz\",\"battery\":{\"anc_on\":\"40 giờ\",\"anc_off\":\"60 giờ\",\"quick_charge\":\"5 phút = 4 giờ\"},\"connectivity\":[\"Bluetooth 5.0\",\"3.5mm cable\",\"USB-C\"],\"controls\":[\"Physical buttons\"],\"features\":[\"BassUp Technology\",\"3 EQ modes\",\"Travel case\"],\"weight\":\"260g\",\"foldable\":true,\"warranty\":\"18 tháng chính hãng\",\"origin\":\"Nhập khẩu chính hãng\"}");
             anker.setCategory(headphoneCategory);
             anker.setSeller(seller);
             anker.setStatus(Status.ACTIVE);
@@ -417,6 +437,7 @@ public class DataInitializer implements CommandLineRunner {
             vivo.setPrice(new BigDecimal("21990000"));
             vivo.setQuantity(25);
             vivo.setImageUrls("[\"https://images.unsplash.com/photo-1598327105666-5b89351aff97\"]");
+            vivo.setDetails("{\"brand\":\"Vivo\",\"model\":\"X100 Pro\",\"storage\":\"256GB\",\"color\":\"Asteroid Black\",\"display\":{\"size\":\"6.78 inch\",\"type\":\"LTPO AMOLED\",\"resolution\":\"2800 x 1260\",\"refresh_rate\":\"120Hz\"},\"processor\":\"MediaTek Dimensity 9300\",\"ram\":\"12GB\",\"camera\":{\"main\":\"50MP ZEISS\",\"ultra_wide\":\"50MP\",\"telephoto\":\"64MP periscope\",\"front\":\"32MP\"},\"battery\":\"5400mAh\",\"charging\":\"100W wired, 50W wireless\",\"os\":\"Funtouch OS 14, Android 14\",\"connectivity\":[\"5G\",\"Wi-Fi 7\",\"Bluetooth 5.4\"],\"features\":[\"ZEISS optics\",\"V3 imaging chip\",\"IP68\"],\"warranty\":\"12 tháng chính hãng\",\"origin\":\"Chính hãng Việt Nam\"}");
             vivo.setCategory(phoneCategory);
             vivo.setSeller(seller);
             vivo.setStatus(Status.ACTIVE);
@@ -429,6 +450,7 @@ public class DataInitializer implements CommandLineRunner {
             realme.setPrice(new BigDecimal("16990000"));
             realme.setQuantity(45);
             realme.setImageUrls("[\"https://images.unsplash.com/photo-1511707171634-5f897ff02aa9\"]");
+            realme.setDetails("{\"brand\":\"Realme\",\"model\":\"GT 5 Pro\",\"storage\":\"256GB\",\"color\":\"Racing Yellow\",\"display\":{\"size\":\"6.78 inch\",\"type\":\"LTPO AMOLED\",\"resolution\":\"2780 x 1264\",\"refresh_rate\":\"144Hz\"},\"processor\":\"Snapdragon 8 Gen 3\",\"ram\":\"12GB\",\"camera\":{\"main\":\"50MP\",\"ultra_wide\":\"8MP\",\"telephoto\":\"50MP\",\"front\":\"32MP\"},\"battery\":\"5400mAh\",\"charging\":\"100W SuperDart\",\"os\":\"Realme UI 5.0, Android 14\",\"connectivity\":[\"5G\",\"Wi-Fi 6E\",\"Bluetooth 5.4\"],\"features\":[\"Gaming focused\",\"Vapor cooling\",\"RGB lighting\"],\"warranty\":\"12 tháng chính hãng\",\"origin\":\"Chính hãng Việt Nam\"}");
             realme.setCategory(phoneCategory);
             realme.setSeller(seller);
             realme.setStatus(Status.ACTIVE);
@@ -440,6 +462,7 @@ public class DataInitializer implements CommandLineRunner {
             nothing.setPrice(new BigDecimal("11990000"));
             nothing.setQuantity(55);
             nothing.setImageUrls("[\"https://images.unsplash.com/photo-1511707171634-5f897ff02aa9\"]");
+            nothing.setDetails("{\"brand\":\"Nothing\",\"model\":\"Phone (2)\",\"storage\":\"256GB\",\"color\":\"White\",\"display\":{\"size\":\"6.7 inch\",\"type\":\"LTPO OLED\",\"resolution\":\"2412 x 1080\",\"refresh_rate\":\"120Hz\"},\"processor\":\"Snapdragon 8+ Gen 1\",\"ram\":\"12GB\",\"camera\":{\"main\":\"50MP\",\"ultra_wide\":\"50MP\",\"front\":\"32MP\"},\"battery\":\"4700mAh\",\"charging\":\"45W wired, 15W wireless\",\"os\":\"Nothing OS 2.0, Android 13\",\"connectivity\":[\"5G\",\"Wi-Fi 6E\",\"Bluetooth 5.3\"],\"features\":[\"Glyph Interface\",\"Unique design\",\"Transparent back\"],\"warranty\":\"12 tháng chính hãng\",\"origin\":\"Nhập khẩu chính hãng\"}");
             nothing.setCategory(phoneCategory);
             nothing.setSeller(seller);
             nothing.setStatus(Status.ACTIVE);
@@ -452,6 +475,7 @@ public class DataInitializer implements CommandLineRunner {
             samsung_a.setPrice(new BigDecimal("9990000"));
             samsung_a.setQuantity(70);
             samsung_a.setImageUrls("[\"https://images.unsplash.com/photo-1610945415295-d9bbf067e59c\"]");
+            samsung_a.setDetails("{\"brand\":\"Samsung\",\"model\":\"Galaxy A54 5G\",\"storage\":\"128GB\",\"color\":\"Awesome Violet\",\"display\":{\"size\":\"6.4 inch\",\"type\":\"Super AMOLED\",\"resolution\":\"2340 x 1080\",\"refresh_rate\":\"120Hz\"},\"processor\":\"Exynos 1380\",\"ram\":\"8GB\",\"camera\":{\"main\":\"50MP OIS\",\"ultra_wide\":\"12MP\",\"macro\":\"5MP\",\"front\":\"32MP\"},\"battery\":\"5000mAh\",\"charging\":\"25W wired\",\"os\":\"One UI 5.1, Android 13\",\"connectivity\":[\"5G\",\"Wi-Fi 6\",\"Bluetooth 5.3\"],\"features\":[\"IP67\",\"Knox Security\",\"Samsung Pay\"],\"warranty\":\"12 tháng chính hãng Samsung\",\"origin\":\"Chính hãng Việt Nam\"}");
             samsung_a.setCategory(phoneCategory);
             samsung_a.setSeller(seller);
             samsung_a.setStatus(Status.ACTIVE);
@@ -463,6 +487,7 @@ public class DataInitializer implements CommandLineRunner {
             redmi.setPrice(new BigDecimal("7990000"));
             redmi.setQuantity(85);
             redmi.setImageUrls("[\"https://images.unsplash.com/photo-1598327105666-5b89351aff97\"]");
+            redmi.setDetails("{\"brand\":\"Xiaomi\",\"model\":\"Redmi Note 13 Pro\",\"storage\":\"256GB\",\"color\":\"Aurora Purple\",\"display\":{\"size\":\"6.67 inch\",\"type\":\"AMOLED\",\"resolution\":\"2712 x 1220\",\"refresh_rate\":\"120Hz\"},\"processor\":\"Snapdragon 7s Gen 2\",\"ram\":\"8GB\",\"camera\":{\"main\":\"200MP\",\"ultra_wide\":\"8MP\",\"macro\":\"2MP\",\"front\":\"16MP\"},\"battery\":\"5100mAh\",\"charging\":\"67W wired\",\"os\":\"MIUI 14, Android 13\",\"connectivity\":[\"5G\",\"Wi-Fi 6\",\"Bluetooth 5.2\"],\"features\":[\"IP54\",\"Ultra-high pixel\",\"Fast charging\"],\"warranty\":\"18 tháng chính hãng\",\"origin\":\"Chính hãng Việt Nam\"}");
             redmi.setCategory(phoneCategory);
             redmi.setSeller(seller);
             redmi.setStatus(Status.ACTIVE);
@@ -477,6 +502,7 @@ public class DataInitializer implements CommandLineRunner {
             hp.setPrice(new BigDecimal("18990000"));
             hp.setQuantity(30);
             hp.setImageUrls("[\"https://images.unsplash.com/photo-1496181133206-80ce9b88a853\"]");
+            hp.setDetails("{\"brand\":\"HP\",\"model\":\"Pavilion 15-eh3000\",\"processor\":\"Intel Core i5-1235U\",\"ram\":\"16GB DDR4\",\"storage\":\"512GB NVMe SSD\",\"display\":{\"size\":\"15.6 inch\",\"type\":\"IPS\",\"resolution\":\"1920 x 1080\",\"brightness\":\"300 nits\"},\"graphics\":\"Intel Iris Xe\",\"ports\":[\"2x USB-A\",\"1x USB-C\",\"HDMI\",\"3.5mm\",\"SD card\"],\"battery\":\"41Wh - 7-9 giờ\",\"os\":\"Windows 11 Home\",\"connectivity\":[\"Wi-Fi 6\",\"Bluetooth 5.2\"],\"features\":[\"Bàn phím có đèn nền\",\"Bang & Olufsen Audio\"],\"weight\":\"1.75kg\",\"warranty\":\"12 tháng chính hãng HP\",\"origin\":\"Chính hãng Việt Nam\"}");
             hp.setCategory(laptopCategory);
             hp.setSeller(seller);
             hp.setStatus(Status.ACTIVE);
@@ -488,6 +514,7 @@ public class DataInitializer implements CommandLineRunner {
             acer.setPrice(new BigDecimal("19990000"));
             acer.setQuantity(22);
             acer.setImageUrls("[\"https://images.unsplash.com/photo-1593642632823-8f785ba67e45\"]");
+            acer.setDetails("{\"brand\":\"Acer\",\"model\":\"Swift 3 SF314-43\",\"processor\":\"AMD Ryzen 7 5700U\",\"ram\":\"16GB LPDDR4X\",\"storage\":\"512GB NVMe SSD\",\"display\":{\"size\":\"14 inch\",\"type\":\"IPS\",\"resolution\":\"1920 x 1080\",\"color_gamut\":\"100% sRGB\"},\"graphics\":\"AMD Radeon Graphics\",\"ports\":[\"1x USB-A\",\"2x USB-C\",\"HDMI\",\"3.5mm\"],\"battery\":\"56Wh - 12-14 giờ\",\"os\":\"Windows 11 Home\",\"connectivity\":[\"Wi-Fi 6\",\"Bluetooth 5.2\"],\"features\":[\"Ultra-thin design\",\"Fingerprint reader\"],\"weight\":\"1.2kg\",\"warranty\":\"24 tháng chính hãng Acer\",\"origin\":\"Chính hãng Việt Nam\"}");
             acer.setCategory(laptopCategory);
             acer.setSeller(seller);
             acer.setStatus(Status.ACTIVE);
@@ -500,6 +527,7 @@ public class DataInitializer implements CommandLineRunner {
             lenovoIdea.setPrice(new BigDecimal("11990000"));
             lenovoIdea.setQuantity(50);
             lenovoIdea.setImageUrls("[\"https://images.unsplash.com/photo-1588872657578-7efd1f1555ed\"]");
+            lenovoIdea.setDetails("{\"brand\":\"Lenovo\",\"model\":\"IdeaPad 3 15ITL6\",\"processor\":\"Intel Core i3-1115G4\",\"ram\":\"8GB DDR4\",\"storage\":\"256GB NVMe SSD\",\"display\":{\"size\":\"15.6 inch\",\"type\":\"TN\",\"resolution\":\"1920 x 1080\",\"anti_glare\":true},\"graphics\":\"Intel UHD Graphics\",\"ports\":[\"2x USB-A\",\"1x USB-C\",\"HDMI\",\"3.5mm\",\"SD card\"],\"battery\":\"45Wh - 6-8 giờ\",\"os\":\"Windows 11 Home\",\"connectivity\":[\"Wi-Fi 6\",\"Bluetooth 5.1\"],\"features\":[\"Numeric keypad\",\"Privacy shutter\"],\"weight\":\"1.65kg\",\"warranty\":\"12 tháng chính hãng Lenovo\",\"origin\":\"Chính hãng Việt Nam\"}");
             lenovoIdea.setCategory(laptopCategory);
             lenovoIdea.setSeller(seller);
             lenovoIdea.setStatus(Status.ACTIVE);
@@ -511,6 +539,7 @@ public class DataInitializer implements CommandLineRunner {
             acerAspire.setPrice(new BigDecimal("13990000"));
             acerAspire.setQuantity(42);
             acerAspire.setImageUrls("[\"https://images.unsplash.com/photo-1593642632823-8f785ba67e45\"]");
+            acerAspire.setDetails("{\"brand\":\"Acer\",\"model\":\"Aspire 5 A515-57\",\"processor\":\"AMD Ryzen 5 5500U\",\"ram\":\"8GB DDR4\",\"storage\":\"512GB NVMe SSD\",\"display\":{\"size\":\"15.6 inch\",\"type\":\"IPS\",\"resolution\":\"1920 x 1080\",\"brightness\":\"250 nits\"},\"graphics\":\"AMD Radeon Graphics\",\"ports\":[\"2x USB-A\",\"1x USB-C\",\"HDMI\",\"RJ45\",\"3.5mm\"],\"battery\":\"48Wh - 7-9 giờ\",\"os\":\"Windows 11 Home\",\"connectivity\":[\"Wi-Fi 6\",\"Bluetooth 5.1\"],\"features\":[\"Numeric keypad\",\"Acer BlueLightShield\"],\"weight\":\"1.7kg\",\"warranty\":\"12 tháng chính hãng Acer\",\"origin\":\"Chính hãng Việt Nam\"}");
             acerAspire.setCategory(laptopCategory);
             acerAspire.setSeller(seller);
             acerAspire.setStatus(Status.ACTIVE);
@@ -536,6 +565,7 @@ public class DataInitializer implements CommandLineRunner {
             sennheiser.setPrice(new BigDecimal("7990000"));
             sennheiser.setQuantity(32);
             sennheiser.setImageUrls("[\"https://images.unsplash.com/photo-1484704849700-f032a568e944\"]");
+            sennheiser.setDetails("{\"brand\":\"Sennheiser\",\"model\":\"Momentum 4 Wireless\",\"type\":\"Over-Ear\",\"anc\":\"Adaptive Noise Cancellation\",\"drivers\":\"42mm transducer\",\"frequency_response\":\"6Hz-22kHz\",\"battery\":{\"anc_on\":\"60 giờ\",\"quick_charge\":\"10 phút = 6 giờ\"},\"connectivity\":[\"Bluetooth 5.2\",\"aptX Adaptive\",\"3.5mm\"],\"controls\":[\"Touch controls\",\"Smart Pause\"],\"features\":[\"Audiophile sound\",\"Smart Control App\",\"Sound Personalization\"],\"weight\":\"293g\",\"foldable\":true,\"warranty\":\"24 tháng chính hãng Sennheiser\",\"origin\":\"Nhập khẩu chính hãng\"}");
             sennheiser.setCategory(headphoneCategory);
             sennheiser.setSeller(seller);
             sennheiser.setStatus(Status.ACTIVE);
@@ -548,6 +578,7 @@ public class DataInitializer implements CommandLineRunner {
             sonyWF.setPrice(new BigDecimal("5990000"));
             sonyWF.setQuantity(45);
             sonyWF.setImageUrls("[\"https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1\"]");
+            sonyWF.setDetails("{\"brand\":\"Sony\",\"model\":\"WF-1000XM4\",\"type\":\"True Wireless\",\"anc\":\"Industry Leading ANC\",\"drivers\":\"6mm\",\"frequency_response\":\"20Hz-20kHz\",\"battery\":{\"earbuds\":\"8 giờ\",\"case\":\"24 giờ\",\"quick_charge\":\"5 phút = 60 phút\"},\"connectivity\":[\"Bluetooth 5.2\",\"LDAC\",\"SBC\",\"AAC\"],\"controls\":[\"Touch controls\",\"Speak-to-Chat\"],\"features\":[\"360 Reality Audio\",\"Adaptive Sound Control\",\"IPX4\"],\"case_type\":\"Compact charging case\",\"warranty\":\"12 tháng chính hãng Sony\",\"origin\":\"Nhập khẩu chính hãng\"}");
             sonyWF.setCategory(headphoneCategory);
             sonyWF.setSeller(seller);
             sonyWF.setStatus(Status.ACTIVE);
@@ -559,6 +590,7 @@ public class DataInitializer implements CommandLineRunner {
             edifier.setPrice(new BigDecimal("1490000"));
             edifier.setQuantity(90);
             edifier.setImageUrls("[\"https://images.unsplash.com/photo-1505740420928-5e560c06d30e\"]");
+            edifier.setDetails("{\"brand\":\"Edifier\",\"model\":\"W820NB Plus\",\"type\":\"Over-Ear\",\"anc\":\"Hybrid ANC\",\"drivers\":\"40mm\",\"frequency_response\":\"20Hz-20kHz\",\"battery\":{\"anc_on\":\"49 giờ\",\"anc_off\":\"59 giờ\",\"quick_charge\":\"10 phút = 9 giờ\"},\"connectivity\":[\"Bluetooth 5.0\",\"3.5mm cable\",\"USB-C\"],\"controls\":[\"Physical buttons\",\"App control\"],\"features\":[\"Hi-Res Audio\",\"Game mode\",\"EQ presets\"],\"weight\":\"285g\",\"foldable\":true,\"warranty\":\"24 tháng chính hãng Edifier\",\"origin\":\"Nhập khẩu chính hãng\"}");
             edifier.setCategory(headphoneCategory);
             edifier.setSeller(seller);
             edifier.setStatus(Status.ACTIVE);
@@ -739,5 +771,87 @@ public class DataInitializer implements CommandLineRunner {
             return total;
         }
         return BigDecimal.ZERO;
+    }
+    
+    private void initializeDiscounts(User admin, User business1, User business2, User business3) {
+        if (discountRepository.count() == 0) {
+            log.info("Initializing discount codes...");
+            
+            // Admin global discounts
+            createDiscount("WELCOME10", "Chào mừng khách hàng mới", 
+                "Giảm 10% cho đơn hàng đầu tiên", DiscountType.PERCENTAGE, 
+                10.0, 500000.0, 100000.0, 100, admin, 30);
+                
+            createDiscount("SAVE50K", "Giảm 50K cho đơn lớn", 
+                "Giảm 50.000đ cho đơn hàng từ 1 triệu", DiscountType.FIXED_AMOUNT, 
+                50000.0, 1000000.0, null, 50, admin, 60);
+                
+            createDiscount("FREESHIP", "Miễn phí giao hàng", 
+                "Miễn phí ship cho đơn từ 300K", DiscountType.FREE_SHIPPING, 
+                0.0, 300000.0, null, 200, admin, 90);
+                
+            createDiscount("FLASH20", "Flash Sale 20%", 
+                "Giảm 20% tất cả sản phẩm - có hạn", DiscountType.PERCENTAGE, 
+                20.0, 200000.0, 200000.0, 30, admin, 3);
+            
+            // Business specific discounts
+            createDiscount("TECH15", "Tech Store 15%", 
+                "Giảm 15% sản phẩm công nghệ", DiscountType.PERCENTAGE, 
+                15.0, 800000.0, 150000.0, 40, business2, 45);
+                
+            createDiscount("GADGET100K", "Gadget Shop 100K", 
+                "Giảm 100K cho phụ kiện công nghệ", DiscountType.FIXED_AMOUNT, 
+                100000.0, 600000.0, null, 25, business3, 30);
+                
+            createDiscount("LOYAL25", "Khách hàng thân thiết", 
+                "Giảm 25% cho khách VIP", DiscountType.PERCENTAGE, 
+                25.0, 1500000.0, 300000.0, 15, business1, 120);
+                
+            createDiscount("SUMMER2024", "Ưu đãi hè 2024", 
+                "Giảm giá mùa hè cho tất cả sản phẩm", DiscountType.PERCENTAGE, 
+                12.0, 400000.0, 120000.0, 80, business1, 20);
+                
+            // Seasonal discounts
+            createDiscount("NEWYEAR30", "Tết 2025", 
+                "Chúc mừng năm mới - Giảm 30%", DiscountType.PERCENTAGE, 
+                30.0, 2000000.0, 500000.0, 20, admin, 15);
+                
+            createDiscount("BLACKFRIDAY", "Black Friday Sale", 
+                "Siêu sale Black Friday", DiscountType.PERCENTAGE, 
+                35.0, 1000000.0, 400000.0, 50, admin, 1);
+                
+            log.info("Discount codes initialization completed!");
+        }
+    }
+    
+    private void createDiscount(String code, String name, String description, 
+            DiscountType type, Double value, Double minOrder, Double maxDiscount, 
+            Integer usageLimit, User createdBy, Integer validDays) {
+        
+        Discount discount = new Discount();
+        discount.setCode(code);
+        discount.setName(name);
+        discount.setDescription(description);
+        discount.setDiscountType(type);
+        discount.setDiscountValue(BigDecimal.valueOf(value));
+        discount.setMinOrderValue(minOrder != null ? BigDecimal.valueOf(minOrder) : null);
+        discount.setMaxDiscountAmount(maxDiscount != null ? BigDecimal.valueOf(maxDiscount) : null);
+        discount.setUsageLimit(usageLimit);
+        discount.setUsedCount(0);
+        discount.setStatus(Status.ACTIVE);
+        discount.setCreatedBy(createdBy);
+        
+        LocalDateTime now = LocalDateTime.now();
+        discount.setStartDate(now.minusDays(5)); // Bắt đầu từ 5 ngày trước
+        discount.setEndDate(now.plusDays(validDays)); // Kết thúc sau validDays ngày
+        
+        discountRepository.save(discount);
+        
+        // Simulate some usage for testing
+        if (Math.random() > 0.3) { // 70% chance có người dùng
+            int usedCount = (int) (Math.random() * Math.min(10, usageLimit / 2));
+            discount.setUsedCount(usedCount);
+            discountRepository.save(discount);
+        }
     }
 }

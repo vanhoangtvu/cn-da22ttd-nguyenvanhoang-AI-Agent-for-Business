@@ -2,6 +2,7 @@ package com.business.springservice.service;
 
 import com.business.springservice.dto.ProductCreateRequest;
 import com.business.springservice.dto.ProductDTO;
+import com.business.springservice.dto.ProductDetailsDTO;
 import com.business.springservice.entity.Category;
 import com.business.springservice.entity.Product;
 import com.business.springservice.entity.User;
@@ -104,6 +105,7 @@ public class ProductService {
         product.setPrice(request.getPrice());
         product.setQuantity(request.getQuantity());
         product.setImageUrls(convertListToJson(request.getImageUrls()));
+        product.setDetails(request.getDetails());
         product.setCategory(category);
         product.setSeller(seller);
         
@@ -130,6 +132,9 @@ public class ProductService {
         }
         if (request.getImageUrls() != null) {
             product.setImageUrls(convertListToJson(request.getImageUrls()));
+        }
+        if (request.getDetails() != null) {
+            product.setDetails(request.getDetails());
         }
         if (request.getCategoryId() != null) {
             Category category = categoryRepository.findById(request.getCategoryId())
@@ -176,6 +181,7 @@ public class ProductService {
         dto.setCategoryName(product.getCategory().getName());
         dto.setSellerId(product.getSeller().getId());
         dto.setSellerUsername(product.getSeller().getUsername());
+        dto.setDetails(product.getDetails());
         dto.setCreatedAt(product.getCreatedAt());
         dto.setUpdatedAt(product.getUpdatedAt());
         return dto;
@@ -200,6 +206,30 @@ public class ProductService {
             return objectMapper.readValue(json, new TypeReference<List<String>>(){});
         } catch (JsonProcessingException e) {
             return new ArrayList<>();
+        }
+    }
+    
+    // Helper: Convert ProductDetailsDTO to JSON string
+    public String convertDetailsToJson(ProductDetailsDTO details) {
+        if (details == null) {
+            return "{}";
+        }
+        try {
+            return objectMapper.writeValueAsString(details);
+        } catch (JsonProcessingException e) {
+            return "{}";
+        }
+    }
+    
+    // Helper: Convert details JSON string to ProductDetailsDTO
+    public ProductDetailsDTO convertJsonToDetails(String json) {
+        if (json == null || json.isEmpty()) {
+            return new ProductDetailsDTO();
+        }
+        try {
+            return objectMapper.readValue(json, ProductDetailsDTO.class);
+        } catch (JsonProcessingException e) {
+            return new ProductDetailsDTO();
         }
     }
 }
