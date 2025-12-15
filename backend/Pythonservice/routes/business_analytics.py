@@ -79,7 +79,7 @@ GROQ_API_KEY = os.getenv('GROQ_API_KEY')
 groq_client = None
 if GROQ_API_KEY:
     groq_client = Groq(api_key=GROQ_API_KEY)
-
+    
 # Cache for models
 _cached_models = None
 _models_cache_time = None
@@ -399,13 +399,13 @@ def calculate_statistics(data):
     
     # Top sản phẩm bán chạy (theo total_sold và revenue)
     products_sorted = sorted(enriched_products, key=lambda x: (x.get('total_sold', 0), x.get('revenue', 0)), reverse=True)
-    top_products = products_sorted[:10]
+    top_products = products_sorted
     
     # Sản phẩm sắp hết hàng (stock < 20)
     low_stock_products = sorted(
         [p for p in enriched_products if p.get('stock', 0) < 20],
         key=lambda x: x.get('stock', 0)
-    )[:10]
+    )
     
     # Phân tích theo danh mục
     category_stats = {}
@@ -449,6 +449,41 @@ def calculate_statistics(data):
             except:
                 pass
     
+    # Tính available_stock cho từng sản phẩm
+    for product in enriched_products:
+        initial_quantity = product.get('quantity', 0)
+        total_sold = product.get('totalSold', 0)
+        product['available_stock'] = max(0, initial_quantity - total_sold)
+    
+    # Phân tích tồn kho chi tiết
+    total_inventory_value = sum([p.get('price', 0) * p.get('available_stock', 0) for p in enriched_products])
+    out_of_stock_products = len([p for p in enriched_products if p.get('available_stock', 0) == 0])
+    inventory_turnover_ratio = total_revenue / total_inventory_value if total_inventory_value > 0 else 0
+    
+    inventory_analysis = {
+        'critical_stock_products': [p for p in enriched_products if p.get('available_stock', 0) <= 5],  # Tất cả sản phẩm cần nhập gấp
+        'warning_stock_products': [p for p in enriched_products if 5 < p.get('available_stock', 0) <= 15],   # Tất cả sản phẩm cảnh báo
+        'out_of_stock_products': [p for p in enriched_products if p.get('available_stock', 0) == 0],  # Tất cả sản phẩm hết hàng
+        'stock_distribution': {
+            'well_stocked': {
+                'count': len([p for p in enriched_products if p.get('available_stock', 0) >= 30]),
+                'value': sum([p.get('price', 0) * p.get('available_stock', 0) for p in enriched_products if p.get('available_stock', 0) >= 30])
+            },
+            'medium_stock': {
+                'count': len([p for p in enriched_products if 10 <= p.get('available_stock', 0) < 30]),
+                'value': sum([p.get('price', 0) * p.get('available_stock', 0) for p in enriched_products if 10 <= p.get('available_stock', 0) < 30])
+            },
+            'low_stock': {
+                'count': len([p for p in enriched_products if 1 <= p.get('available_stock', 0) < 10]),
+                'value': sum([p.get('price', 0) * p.get('available_stock', 0) for p in enriched_products if 1 <= p.get('available_stock', 0) < 10])
+            },
+            'out_of_stock': {
+                'count': len([p for p in enriched_products if p.get('available_stock', 0) == 0]),
+                'value': 0
+            }
+        }
+    }
+    
     return {
         'overview': {
             'total_products': total_products,
@@ -458,13 +493,17 @@ def calculate_statistics(data):
             'monthly_revenue': monthly_revenue,
             'weekly_revenue': weekly_revenue,
             'daily_revenue': daily_revenue,
-            'avg_order_value': total_revenue / total_orders if total_orders > 0 else 0
+            'avg_order_value': total_revenue / total_orders if total_orders > 0 else 0,
+            'total_inventory_value': total_inventory_value,
+            'out_of_stock_products': out_of_stock_products,
+            'inventory_turnover_ratio': inventory_turnover_ratio
         },
         'revenue_by_status': revenue_by_status_array,
         'orders_by_status': orders_by_status_array,
         'top_products': top_products,
         'low_stock_products': low_stock_products,
         'category_stats': category_stats,
+        'inventory_analysis': inventory_analysis,
         'revenue_by_day': revenue_by_day,
         'orders_by_day': orders_by_day
     }
@@ -551,7 +590,7 @@ async def get_ai_insights(request: AIInsightsRequest):
                     ],
                     model=model_name,
                     temperature=0.7,
-                    max_tokens=2048,
+                    max_tokens=8192,
                 )
                 ai_insights = chat_completion.choices[0].message.content
             except Exception as groq_error:
@@ -607,9 +646,10 @@ def create_analysis_prompt(analysis_type, statistics, business_data, document_co
     business_performance = business_data.get('business_performance', [])
     
     # Phân tích sâu hơn
-    total_inventory_value = sum([p.get('price', 0) * p.get('quantity', 0) for p in products])
+    total_inventory_value = overview.get('total_inventory_value', 0)
     avg_product_price = sum([p.get('price', 0) for p in products]) / len(products) if products else 0
     products_with_details = [p for p in products if p.get('has_details')]
+    out_of_stock_count = overview.get('out_of_stock_products', 0)
     
     base_context = f"""
 🎯 BẠN LÀ CHUYÊN GIA PHÂN TÍCH KINH DOANH & CHIẾN LƯỢC CAO CẤP
@@ -621,6 +661,7 @@ def create_analysis_prompt(analysis_type, statistics, business_data, document_co
    • Có thông tin chi tiết: {len(products_with_details)} sản phẩm ({len(products_with_details)/len(products)*100:.1f}% nếu có sản phẩm)
    • Giá trung bình: {avg_product_price:,.0f} VNĐ
    • Tổng giá trị hàng tồn: {total_inventory_value:,.0f} VNĐ
+   • Sản phẩm hết hàng: {out_of_stock_count} sản phẩm
    • Sản phẩm sắp hết hàng: {len(low_stock_products)}
 
 🛒 Đơn hàng:
@@ -638,10 +679,16 @@ def create_analysis_prompt(analysis_type, statistics, business_data, document_co
 {json.dumps(category_stats, indent=2, ensure_ascii=False)}
 
 ⭐ TOP 5 SẢN PHẨM NỔI BẬT:
-{json.dumps([{'tên': p.get('name'), 'giá': f"{p.get('price', 0):,.0f} VNĐ", 'tồn_kho': p.get('quantity', 0), 'đã_bán': p.get('total_sold', 0)} for p in top_products[:5]], indent=2, ensure_ascii=False)}
+{json.dumps([{'tên': p.get('name'), 'giá': f"{p.get('price', 0):,.0f} VNĐ", 'tồn_kho': p.get('available_stock', 0), 'đã_bán': p.get('total_sold', 0)} for p in top_products], indent=2, ensure_ascii=False)}
 
 ⚠️ SẢN PHẨM CẦN NHẬP HÀNG (Tồn kho < 10):
-{json.dumps([{'tên': p.get('name'), 'tồn_kho': p.get('quantity', 0), 'giá': f"{p.get('price', 0):,.0f} VNĐ"} for p in low_stock_products[:10]], indent=2, ensure_ascii=False)}
+{json.dumps([{'tên': p.get('name'), 'tồn_kho': p.get('available_stock', 0), 'giá': f"{p.get('price', 0):,.0f} VNĐ"} for p in low_stock_products], indent=2, ensure_ascii=False)}
+
+📊 PHÂN TÍCH TỒN KHO CHI TIẾT:
+   • Tỷ lệ quay vòng hàng tồn: {overview.get('inventory_turnover_ratio', 0):.2f}
+   • Sản phẩm hết hàng: {out_of_stock_count}/{len(products)} ({out_of_stock_count/len(products)*100:.1f}% nếu có sản phẩm)
+   • Giá trị hàng tồn kho: {total_inventory_value:,.0f} VNĐ
+   • Sản phẩm tồn kho thấp: {len(low_stock_products)} sản phẩm
 
 💰 THÔNG TIN KHUYẾN MÃI:
    • Tổng số chương trình: {len(discounts)}
@@ -653,6 +700,36 @@ def create_analysis_prompt(analysis_type, statistics, business_data, document_co
 
 {document_context}
 """
+
+    # Format base_context with actual values
+    inventory_analysis = statistics.get('inventory_analysis', {})
+    
+    # Replace placeholders in base_context
+    base_context = base_context.replace('{overview.get(\'total_products\', 0)}', str(overview.get('total_products', 0)))
+    base_context = base_context.replace('{len(products_with_details)}', str(len(products_with_details)))
+    base_context = base_context.replace('{len(products)*100:.1f}', f"{len(products_with_details)/len(products)*100:.1f}" if products else '0.0')
+    base_context = base_context.replace('{avg_product_price:,.0f}', f"{avg_product_price:,.0f}")
+    base_context = base_context.replace('{total_inventory_value:,.0f}', f"{total_inventory_value:,.0f}")
+    base_context = base_context.replace('{out_of_stock_count}', str(out_of_stock_count))
+    base_context = base_context.replace('{len(low_stock_products)}', str(len(low_stock_products)))
+    base_context = base_context.replace('{overview.get(\'inventory_turnover_ratio\', 0):.2f}', f"{overview.get('inventory_turnover_ratio', 0):.2f}")
+    base_context = base_context.replace('{out_of_stock_count/len(products)*100:.1f}', f"{out_of_stock_count/len(products)*100:.1f}" if products else '0.0')
+    base_context = base_context.replace('{total_inventory_value:,.0f}', f"{total_inventory_value:,.0f}")
+    base_context = base_context.replace('{len(low_stock_products)}', str(len(low_stock_products)))
+    
+    # Replace JSON strings
+    base_context = base_context.replace('{json.dumps(revenue_by_status, indent=2, ensure_ascii=False)}', json.dumps(revenue_by_status, indent=2, ensure_ascii=False))
+    base_context = base_context.replace('{json.dumps(orders_by_status, indent=2, ensure_ascii=False)}', json.dumps(orders_by_status, indent=2, ensure_ascii=False))
+    base_context = base_context.replace('{json.dumps(category_stats, indent=2, ensure_ascii=False)}', json.dumps(category_stats, indent=2, ensure_ascii=False))
+    base_context = base_context.replace('{json.dumps([{\'tên\': p.get(\'name\'), \'giá\': f"{p.get(\'price\', 0):,.0f} VNĐ", \'tồn_kho\': p.get(\'available_stock\', 0), \'đã_bán\': p.get(\'total_sold\', 0)} for p in top_products], indent=2, ensure_ascii=False)}', json.dumps([{'tên': p.get('name'), 'giá': f"{p.get('price', 0):,.0f} VNĐ", 'tồn_kho': p.get('available_stock', 0), 'đã_bán': p.get('total_sold', 0)} for p in top_products], indent=2, ensure_ascii=False))
+    base_context = base_context.replace('{json.dumps([{\'tên\': p.get(\'name\'), \'tồn_kho\': p.get(\'available_stock\', 0), \'giá\': f"{p.get(\'price\', 0):,.0f} VNĐ"} for p in low_stock_products], indent=2, ensure_ascii=False)}', json.dumps([{'tên': p.get('name'), 'tồn_kho': p.get('available_stock', 0), 'giá': f"{p.get('price', 0):,.0f} VNĐ"} for p in low_stock_products], indent=2, ensure_ascii=False))
+    
+    # Replace other placeholders
+    base_context = base_context.replace('{len(discounts)}', str(len(discounts)))
+    base_context = base_context.replace('{len([d for d in discounts if d.get(\'status\') == \'ACTIVE\'])}', str(len([d for d in discounts if d.get('status') == 'ACTIVE'])))
+    base_context = base_context.replace('{len(business_performance)}', str(len(business_performance)))
+    base_context = base_context.replace('{sum([bp.get(\'revenue\', 0) for bp in business_performance]):,.0f}', f"{sum([bp.get('revenue', 0) for bp in business_performance]):,.0f}")
+    base_context = base_context.replace('{document_context}', document_context)
 
     if analysis_type == 'general':
         prompt = base_context + """
@@ -734,7 +811,7 @@ Tạo bảng markdown:
 
 ## 4️⃣ CHIẾN LƯỢC COMBO & BUNDLE 🎁
 ### Combo đề xuất:
-1. **[Tên combo]**: [Sản phẩm A] + [Sản phẩm B]
+1. **[Tên combo]**: [Sản phẩm A] + [Sản phẩm B] khác danh mục (vd 1 điện thoại +1 đồng hồ)
    - Giá lẻ: [X] VNĐ
    - Giá combo: [Y] VNĐ (Tiết kiệm [Z]%)
    - Lý do combo này hấp dẫn: [...]
@@ -765,7 +842,7 @@ Tạo bảng markdown:
 """
 
     elif analysis_type == 'inventory':
-        prompt = base_context + """
+        prompt = base_context + f"""
 
 📦 NHIỆM VỤ: PHÂN TÍCH & TỐI ƯU QUẢN LÝ TỒN KHO
 
@@ -773,18 +850,19 @@ Tạo bảng markdown:
 
 ## 1️⃣ ĐÁNH GIÁ TÌNH TRẠNG TỒN KHO HIỆN TẠI
 ### 📊 Phân loại tồn kho:
-Tạo bảng markdown:
+Tạo bảng markdown với dữ liệu thực tế:
 | Loại | Số lượng SP | Giá trị | Tỷ lệ % |
 |------|-------------|---------|---------|
-| 🟢 Tốt (>30 SP) | | VNĐ | % |
-| 🟡 Trung bình (10-30) | | VNĐ | % |
-| 🔴 Thấp (<10) | | VNĐ | % |
-| ⚫ Hết hàng (0) | | 0 VNĐ | % |
+| 🟢 Tốt (≥30 SP) | {inventory_analysis.get('stock_distribution', {}).get('well_stocked', {}).get('count', 0)} | {inventory_analysis.get('stock_distribution', {}).get('well_stocked', {}).get('value', 0):,.0f} VNĐ | {inventory_analysis.get('stock_distribution', {}).get('well_stocked', {}).get('count', 0)/overview.get('total_products', 1)*100:.1f}% |
+| 🟡 Trung bình (10-29) | {inventory_analysis.get('stock_distribution', {}).get('medium_stock', {}).get('count', 0)} | {inventory_analysis.get('stock_distribution', {}).get('medium_stock', {}).get('value', 0):,.0f} VNĐ | {inventory_analysis.get('stock_distribution', {}).get('medium_stock', {}).get('count', 0)/overview.get('total_products', 1)*100:.1f}% |
+| 🔴 Thấp (1-9) | {inventory_analysis.get('stock_distribution', {}).get('low_stock', {}).get('count', 0)} | {inventory_analysis.get('stock_distribution', {}).get('low_stock', {}).get('value', 0):,.0f} VNĐ | {inventory_analysis.get('stock_distribution', {}).get('low_stock', {}).get('count', 0)/overview.get('total_products', 1)*100:.1f}% |
+| ⚫ Hết hàng (0) | {inventory_analysis.get('stock_distribution', {}).get('out_of_stock', {}).get('count', 0)} | 0 VNĐ | {inventory_analysis.get('stock_distribution', {}).get('out_of_stock', {}).get('count', 0)/overview.get('total_products', 1)*100:.1f}% |
 
 ### 💰 Giá trị tồn kho:
-- **Tổng giá trị**: [...] VNĐ
-- **Vốn đóng băng** (hàng tồn lâu): [...] VNĐ
-- **Khả năng thanh khoản**: [Cao/Trung bình/Thấp]
+- **Tổng giá trị**: {overview.get('total_inventory_value', 0):,.0f} VNĐ
+- **Tỷ lệ quay vòng**: {overview.get('inventory_turnover_ratio', 0):.2f} (lần/năm)
+- **Vốn đóng băng** (hàng tồn lâu): {inventory_analysis.get('stock_distribution', {}).get('well_stocked', {}).get('value', 0):,.0f} VNĐ
+- **Khả năng thanh khoản**: {'Cao' if overview.get('inventory_turnover_ratio', 0) > 4 else 'Trung bình' if overview.get('inventory_turnover_ratio', 0) > 2 else 'Thấp'}
 
 ## 2️⃣ ƯU TIÊN NHẬP HÀNG NGAY ⚡
 Tạo bảng markdown:
@@ -792,13 +870,13 @@ Tạo bảng markdown:
 |-----|----------|--------------|-------------|----------------|-----------------|
 
 ### 📋 Kế hoạch nhập hàng chi tiết:
-**TUẦN NÀY (URGENT):**
-- [Danh sách 5-10 sản phẩm cần nhập gấp]
-- Tổng vốn cần: [...] VNĐ
+**TUẦN NÀY (URGENT - Tồn kho 1-5):**
+{json.dumps([{'tên': p.get('name'), 'tồn_kho': p.get('available_stock', 0), 'giá': f"{p.get('price', 0):,.0f} VNĐ"} for p in inventory_analysis.get('critical_stock_products', [])], indent=2, ensure_ascii=False)}
+- Tổng vốn cần: {sum([p.get('price', 0) * max(50 - p.get('available_stock', 0), 0) for p in inventory_analysis.get('critical_stock_products', [])]):,.0f} VNĐ
 
-**THÁNG NÀY:**
-- [Kế hoạch dự trù tổng thể]
-- Ngân sách: [...] VNĐ
+**THÁNG NÀY (Tồn kho 6-15):**
+{json.dumps([{'tên': p.get('name'), 'tồn_kho': p.get('available_stock', 0), 'giá': f"{p.get('price', 0):,.0f} VNĐ"} for p in inventory_analysis.get('warning_stock_products', [])], indent=2, ensure_ascii=False)}
+- Ngân sách: {sum([p.get('price', 0) * max(30 - p.get('available_stock', 0), 0) for p in inventory_analysis.get('warning_stock_products', [])]):,.0f} VNĐ
 
 ## 3️⃣ XỬ LÝ HÀNG TỒN KHO LÂU 🗑️
 Tạo bảng markdown:
@@ -808,9 +886,10 @@ Tạo bảng markdown:
 ### Chiến lược xử lý:
 1. **Flash Sale Weekend**: Giảm 40-50% cho top [X] sản phẩm
 2. **Bundle Deal**: Kết hợp với sản phẩm hot
-3. **Gift with Purchase**: Tặng kèm khi mua sản phẩm khác
+3. **Clearance Sale**: Xử lý tồn kho cũ với giảm giá sâu
+4. **Trade-in Program**: Thu cũ đổi mới
 
-## 4️⃣ TỐI ƯU HÓA QUY TRÌNH KHO 🎯
+## 4️⃣ CHIẾN LƯỢC TỐI ƯU TỒN KHO 🎯
 ### A. Phân loại ABC:
 - **Nhóm A** (20% SP, 80% giá trị): [Liệt kê sản phẩm chiến lược]
 - **Nhóm B** (30% SP, 15% giá trị): [Sản phẩm quan trọng]
@@ -2073,3 +2152,58 @@ Last Updated: {datetime.now().isoformat()}
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Sync error: {str(e)}")
+
+
+@router.post("/clear-chroma")
+async def clear_chroma_data():
+    """
+    Clear all data from ChromaDB collections
+    """
+    try:
+        print("[ClearChroma] Starting ChromaDB data clearing process...")
+
+        # Get ChromaDB client
+        global chroma_client
+        if chroma_client is None:
+            raise HTTPException(status_code=500, detail="ChromaDB client not initialized")
+
+        # Get all collections
+        collections = chroma_client.list_collections()
+        print(f"[ClearChroma] Found {len(collections)} collections to clear")
+
+        cleared_collections = []
+        errors = []
+
+        for collection in collections:
+            try:
+                collection_name = collection.name
+                print(f"[ClearChroma] Clearing collection: {collection_name}")
+
+                # Delete the entire collection
+                chroma_client.delete_collection(name=collection_name)
+
+                cleared_collections.append(collection_name)
+                print(f"[ClearChroma] Successfully cleared collection: {collection_name}")
+
+            except Exception as e:
+                error_msg = f"Error clearing collection {collection.name}: {str(e)}"
+                print(f"[ClearChroma] {error_msg}")
+                errors.append(error_msg)
+
+        result = {
+            "success": True,
+            "cleared_collections": cleared_collections,
+            "errors": errors,
+            "total_cleared": len(cleared_collections),
+            "total_errors": len(errors)
+        }
+
+        print(f"[ClearChroma] Clearing completed. Cleared: {len(cleared_collections)}, Errors: {len(errors)}")
+
+        return result
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to clear ChromaDB data: {str(e)}")
+
