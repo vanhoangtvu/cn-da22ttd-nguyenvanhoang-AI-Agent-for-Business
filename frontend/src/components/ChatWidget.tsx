@@ -626,9 +626,9 @@ export default function ChatWidget() {
                             showAddToCart={true}
                             onClick={() => {
                               if (product.id) {
-                                window.open(`/shop?productId=${product.id}`, '_blank');
+                                window.open(`/?productId=${product.id}`, '_blank');
                               } else {
-                                window.open('/shop', '_blank');
+                                window.open('/', '_blank');
                               }
                             }}
                           />

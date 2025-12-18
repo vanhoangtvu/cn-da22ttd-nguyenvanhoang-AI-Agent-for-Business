@@ -31,7 +31,7 @@ export default function RevenueManagement() {
 
     const user = apiClient.getUserData();
     if (!user || (user.role !== 'ADMIN' && user.role !== 'BUSINESS')) {
-      router.push('/shop');
+      router.push('/');
       return;
     }
 

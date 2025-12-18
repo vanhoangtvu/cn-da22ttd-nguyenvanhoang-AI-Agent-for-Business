@@ -25,7 +25,7 @@ public class Category {
     @Column(columnDefinition = "TEXT")
     private String description;
     
-    @Column(name = "image_url")
+    @Column(columnDefinition = "TEXT")
     private String imageUrl;
     
     @Enumerated(EnumType.STRING)

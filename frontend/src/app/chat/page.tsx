@@ -785,7 +785,7 @@ export default function ChatPage() {
 
                   {/* Shop Button */}
                   <Link
-                    href="/shop"
+                    href="/"
                     className="group relative hidden sm:flex px-4 py-2 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 hover:from-green-600 hover:via-emerald-600 hover:to-teal-600 text-white rounded-xl hover:shadow-xl hover:shadow-green-400/25 transition-all duration-300 font-semibold items-center gap-2 hover:scale-105 overflow-hidden"
                   >
                     {/* Animated background */}

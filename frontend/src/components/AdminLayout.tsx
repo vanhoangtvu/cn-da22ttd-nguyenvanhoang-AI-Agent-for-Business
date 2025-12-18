@@ -36,7 +36,7 @@ export default function AdminLayout({ children, userData, currentPage }: AdminLa
             </div>
             <div className="flex items-center gap-4">
               <Link
-                href="/shop"
+                href="/"
                 className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors flex items-center gap-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

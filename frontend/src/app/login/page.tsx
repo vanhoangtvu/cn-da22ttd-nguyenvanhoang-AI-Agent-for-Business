@@ -35,8 +35,8 @@ export default function LoginPage() {
         console.log('Redirecting to /admin');
         router.push('/admin');
       } else {
-        console.log('Redirecting to /shop');
-        router.push('/shop');
+        console.log('Redirecting to /');
+        router.push('/');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Đăng nhập thất bại');

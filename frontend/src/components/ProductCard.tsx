@@ -135,7 +135,7 @@ export default function ProductCard({
           ) : id ? (
             // In shop mode - use Link
             <Link
-              href={`/shop?productId=${id}`}
+              href={`/?productId=${id}`}
               className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-2.5 px-4 rounded-lg font-semibold transition-all duration-200 shadow-md hover:shadow-xl text-center"
               onClick={(e) => e.stopPropagation()}
             >

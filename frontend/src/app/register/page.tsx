@@ -45,7 +45,7 @@ export default function RegisterPage() {
       apiClient.setUserData(response);
       
       // Redirect to shop page after successful registration
-      router.push('/shop');
+      router.push('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Đăng ký thất bại');
     } finally {
