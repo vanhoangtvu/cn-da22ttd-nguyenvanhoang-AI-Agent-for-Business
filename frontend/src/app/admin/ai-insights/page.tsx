@@ -8,8 +8,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 
-const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'http://14.183.200.75:5000';
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://14.183.200.75:8089/api/v1';
+const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 interface AIModel {
   id: string;
@@ -84,6 +84,7 @@ export default function AIInsightsPage() {
   const [statistics, setStatistics] = useState<any>(null);
   const [systemData, setSystemData] = useState<SystemData | null>(null);
   const [syncLoading, setSyncLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [userStr, setUserStr] = useState<string | null>(null);
   const [chromaStats, setChromaStats] = useState<ChromaStats | null>(null);
   const [chromaData, setChromaData] = useState<ChromaData | null>(null);
@@ -277,6 +278,47 @@ export default function AIInsightsPage() {
     }
   };
 
+  const deleteData = async () => {
+    if (!confirm('Bạn có chắc chắn muốn xóa tất cả dữ liệu ChromaDB? Hành động này không thể hoàn tác.')) {
+      return;
+    }
+
+    setDeleteLoading(true);
+    try {
+      console.log('[Delete] Starting ChromaDB data deletion...');
+      const response = await fetch(`${AI_SERVICE_URL}/api/business/clear-chroma`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('[Delete] Deletion completed:', result);
+        
+        alert(`Xóa dữ liệu thành công!\n\nĐã xóa ${result.total_cleared} collections.\n${result.total_errors > 0 ? `Có ${result.total_errors} lỗi.` : ''}`);
+        
+        // Reload ChromaDB stats
+        await loadChromaStats();
+        
+        // Clear insights and system data
+        setInsights('');
+        setSystemData(null);
+        setStatistics(null);
+      } else {
+        console.error('[Delete] Failed:', response.status);
+        const errorData = await response.json();
+        alert(`Lỗi khi xóa dữ liệu: ${errorData.detail || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error deleting data:', error);
+      alert('Lỗi trong quá trình xóa dữ liệu. Vui lòng thử lại.');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const loadModels = async () => {
     try {
       const response = await fetch(`${AI_SERVICE_URL}/api/analytics/models`);
@@ -399,12 +441,23 @@ export default function AIInsightsPage() {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
   };
 
+  const formatDateTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const seconds = date.getSeconds().toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${hours}:${minutes}:${seconds} ${day}/${month}/${year}`;
+  };
+
   return (
     <AdminLayout userData={userStr} currentPage="ai-insights">
       <div className="container mx-auto px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Control Panel */}
-          <div className="lg:col-span-1 max-h-[calc(100vh-200px)] overflow-y-auto">
+          <div className="lg:col-span-1 max-h-[calc(100vh-120px)] overflow-y-auto">
             <div className="space-y-6">
             {/* Analysis Type */}
             <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
@@ -487,12 +540,12 @@ export default function AIInsightsPage() {
                 <div className="flex items-center gap-3">
                   {models.find(m => m.id === selectedModel)?.provider === 'Groq' && (
                     <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                     </svg>
                   )}
                   {models.find(m => m.id === selectedModel)?.provider === 'Google' && (
                     <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0 9c-1.657 0-3-4.03-3-9s1.343-9 3-9m0 18c1.657 0 3-4.03 3-9s-1.343-9-3-9" />
                     </svg>
                   )}
                   <div className="text-left">
@@ -510,7 +563,7 @@ export default function AIInsightsPage() {
                 {models.find(m => m.id === selectedModel)?.provider === 'Groq' && (
                   <span className="flex items-center gap-1">
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                     </svg>
                     Groq - Siêu nhanh
                   </span>
@@ -518,7 +571,7 @@ export default function AIInsightsPage() {
                 {models.find(m => m.id === selectedModel)?.provider === 'Google' && (
                   <span className="flex items-center gap-1">
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0 9c-1.657 0-3-4.03-3-9s1.343-9 3-9m0 18c1.657 0 3-4.03 3-9s-1.343-9-3-9" />
                     </svg>
                     Google Gemini - Thông minh
                   </span>
@@ -529,7 +582,7 @@ export default function AIInsightsPage() {
             {/* Generate Button */}
             <button
               onClick={generateInsights}
-              disabled={loading || syncLoading || !chromaHasData()}
+              disabled={loading || syncLoading || deleteLoading || !chromaHasData()}
               className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-bold rounded-lg shadow-lg transition-all transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed"
             >
               {loading ? (
@@ -547,7 +600,7 @@ export default function AIInsightsPage() {
               ) : (
                 <div className="flex items-center justify-center gap-2">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                   </svg>
                   <span>Tạo phân tích AI</span>
                 </div>
@@ -612,67 +665,79 @@ export default function AIInsightsPage() {
                   <button
                     onClick={loadSystemData}
                     disabled={syncLoading}
-                    className="px-3 py-1 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 text-sm flex items-center gap-2"
+                    className="px-2 py-1 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 text-xs flex items-center gap-1"
                     title="Đồng bộ dữ liệu từ Spring Service vào ChromaDB"
                   >
                     {syncLoading ? (
-                      <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
                     ) : (
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                       </svg>
                     )}
-                    Đồng bộ dữ liệu
+                    Đồng bộ
+                  </button>
+                  {/* Delete data button */}
+                  <button
+                    onClick={deleteData}
+                    disabled={deleteLoading || syncLoading}
+                    className="px-2 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 text-xs flex items-center gap-1"
+                    title="Xóa tất cả dữ liệu ChromaDB"
+                  >
+                    {deleteLoading ? (
+                      <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    ) : (
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    )}
+                    Xóa
                   </button>
                 </div>
               </div>
 
               {chromaStats && (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                        {chromaStats.total_collections}
+                  <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-100 dark:bg-blue-800 rounded-full">
+                        <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
                       </div>
-                      <div className="text-sm text-blue-600 dark:text-blue-400">Collections</div>
+                      <div>
+                        <div className="text-lg font-bold text-gray-900 dark:text-white">{chromaStats.total_collections}</div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">Collections</div>
+                      </div>
                     </div>
-                    <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-                      <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                        {chromaStats.total_documents}
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-green-100 dark:bg-green-800 rounded-full">
+                        <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
                       </div>
-                      <div className="text-sm text-green-600 dark:text-green-400">Total Documents</div>
+                      <div>
+                        <div className="text-lg font-bold text-gray-900 dark:text-white">{chromaStats.total_documents}</div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">Total Documents</div>
+                      </div>
                     </div>
-                    <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg">
-                      <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                        {new Date(chromaStats.timestamp).toLocaleString('vi-VN')}
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-purple-100 dark:bg-purple-800 rounded-full">
+                        <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
                       </div>
-                      <div className="text-sm text-purple-600 dark:text-purple-400">Last Updated</div>
+                      <div>
+                        <div className="text-sm font-bold text-gray-900 dark:text-white">{formatDateTime(chromaStats.timestamp)}</div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">Last Updated</div>
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <h4 className="font-semibold text-gray-900 dark:text-white">Collections Details:</h4>
-                    {Object.entries(chromaStats.collections_stats).map(([name, stats]) => (
-                      <div key={name} className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
-                        <div className="flex items-center justify-between mb-2">
-                          <h5 className="font-medium text-gray-900 dark:text-white">{name}</h5>
-                          <span className="text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
-                            {stats.documents_count} documents
-                          </span>
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {stats.metadata?.description || 'No description'}
-                        </p>
-                        {stats.error && (
-                          <p className="text-sm text-red-600 dark:text-red-400 mt-1">
-                            Error: {stats.error}
-                          </p>
-                        )}
-                      </div>
-                    ))}
                   </div>
 
                   <div className="flex gap-3">
@@ -751,90 +816,113 @@ export default function AIInsightsPage() {
           </div>
 
           {/* Insights Display */}
-          <div className="lg:col-span-2 max-h-[calc(100vh-200px)] overflow-y-auto">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 min-h-[600px] relative">
+          <div className="lg:col-span-2 max-h-[calc(100vh-120px)] overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 min-h-[600px] relative">
               {syncLoading && (
                 <div className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 flex items-center justify-center z-10 rounded-xl">
                   <div className="text-center">
                     <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 dark:border-blue-900 border-t-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600 dark:text-gray-400">Đang đồng bộ dữ liệu từ hệ thống...</p>
-                    <p className="text-gray-500 dark:text-gray-500 text-sm mt-2">Vui lòng đợi trong giây lát</p>
+                    <p className="text-gray-600 dark:text-gray-400">Synchronizing data from system...</p>
+                    <p className="text-gray-500 dark:text-gray-500 text-sm mt-2">Please wait a moment</p>
                   </div>
                 </div>
               )}
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
                 <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
                 </svg>
-                Kết quả phân tích AI
+                AI RAG Insights
               </h3>
 
               {!insights && !loading && (
-                <div className="flex flex-col items-center justify-center h-[500px] text-center px-8">
+                <div className="flex flex-col items-center justify-center h-[500px] text-center px-6">
                   {systemData && systemData && (systemData.totalProducts > 0 || systemData.totalOrders > 0) ? (
                     // Có dữ liệu - hiển thị thông báo sẵn sàng phân tích
                     <>
-                      <div className="mb-6">
-                        <svg className="w-20 h-20 text-purple-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="mb-4 relative">
+                        <div className="absolute inset-0 bg-gradient-to-r from-purple-400 via-pink-500 to-red-500 rounded-full blur-xl opacity-20"></div>
+                        <svg className="w-16 h-16 text-purple-500 mx-auto mb-3 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                         </svg>
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 rounded-full text-sm font-medium mb-4">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-gradient-to-r from-purple-100 to-pink-100 dark:from-purple-900/30 dark:to-pink-900/30 text-purple-800 dark:text-purple-300 rounded-full text-sm font-medium mb-3 border border-purple-200 dark:border-purple-700">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                           </svg>
-                          Dữ liệu đã sẵn sàng
+                          Data Ready
                         </div>
                       </div>
 
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
-                        AI Phân Tích Sẵn Sàng
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                        AI RAG Analysis
                       </h3>
 
-                      <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md">
-                        Hệ thống đã có dữ liệu kinh doanh. Chọn loại phân tích và nhấn nút để bắt đầu phân tích AI thông minh.
+                      <p className="text-gray-600 dark:text-gray-400 mb-4 max-w-md text-sm">
+                        Powered by Retrieval-Augmented Generation (RAG) technology, combining Large Language Models with vector databases for intelligent business analysis and strategic insights.
                       </p>
 
-                      <div className="grid grid-cols-4 gap-3 w-full max-w-lg mb-6">
-                        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 text-center">
-                          <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                            {systemData.totalProducts || 0}
+                      <div className="flex flex-row items-center justify-center gap-8 w-full mb-4 flex-wrap">
+                        <div className="flex items-center gap-4">
+                          <div className="p-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
+                            <svg className="w-6 h-6 text-gray-800 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                            </svg>
                           </div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400">Sản phẩm</div>
-                        </div>
-                        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 text-center">
-                          <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                            {systemData.totalOrders || 0}
+                          <div>
+                            <div className="text-base font-semibold text-gray-900 dark:text-gray-100">LLM</div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400">Large Language Models</div>
                           </div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400">Đơn hàng</div>
                         </div>
-                        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 text-center">
-                          <div className="text-xl font-bold text-green-600 dark:text-green-400">
-                            {systemData.totalCustomers || 0}
-                          </div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400">Khách hàng</div>
-                        </div>
-                        <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 text-center">
-                          <div className="text-xl font-bold text-orange-600 dark:text-orange-400">
-                            {formatCurrency(systemData.totalRevenue || 0)}
-                          </div>
-                          <div className="text-xs text-gray-600 dark:text-gray-400">Doanh thu</div>
-                        </div>
-                      </div>
 
-                      <div className="text-center">
-                        <p className="text-sm text-gray-500 dark:text-gray-500 mb-4">
-                          AI sẽ phân tích dữ liệu và đưa ra insights chiến lược
+                        <div className="flex items-center gap-4">
+                          <div className="p-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
+                            <svg className="w-6 h-6 text-gray-800 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+                            </svg>
+                          </div>
+                          <div>
+                            <div className="text-base font-semibold text-gray-900 dark:text-gray-100">Vector DB</div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400">ChromaDB Storage</div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                          <div className="p-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
+                            <svg className="w-6 h-6 text-gray-800 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <div className="text-base font-semibold text-gray-900 dark:text-gray-100">RAG</div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400">Retrieval-Augmented Generation</div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-4">
+                          <div className="p-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
+                            <svg className="w-6 h-6 text-gray-800 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                          </div>
+                          <div>
+                            <div className="text-base font-semibold text-gray-900 dark:text-gray-100">AI Pipeline</div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400">End-to-End Processing</div>
+                          </div>
+                        </div>
+                      </div>                      <div className="text-center">
+                        <p className="text-xs text-gray-500 dark:text-gray-500 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/10 dark:to-pink-900/10 px-3 py-2 rounded-lg border border-purple-100 dark:border-purple-800">
+                           RAG + LLM + Vector Database - Công nghệ AI tiên tiến nhất
                         </p>
                       </div>
                     </>
                   ) : (
                     // Không có dữ liệu - hiển thị thông báo cần setup
                     <>
-                      <div className="mb-6">
-                        <svg className="w-20 h-20 text-gray-300 dark:text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="mb-4">
+                        <svg className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                         </svg>
-                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 rounded-full text-sm font-medium mb-4">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300 rounded-full text-sm font-medium mb-3">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                           </svg>
@@ -842,17 +930,17 @@ export default function AIInsightsPage() {
                         </div>
                       </div>
 
-                      <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
                         AI Phân Tích Chưa Sẵn Sàng
                       </h3>
 
-                      <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-md">
+                      <p className="text-gray-600 dark:text-gray-400 mb-4 max-w-md text-sm">
                         Hệ thống cần dữ liệu kinh doanh để thực hiện phân tích AI thông minh.
                         Hãy import dữ liệu từ hệ thống quản lý để bắt đầu.
                       </p>
 
                       <div className="text-center">
-                        <p className="text-sm text-gray-500 dark:text-gray-500 mb-4">
+                        <p className="text-xs text-gray-500 dark:text-gray-500 mb-3">
                           Liên hệ đội ngũ kỹ thuật để thiết lập dữ liệu kinh doanh
                         </p>
                         <button
@@ -869,7 +957,7 @@ export default function AIInsightsPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
                           )}
-                          {syncLoading ? 'Đang đồng bộ...' : 'Đồng bộ dữ liệu'}
+                          {syncLoading ? 'Syncing...' : 'Sync Data'}
                         </button>
                       </div>
                     </>
