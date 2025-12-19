@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/AdminLayout';
 import { Trash2, RefreshCw, MessageSquare, Users, MessageCircle, Database } from 'lucide-react';
+import { useToast } from '@/components/Toast';
 
 interface ChatSession {
   session_id: string;
@@ -57,7 +58,7 @@ export default function AIAgentChatManagementPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [userData, setUserData] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'redis' | 'chroma' | 'modal-config'>('redis');
+  const [activeTab, setActiveTab] = useState<'redis' | 'chroma' | 'modal-config' | 'rag'>('redis');
   const [chromaCollections, setChromaCollections] = useState<ChromaCollection[]>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<{type: 'session' | 'user' | 'all', userId?: string, sessionId?: string} | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -69,8 +70,16 @@ export default function AIAgentChatManagementPage() {
   const [showModalConfigForm, setShowModalConfigForm] = useState(false);
   const [selectedModalConfig, setSelectedModalConfig] = useState<ModalConfig | null>(null);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [ragStats, setRagStats] = useState<any>(null);
+  const [syncingRagData, setSyncingRagData] = useState(false);
+
+  const { addToast } = useToast();
 
   useEffect(() => {
+    if (activeTab === 'rag') {
+      loadRagStats();
+    }
+  }, [activeTab]);
     const checkAuth = async () => {
       try {
         const userDataStr = typeof window !== 'undefined' ? localStorage.getItem('userData') : null;
@@ -96,6 +105,7 @@ export default function AIAgentChatManagementPage() {
       }
     };
 
+  useEffect(() => {
     checkAuth();
   }, [router]);
 
@@ -185,13 +195,25 @@ export default function AIAgentChatManagementPage() {
 
       if (response.ok) {
         loadModalConfigs();
-        alert('Modal config đã được xóa thành công!');
+        addToast({
+          type: 'success',
+          title: 'Thành công',
+          message: 'Modal config đã được xóa thành công!'
+        });
       } else {
-        alert('Lỗi khi xóa modal config');
+        addToast({
+          type: 'error',
+          title: 'Lỗi',
+          message: 'Lỗi khi xóa modal config'
+        });
       }
     } catch (error) {
       console.error('Error deleting modal config:', error);
-      alert('Lỗi khi xóa modal config');
+      addToast({
+        type: 'error',
+        title: 'Lỗi',
+        message: 'Lỗi khi xóa modal config'
+      });
     }
   };
 
@@ -232,6 +254,56 @@ export default function AIAgentChatManagementPage() {
       }
     } catch (error) {
       console.error('Error loading available models:', error);
+    }
+  };
+
+  const loadRagStats = async () => {
+    try {
+      const response = await fetch(`${AI_SERVICE_URL}/api/admin/rag-stats`);
+      if (response.ok) {
+        const data = await response.json();
+        setRagStats(data.data || {});
+      }
+    } catch (error) {
+      console.error('Error loading RAG stats:', error);
+    }
+  };
+
+  const syncUserDataToRag = async () => {
+    if (!confirm('Bạn có chắc muốn sync toàn bộ user data vào RAG system? Quá trình này có thể mất thời gian.')) return;
+
+    setSyncingRagData(true);
+    try {
+      const response = await fetch(`${AI_SERVICE_URL}/api/admin/user-data/sync`, {
+        method: 'POST'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        addToast({
+          type: 'success',
+          title: 'Sync thành công!',
+          message: data.message,
+          duration: 8000
+        });
+        loadRagStats(); // Refresh stats
+      } else {
+        const error = await response.json();
+        addToast({
+          type: 'error',
+          title: 'Lỗi sync',
+          message: error.message || 'Không thể sync user data'
+        });
+      }
+    } catch (error) {
+      console.error('Error syncing user data:', error);
+      addToast({
+        type: 'error',
+        title: 'Lỗi kết nối',
+        message: 'Không thể kết nối đến server'
+      });
+    } finally {
+      setSyncingRagData(false);
     }
   };
 
@@ -311,7 +383,11 @@ export default function AIAgentChatManagementPage() {
       // Lấy token từ localStorage (key là 'authToken' không phải 'token')
       const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
       if (!token) {
-        alert('❌ Vui lòng đăng nhập lại');
+        addToast({
+          type: 'error',
+          title: 'Lỗi xác thực',
+          message: 'Vui lòng đăng nhập lại'
+        });
         router.push('/login');
         return;
       }
@@ -325,24 +401,31 @@ export default function AIAgentChatManagementPage() {
       
       if (response.ok) {
         const result = await response.json();
-        alert(`✅ Đồng bộ thành công!\n\n` +
-          `📊 Dữ liệu đã đồng bộ:\n` +
-          `- Người dùng: ${result.synced_data?.users || 0}\n` +
-          `- Sản phẩm: ${result.synced_data?.products || 0}\n` +
-          `- Danh mục: ${result.synced_data?.categories || 0}\n` +
-          `- Khuyến mãi: ${result.synced_data?.discounts || 0}\n\n` +
-          `Tổng: ${result.total_documents || 0} documents`);
+        addToast({
+          type: 'success',
+          title: 'Đồng bộ thành công!',
+          message: `Dữ liệu đã đồng bộ: ${result.synced_data?.users || 0} users, ${result.synced_data?.products || 0} products, ${result.synced_data?.categories || 0} categories, ${result.synced_data?.discounts || 0} discounts. Tổng: ${result.total_documents || 0} documents`,
+          duration: 8000
+        });
         loadChromaCollections();
       } else {
         const error = await response.json();
-        alert(`❌ Lỗi đồng bộ: ${error.message || 'Unknown error'}`);
+        addToast({
+          type: 'error',
+          title: 'Lỗi đồng bộ',
+          message: error.message || 'Unknown error'
+        });
         if (response.status === 401) {
           router.push('/login');
         }
       }
     } catch (error) {
       console.error('Error syncing system data:', error);
-      alert(`❌ Lỗi kết nối: ${error}`);
+      addToast({
+        type: 'error',
+        title: 'Lỗi kết nối',
+        message: error instanceof Error ? error.message : 'Unknown error'
+      });
     } finally {
       setRefreshing(false);
     }
@@ -459,6 +542,16 @@ export default function AIAgentChatManagementPage() {
               }`}
             >
               🤖 Cấu Hình Modal AI
+            </button>
+            <button
+              onClick={() => setActiveTab('rag')}
+              className={`px-6 py-3 font-semibold text-sm transition-colors border-b-2 ${
+                activeTab === 'rag'
+                  ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                  : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300'
+              }`}
+            >
+              🧠 RAG System
             </button>
           </div>
         </div>
@@ -802,6 +895,93 @@ export default function AIAgentChatManagementPage() {
           </div>
         )}
 
+        {/* RAG System Tab */}
+        {activeTab === 'rag' && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-white">🧠 RAG System Management</h2>
+              <div className="flex gap-3">
+                <button
+                  onClick={loadRagStats}
+                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                >
+                  <RefreshCw size={16} />
+                  Refresh Stats
+                </button>
+                <button
+                  onClick={syncUserDataToRag}
+                  disabled={syncingRagData}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm"
+                >
+                  {syncingRagData ? <RefreshCw size={16} className="animate-spin" /> : '🔄'}
+                  {syncingRagData ? 'Syncing...' : 'Sync User Data'}
+                </button>
+              </div>
+            </div>
+
+            {/* RAG Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+              <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-6 text-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-blue-100 text-sm font-medium">Products</p>
+                    <p className="text-2xl font-bold">{ragStats?.products || 0}</p>
+                  </div>
+                  <div className="text-blue-200 text-3xl">📦</div>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-6 text-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-purple-100 text-sm font-medium">User Orders</p>
+                    <p className="text-2xl font-bold">{ragStats?.user_orders || 0}</p>
+                  </div>
+                  <div className="text-purple-200 text-3xl">🛒</div>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-6 text-white">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-green-100 text-sm font-medium">User Data</p>
+                    <p className="text-2xl font-bold">{ragStats?.user_data || 0}</p>
+                  </div>
+                  <div className="text-green-200 text-3xl">👤</div>
+                </div>
+              </div>
+            </div>
+
+            {/* RAG Info */}
+            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">ℹ️ Thông tin RAG System</h3>
+              <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
+                <p>
+                  <strong>RAG (Retrieval-Augmented Generation)</strong> giúp AI tư vấn khách hàng bằng cách sử dụng dữ liệu cá nhân hóa từ ChromaDB.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <h4 className="font-medium text-gray-800 dark:text-white mb-2">🔒 Bảo mật dữ liệu:</h4>
+                    <ul className="list-disc list-inside space-y-1 text-xs">
+                      <li>Mỗi user chỉ truy cập dữ liệu của chính mình</li>
+                      <li>Đơn hàng và thông tin cá nhân được mã hóa</li>
+                      <li>Không chia sẻ dữ liệu giữa các user</li>
+                    </ul>
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-800 dark:text-white mb-2">🎯 Tính năng:</h4>
+                    <ul className="list-disc list-inside space-y-1 text-xs">
+                      <li>Tư vấn sản phẩm dựa trên lịch sử mua hàng</li>
+                      <li>Gợi ý sản phẩm phù hợp với sở thích</li>
+                      <li>Hỗ trợ chăm sóc khách hàng cá nhân hóa</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Modal Config Form */}
         {showModalConfigForm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -832,14 +1012,26 @@ export default function AIAgentChatManagementPage() {
                       console.log('Save successful, reloading configs...');
                       await loadModalConfigs();
                       setShowModalConfigForm(false);
-                      alert('Modal config đã được lưu thành công!');
+                      addToast({
+                        type: 'success',
+                        title: 'Thành công',
+                        message: 'Modal config đã được lưu thành công!'
+                      });
                     } else {
                       console.error('Save failed:', responseData);
-                      alert('Lỗi khi lưu modal config: ' + (responseData.message || 'Unknown error'));
+                      addToast({
+                        type: 'error',
+                        title: 'Lỗi',
+                        message: 'Lỗi khi lưu modal config: ' + (responseData.message || 'Unknown error')
+                      });
                     }
                   } catch (error) {
                     console.error('Error saving modal config:', error);
-                    alert('Lỗi khi lưu modal config: ' + error.message);
+                    addToast({
+                      type: 'error',
+                      title: 'Lỗi',
+                      message: 'Lỗi khi lưu modal config: ' + (error instanceof Error ? error.message : 'Unknown error')
+                    });
                   }
                 }}
                 onCancel={() => setShowModalConfigForm(false)}

@@ -23,12 +23,16 @@ def set_analytics_rag_service(service: AnalyticsRAGService):
 
 # Pydantic models
 class AnalyticsRequest(BaseModel):
+    model_config = {'protected_namespaces': ()}
+    
     query: str = Field(..., description="Analytics query")
     model_id: Optional[str] = Field("gemini-2.5-pro", description="AI model to use")
     data_types: Optional[List[str]] = Field(None, description="Types of data to analyze")
     include_trends: Optional[bool] = Field(True, description="Include trend analysis")
 
 class AnalyticsResponse(BaseModel):
+    model_config = {'protected_namespaces': ()}
+    
     analysis: str
     model_used: str
     data_sources: List[str]

@@ -9,6 +9,7 @@ groq>=0.15.0
 redis==5.0.1
 python-json-logger==2.0.7
 httpx==0.25.2
+PyJWT==2.8.0
 
 # Document processing dependencies
 PyPDF2==3.0.1

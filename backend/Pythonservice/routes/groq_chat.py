@@ -4,15 +4,16 @@ Independent chat controller using Groq API for direct AI interaction.
 Completely separate from other controllers.
 Includes Redis session history management.
 """
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Header
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 import os
 from groq import Groq
 from datetime import datetime
 import uuid
 from services.redis_chat_service import RedisChatService, get_redis_service, ChatMessage as RedisMessage
 from services.chat_ai_rag_chroma_service import get_chat_ai_rag_service
+from services.jwt_util import JwtUtil
 
 # Initialize router
 router = APIRouter()
@@ -69,6 +70,43 @@ def verify_user_authorization(requested_user_id: str, auth_user_id: str) -> bool
     """
     # User can only access their own data
     return requested_user_id == auth_user_id
+
+
+def get_authenticated_user(authorization: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """
+    Extract authenticated user info from JWT token
+    
+    Args:
+        authorization: Authorization header value
+        
+    Returns:
+        Dict with user_id, username, role or None if not authenticated
+    """
+    if not authorization:
+        return None
+        
+    # Extract token from "Bearer <token>"
+    if authorization.startswith("Bearer "):
+        token = authorization[7:]
+    else:
+        token = authorization
+    
+    # Validate token and extract claims
+    if not JwtUtil.validate_token(token):
+        return None
+    
+    user_id = JwtUtil.extract_user_id(token)
+    username = JwtUtil.extract_username(token)
+    role = JwtUtil.extract_role(token)
+    
+    if user_id and username and role:
+        return {
+            "user_id": str(user_id),
+            "username": username,
+            "role": role
+        }
+    
+    return None
 
 
 # Pydantic models
@@ -191,6 +229,7 @@ async def get_available_models(client: Groq = Depends(get_groq_client)):
 @router.post("/chat", tags=["Groq Chat"])
 async def chat(
     request: ChatRequest,
+    authorization: Optional[str] = Header(None, alias="Authorization"),
     client: Groq = Depends(get_groq_client)
 ) -> ChatResponse:
     """
@@ -217,9 +256,35 @@ async def chat(
         ```
     """
     try:
+        # Validate JWT token and get authenticated user
+        auth_user = get_authenticated_user(authorization)
+        print(f"[CHAT] Authorization header present: {authorization is not None}")
+        if authorization:
+            print(f"[CHAT] Authorization header starts with: {authorization[:20]}...")
+        print(f"[CHAT] Auth user: {auth_user}")
+        
         # Generate or use provided session_id
         session_id = request.session_id or f"session-{datetime.now().timestamp()}"
-        user_id = request.user_id or f"anonymous-{datetime.now().timestamp()}"
+        
+        # Determine user_id: use authenticated user if available, otherwise from request or anonymous
+        if auth_user:
+            authenticated_user_id = auth_user["user_id"]
+            print(f"[CHAT] Authenticated user ID: {authenticated_user_id} (type: {type(authenticated_user_id)})")
+            # Always use user_X format for ChromaDB
+            user_id = f"user_{authenticated_user_id}"
+            print(f"[CHAT] Final user_id for ChromaDB: {user_id}")
+            
+            # If request.user_id is provided and doesn't match authenticated user, reject
+            if request.user_id and str(request.user_id) != str(authenticated_user_id):
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"User ID mismatch. Cannot access data for other users."
+                )
+        else:
+            print("[CHAT] No authentication - using anonymous")
+            # No authentication - use provided user_id or anonymous
+            user_id = request.user_id or f"anonymous-{datetime.now().timestamp()}"
+            print(f"[CHAT] Anonymous user_id: {user_id}")
         
         # Get active modal config from admin
         chroma_service = get_chat_ai_rag_service()
@@ -258,15 +323,75 @@ async def chat(
             limit=10
         )
         
+        # Get comprehensive context from ChromaDB (products + knowledge + user data)
+        print(f"[CHAT] Getting context for user_id: {user_id}")
+        combined_context = chroma_service.retrieve_combined_context_with_user(
+            user_id=user_id,
+            query=request.message,  # Use current message as query for relevant context
+            top_k_products=3,
+            top_k_knowledge=2,
+            top_k_user=2
+        )
+        print(f"[CHAT] Combined context length: {len(combined_context) if combined_context else 0}")
+        print(f"[CHAT] Combined context preview: {combined_context[:200] if combined_context else 'None'}")
+        
+        # Build enhanced system prompt with comprehensive context
+        base_system_prompt = system_prompt or """Bạn là trợ lý AI cá nhân hóa cho trang thương mại điện tử.
+Bạn có quyền truy cập vào thông tin cá nhân của khách hàng để cung cấp tư vấn phù hợp."""
+
+        # Check if we have user-specific context
+        has_user_context = combined_context and combined_context != "No relevant context found.No user-specific context found."
+
+        if has_user_context:
+            # Extract user name for personalization
+            user_name = "bạn"
+            if "Tên:" in combined_context:
+                # Try to extract name from new format
+                name_start = combined_context.find("Tên:") + 5
+                name_end = combined_context.find("\n", name_start)
+                if name_end > name_start:
+                    extracted_name = combined_context[name_start:name_end].strip()
+                    if extracted_name and extracted_name != "N/A" and extracted_name != "":
+                        user_name = extracted_name
+            elif "Name:" in combined_context:
+                # Fallback to old format
+                name_start = combined_context.find("Name:") + 6
+                name_end = combined_context.find("\n", name_start)
+                if name_end > name_start:
+                    extracted_name = combined_context[name_start:name_end].strip()
+                    if extracted_name and extracted_name != "N/A" and extracted_name != "":
+                        user_name = extracted_name
+
+            enhanced_system_prompt = f"""{base_system_prompt}
+
+BẠN ĐANG CHAT VỚI: {user_name}
+
+THÔNG TIN CÁ NHÂN CỦA {user_name} (TỪ CHROMADB):
+{combined_context}
+
+HƯỚNG DẪN TƯ VẤN CÁ NHÂN HÓA - BẮT BUỘC THEO:
+- KHÔNG được hỏi tên của khách hàng - bạn đã biết họ là {user_name}
+- Luôn bắt đầu bằng lời chào thân thiện với tên: "Chào {user_name}!" hoặc "Xin chào {user_name}!"
+- **ĐỌC VÀ SỬ DỤNG THÔNG TIN TỪ CHROMADB:** Tất cả thông tin cá nhân đều được cung cấp ở trên
+- **KHI KHÁCH HÀNG HỎI "TÔI LÀ AI":** Đọc thông tin từ phần "THÔNG TIN CÁ NHÂN CỦA BẠN" và "LỊCH SỬ ĐƠN HÀNG CỦA BẠN"
+- **Trả lời với dữ liệu thực:** "Bạn là [tên từ ChromaDB], email: [email từ ChromaDB], đã mua [sản phẩm từ đơn hàng]..."
+- **Tham khảo đơn hàng thực:** Đọc "Order ID", "Status", "Items" từ dữ liệu ChromaDB
+- **Sử dụng sở thích thực:** Đọc "Preferences" và "favorite_category" từ dữ liệu ChromaDB
+- **Địa chỉ và thông tin khác:** Nếu có trong dữ liệu ChromaDB thì cung cấp, nếu không thì nói không có thông tin
+- Mọi thông tin phải được lấy từ dữ liệu ChromaDB được cung cấp, không được bịa đặt"""
+        else:
+            enhanced_system_prompt = f"""{base_system_prompt}
+
+Bạn đang chat với khách hàng. Hãy cung cấp tư vấn hữu ích về sản phẩm và dịch vụ."""
+        
         # Build messages list with full context
         messages_for_api = []
         
-        # Add system prompt if configured
-        if system_prompt:
-            messages_for_api.append({
-                "role": "system",
-                "content": system_prompt
-            })
+        # Add enhanced system prompt
+        messages_for_api.append({
+            "role": "system",
+            "content": enhanced_system_prompt
+        })
         
         # Add previous messages as context
         for msg in context_messages:

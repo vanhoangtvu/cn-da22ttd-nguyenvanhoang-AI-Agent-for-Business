@@ -290,152 +290,54 @@ export default function ChatWidget() {
     console.log('[ChatWidget] Sending user_id:', userId);
 
     try {
-      // Try streaming first
-      let streamingSuccess = false;
+      // Get auth token
+      const authToken = apiClient.getAuthToken();
       
-      // Determine API endpoint based on provider
-      const apiEndpoint = aiProvider === 'groq' 
-        ? `${AI_SERVICE_URL}/groq/chat/rag/stream`
-        : `${AI_SERVICE_URL}/gemini/chat/rag/stream`;
+      // Use the main chat endpoint with RAG
+      const apiEndpoint = `${AI_SERVICE_URL}/api/groq-chat/chat`;
       
-      try {
-        const response = await fetch(apiEndpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'text/event-stream',
+      const response = await fetch(apiEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(authToken && { 'Authorization': `Bearer ${authToken}` }),
+        },
+        body: JSON.stringify({
+          message: userMessage.content,
+          model: aiModel,
+          session_id: sessionId,
+          user_id: userId,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: (Date.now() + 1).toString(),
+            role: 'assistant',
+            content: data.message,
+            timestamp: new Date(),
           },
-          body: JSON.stringify({
-            message: userMessage.content,
-            model: aiModel,
-            session_id: sessionId,
-            user_id: userId,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Streaming failed');
-        }
-
-      // Create assistant message placeholder
-      const assistantMessageId = (Date.now() + 1).toString();
+        ]);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `HTTP ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Chat error:', error);
       setMessages((prev) => [
         ...prev,
         {
-          id: assistantMessageId,
+          id: (Date.now() + 1).toString(),
           role: 'assistant',
-          content: '',
+          content: 'Xin lỗi, tôi đang gặp sự cố kết nối. Vui lòng thử lại sau.',
           timestamp: new Date(),
         },
       ]);
-      setIsStreaming(true);
-
-      // Read streaming response
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let fullContent = '';
-
-      if (reader) {
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n');
-
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                try {
-                  const jsonStr = line.slice(6).trim();
-                  if (!jsonStr) continue;
-                  
-                  const data = JSON.parse(jsonStr);
-                  if (data.type === 'chunk' && data.text) {
-                    fullContent += data.text;
-                    setMessages((prev) =>
-                      prev.map((msg) =>
-                        msg.id === assistantMessageId
-                          ? { ...msg, content: fullContent }
-                          : msg
-                      )
-                    );
-                  } else if (data.type === 'error') {
-                    throw new Error(data.error);
-                  }
-                } catch (parseError) {
-                  // Skip invalid JSON lines
-                  console.debug('Skip non-JSON line:', line);
-                }
-              }
-            }
-          }
-        } finally {
-          reader.releaseLock();
-        }
-
-        streamingSuccess = fullContent.length > 0;
-      }
-
-      // If streaming didn't work, show error
-      if (!streamingSuccess) {
-        throw new Error('Streaming returned no content');
-      }
-
-      setIsStreaming(false);
-      } catch (streamError) {
-        console.log('Streaming failed, trying fallback:', streamError);
-        setIsStreaming(false);
-        
-        // Try non-streaming fallback
-        const fallbackEndpoint = aiProvider === 'groq'
-          ? `${AI_SERVICE_URL}/groq/chat/rag`
-          : `${AI_SERVICE_URL}/gemini/chat/rag`;
-        
-        try {
-          const response = await fetch(fallbackEndpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              message: userMessage.content,
-              model: aiModel,
-              session_id: sessionId,
-              user_id: userId,
-            }),
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: (Date.now() + 1).toString(),
-                role: 'assistant',
-                content: data.response,
-                timestamp: new Date(),
-                products: data.products || [], // Add products from API
-              },
-            ]);
-          } else {
-            throw new Error('Fallback also failed');
-          }
-        } catch (fallbackError) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: (Date.now() + 1).toString(),
-              role: 'assistant',
-              content: 'Xin lỗi, tôi đang gặp sự cố kết nối. Vui lòng thử lại sau.',
-              timestamp: new Date(),
-            },
-          ]);
-        }
-      }
     } finally {
       setIsLoading(false);
-      setIsStreaming(false);
     }
   };
 

@@ -841,6 +841,7 @@ async def sync_system_data_to_chroma(authorization: Optional[str] = None):
     try:
         import httpx
         import os
+        import json
         from fastapi import Header
         
         logger.info("[Admin Chat] Starting system data sync to ChromaDB")
@@ -886,9 +887,25 @@ async def sync_system_data_to_chroma(authorization: Optional[str] = None):
             try:
                 response = await client.get(system_data_endpoint, headers=headers)
                 response.raise_for_status()
+                logger.info(f"[Admin Chat] Response text: {response.text[:500]}")
                 system_data = response.json()
                 logger.info(f"[Admin Chat] Successfully fetched system data")
                 logger.info(f"[Admin Chat] System data structure: {list(system_data.keys()) if isinstance(system_data, dict) else type(system_data)}")
+                
+                # Check if data is wrapped in "data" key
+                if "data" in system_data and isinstance(system_data["data"], dict):
+                    system_data = system_data["data"]
+                    logger.info("[Admin Chat] Unwrapped data from 'data' key")
+                
+                # Debug: check if users is in system_data
+                if "users" not in system_data or not isinstance(system_data["users"], list) or len(system_data["users"]) == 0:
+                    return JSONResponse(
+                        content={
+                            "status": "error",
+                            "message": f"Users issue. In data: {'users' in system_data}, Is list: {isinstance(system_data.get('users'), list)}, Len: {len(system_data.get('users', []))}, First user: {system_data.get('users', [{}])[0] if system_data.get('users') else 'N/A'}, Response start: {response.text[:200]}"
+                        },
+                        status_code=500
+                    )
             except httpx.HTTPStatusError as http_error:
                 logger.error(f"[Admin Chat] HTTP error fetching system data: {http_error.response.status_code}")
                 return JSONResponse(
@@ -936,50 +953,83 @@ async def sync_system_data_to_chroma(authorization: Optional[str] = None):
         # 1. Đồng bộ thông tin Users vào collection chat_ai_users
         if "users" in system_data and isinstance(system_data["users"], list):
             users = system_data["users"]
+            logger.info(f"[Admin Chat] Found {len(users)} users in system_data")
             logger.info(f"[Admin Chat] Syncing {len(users)} users to chat_ai_users")
-            
             try:
-                users_collection = chroma_service.client.create_collection(
+                users_collection = chroma_service.client.get_or_create_collection(
                     name="chat_ai_users",
                     metadata={"description": "User information for AI Chat"}
                 )
+                logger.info(f"[Admin Chat] Created users collection: {users_collection.name}")
                 
                 for user in users:
+                    if not isinstance(user, dict):
+                        logger.warning(f"[Admin Chat] Skipping non-dict user: {type(user)} - {user}")
+                        continue
+                    logger.info(f"[Admin Chat] Processing user: {user.get('id', 'no-id')}")
                     doc_id = f"user_{user.get('id', user.get('email', ''))}"
                     
+                    # Tạo content với TẤT CẢ thông tin từ Spring
+                    content_parts = []
+                    content_parts.append(f"THÔNG TIN NGƯỜI DÙNG ID: {user.get('id', 'N/A')}")
+                    content_parts.append(f"Username: {user.get('username', 'N/A')}")
+                    content_parts.append(f"Email: {user.get('email', 'N/A')}")
+                    content_parts.append(f"Vai trò: {user.get('role', 'N/A')}")
+                    content_parts.append(f"Trạng thái tài khoản: {user.get('accountStatus', 'N/A')}")
+                    
                     # Xử lý địa chỉ
-                    addresses = user.get('addresses', [])
-                    address_text = "N/A"
-                    if addresses:
-                        addr_parts = []
-                        for addr in addresses:
-                            addr_str = f"{addr.get('street', '')}, {addr.get('ward', '')}, {addr.get('district', '')}, {addr.get('city', '')}"
-                            if addr.get("isDefault"):
-                                addr_str += " (Mặc định)"
-                            addr_parts.append(addr_str)
-                        address_text = "; ".join(addr_parts)
+                    address = user.get('address', 'N/A')
+                    content_parts.append(f"Địa chỉ: {address}")
                     
-                    content = f"""Thông tin người dùng:
-- Email: {user.get('email', 'N/A')}
-- Họ tên: {user.get('fullName', 'N/A')}
-- Số điện thoại: {user.get('phone', 'N/A')}
-- Địa chỉ: {address_text}
-- Vai trò: {user.get('role', 'USER')}
-- Trạng thái: {'Hoạt động' if user.get('status') == 'ACTIVE' else 'Không hoạt động'}
-"""
+                    # Xử lý số điện thoại
+                    phone = user.get('phoneNumber', 'N/A')
+                    content_parts.append(f"Số điện thoại: {phone}")
                     
+                    # Thêm tất cả các trường khác từ Spring (nếu có)
+                    additional_fields = ['fullName', 'firstName', 'lastName', 'dateOfBirth', 'gender', 
+                                       'registrationDate', 'lastLogin', 'isActive', 'isVerified']
+                    additional_info = []
+                    for field in additional_fields:
+                        value = user.get(field)
+                        if value is not None and value != '':
+                            additional_info.append(f"{field}: {value}")
+                    
+                    if additional_info:
+                        content_parts.append("\nTHÔNG TIN BỔ SUNG:")
+                        content_parts.extend([f"  - {info}" for info in additional_info])
+                    
+                    content = "\n".join(content_parts)
+                    
+                    # Tạo metadata với TẤT CẢ thông tin quan trọng + full user data
+                    metadata = {
+                        "type": "user",
+                        "user_id": str(user.get('id', '')),
+                        "username": user.get('username', ''),
+                        "email": user.get('email', ''),
+                        "role": user.get('role', ''),
+                        "account_status": user.get('accountStatus', ''),
+                        "phone_number": user.get('phoneNumber', ''),
+                        "address": address,
+                        # Lưu toàn bộ user data để query linh hoạt
+                        "full_user_data": json.dumps(user)
+                    }
+                    
+                    logger.info(f"[Admin Chat] About to add user {doc_id} to collection")
                     users_collection.add(
                         ids=[doc_id],
                         documents=[content],
-                        metadatas=[{
-                            "type": "user",
-                            "email": user.get('email', ''),
-                            "user_id": str(user.get('id', ''))
-                        }]
+                        metadatas=[metadata]
                     )
                     synced_data["users"] += 1
+                    logger.info(f"[Admin Chat] Added user {doc_id}, total so far: {synced_data['users']}")
                     
                 logger.info(f"[Admin Chat] Successfully synced {synced_data['users']} users to chat_ai_users")
+                # Check actual count in collection
+                try:
+                    count = users_collection.count()
+                    logger.info(f"[Admin Chat] Collection {users_collection.name} has {count} documents")
+                except Exception as count_error:
+                    logger.error(f"[Admin Chat] Error checking count: {str(count_error)}")
             except Exception as e:
                 logger.error(f"[Admin Chat] Error syncing users: {str(e)}")
         
@@ -989,28 +1039,52 @@ async def sync_system_data_to_chroma(authorization: Optional[str] = None):
             logger.info(f"[Admin Chat] Syncing {len(categories)} categories to chat_ai_categories")
             
             try:
-                categories_collection = chroma_service.client.create_collection(
+                categories_collection = chroma_service.client.get_or_create_collection(
                     name="chat_ai_categories",
                     metadata={"description": "Product categories for AI Chat"}
                 )
                 
                 for category in categories:
                     doc_id = f"category_{category.get('id', category.get('name', ''))}"
-                    content = f"""Danh mục sản phẩm:
-- Tên: {category.get('name', 'N/A')}
-- Mô tả: {category.get('description', 'N/A')}
-- Số lượng sản phẩm: {category.get('productCount', 0)}
-- Trạng thái: {'Hoạt động' if category.get('status') == 'ACTIVE' else 'Không hoạt động'}
-"""
+                    
+                    # Tạo content với TẤT CẢ thông tin từ Spring
+                    content_parts = []
+                    content_parts.append(f"DANH MỤC ID: {category.get('id', 'N/A')}")
+                    content_parts.append(f"Tên danh mục: {category.get('name', 'N/A')}")
+                    content_parts.append(f"Mô tả: {category.get('description', 'N/A')}")
+                    content_parts.append(f"Số lượng sản phẩm: {category.get('productCount', 0)}")
+                    content_parts.append(f"Trạng thái: {category.get('status', 'N/A')}")
+                    
+                    # Thêm tất cả các trường khác từ Spring
+                    additional_fields = ['parentId', 'parentName', 'level', 'sortOrder', 'imageUrl', 
+                                       'icon', 'seoTitle', 'seoDescription', 'isActive', 'createdAt', 'updatedAt']
+                    additional_info = []
+                    for field in additional_fields:
+                        value = category.get(field)
+                        if value is not None and value != '':
+                            additional_info.append(f"{field}: {value}")
+                    
+                    if additional_info:
+                        content_parts.append("\nTHÔNG TIN BỔ SUNG:")
+                        content_parts.extend([f"  - {info}" for info in additional_info])
+                    
+                    content = "\n".join(content_parts)
+                    
+                    # Tạo metadata với TẤT CẢ thông tin quan trọng + full category data
+                    metadata = {
+                        "type": "category",
+                        "category_id": str(category.get('id', '')),
+                        "category_name": category.get('name', ''),
+                        "product_count": category.get('productCount', 0),
+                        "status": category.get('status', ''),
+                        # Lưu toàn bộ category data để query linh hoạt
+                        "full_category_data": json.dumps(category)
+                    }
                     
                     categories_collection.add(
                         ids=[doc_id],
                         documents=[content],
-                        metadatas=[{
-                            "type": "category",
-                            "category_name": category.get('name', ''),
-                            "category_id": str(category.get('id', ''))
-                        }]
+                        metadatas=[metadata]
                     )
                     synced_data["categories"] += 1
                 
@@ -1024,7 +1098,7 @@ async def sync_system_data_to_chroma(authorization: Optional[str] = None):
             logger.info(f"[Admin Chat] Syncing {len(products)} products to chat_ai_products")
             
             try:
-                products_collection = chroma_service.client.create_collection(
+                products_collection = chroma_service.client.get_or_create_collection(
                     name="chat_ai_products",
                     metadata={"description": "Product catalog for AI Chat"}
                 )
@@ -1032,7 +1106,18 @@ async def sync_system_data_to_chroma(authorization: Optional[str] = None):
                 for product in products:
                     doc_id = f"product_{product.get('id', product.get('name', ''))}"
                     
-                    # Parse specifications
+                    # Tạo content với TẤT CẢ thông tin từ Spring
+                    content_parts = []
+                    content_parts.append(f"SẢN PHẨM ID: {product.get('id', 'N/A')}")
+                    content_parts.append(f"Tên sản phẩm: {product.get('name', 'N/A')}")
+                    content_parts.append(f"Giá: {product.get('price', 0):,.0f} VNĐ")
+                    content_parts.append(f"Danh mục: {product.get('categoryName', 'N/A')}")
+                    content_parts.append(f"Thương hiệu: {product.get('brand', 'N/A')}")
+                    content_parts.append(f"Số lượng tồn kho: {product.get('stockQuantity', 0)}")
+                    content_parts.append(f"Trạng thái: {product.get('status', 'N/A')}")
+                    content_parts.append(f"Mô tả: {product.get('description', 'N/A')}")
+                    
+                    # Xử lý specifications
                     specs = product.get('specifications', {})
                     if isinstance(specs, str):
                         try:
@@ -1041,34 +1126,48 @@ async def sync_system_data_to_chroma(authorization: Optional[str] = None):
                         except:
                             specs = {}
                     
-                    specs_text = "\n".join([f"- {k}: {v}" for k, v in specs.items()]) if specs else "Không có thông số kỹ thuật"
+                    if specs:
+                        content_parts.append("\nTHÔNG SỐ KỸ THUẬT:")
+                        for k, v in specs.items():
+                            content_parts.append(f"  - {k}: {v}")
                     
-                    content = f"""Sản phẩm: {product.get('name', 'N/A')}
-Giá: {product.get('price', 0):,.0f} VNĐ
-Danh mục: {product.get('categoryName', 'N/A')}
-Thương hiệu: {product.get('brand', 'N/A')}
-Số lượng tồn kho: {product.get('stockQuantity', 0)}
-Trạng thái: {'Còn hàng' if product.get('status') == 'ACTIVE' else 'Hết hàng'}
-Mô tả: {product.get('description', 'N/A')}
-
-Thông số kỹ thuật:
-{specs_text}
-
-Hình ảnh: {product.get('imageUrl', 'Không có')}
-Doanh thu: {product.get('revenue', 0):,.0f} VNĐ
-"""
+                    # Thêm tất cả các trường khác từ Spring
+                    additional_fields = ['imageUrl', 'imageUrls', 'weight', 'dimensions', 'warranty', 
+                                       'manufacturer', 'origin', 'revenue', 'soldCount', 'rating', 
+                                       'reviewCount', 'tags', 'seoTitle', 'seoDescription']
+                    additional_info = []
+                    for field in additional_fields:
+                        value = product.get(field)
+                        if value is not None and value != '':
+                            if isinstance(value, list):
+                                additional_info.append(f"{field}: {', '.join(map(str, value))}")
+                            else:
+                                additional_info.append(f"{field}: {value}")
+                    
+                    if additional_info:
+                        content_parts.append("\nTHÔNG TIN BỔ SUNG:")
+                        content_parts.extend([f"  - {info}" for info in additional_info])
+                    
+                    content = "\n".join(content_parts)
+                    
+                    # Tạo metadata với TẤT CẢ thông tin quan trọng + full product data
+                    metadata = {
+                        "type": "product",
+                        "product_id": str(product.get('id', '')),
+                        "product_name": product.get('name', ''),
+                        "category": product.get('categoryName', ''),
+                        "price": float(product.get('price', 0)),
+                        "stock": int(product.get('stockQuantity', 0)),
+                        "status": product.get('status', ''),
+                        "brand": product.get('brand', ''),
+                        # Lưu toàn bộ product data để query linh hoạt
+                        "full_product_data": json.dumps(product)
+                    }
                     
                     products_collection.add(
                         ids=[doc_id],
                         documents=[content],
-                        metadatas=[{
-                            "type": "product",
-                            "product_name": product.get('name', ''),
-                            "product_id": str(product.get('id', '')),
-                            "category": product.get('categoryName', ''),
-                            "price": float(product.get('price', 0)),
-                            "stock": int(product.get('stockQuantity', 0))
-                        }]
+                        metadatas=[metadata]
                     )
                     synced_data["products"] += 1
                 
@@ -1090,7 +1189,7 @@ Doanh thu: {product.get('revenue', 0):,.0f} VNĐ
                 except Exception as delete_error:
                     logger.warning(f"[Admin Chat] Could not delete existing collection: {str(delete_error)}")
 
-                discounts_collection = chroma_service.client.create_collection(
+                discounts_collection = chroma_service.client.get_or_create_collection(
                     name="chat_ai_discounts",
                     metadata={"description": "Discount codes for AI Chat"}
                 )
@@ -1125,37 +1224,54 @@ Doanh thu: {product.get('revenue', 0):,.0f} VNĐ
 
                         logger.info(f"[Admin Chat] Processing discount {idx+1}/{len(discounts)}: ID={discount_id}, Code={discount_code}, Status={discount.get('status')}")
 
-                        # Build comprehensive content
-                        content_parts = ["Khuyến mãi:"]
-                        content_parts.append(f"- ID: {discount_id}")
-                        content_parts.append(f"- Mã: {discount_code}")
-                        content_parts.append(f"- Tên: {discount.get('name', 'N/A')}")
-                        content_parts.append(f"- Mô tả: {discount.get('description', 'N/A')}")
-                        content_parts.append(f"- Loại giảm giá: {discount.get('discountType', 'PERCENTAGE')}")
-                        content_parts.append(f"- Giá trị giảm: {discount.get('discountValue', 0)}")
+                        # Tạo content với TẤT CẢ thông tin từ Spring
+                        content_parts = []
+                        content_parts.append(f"KHUYẾN MÃI ID: {discount_id}")
+                        content_parts.append(f"Mã khuyến mãi: {discount_code}")
+                        content_parts.append(f"Tên: {discount.get('name', 'N/A')}")
+                        content_parts.append(f"Mô tả: {discount.get('description', 'N/A')}")
+                        content_parts.append(f"Loại giảm giá: {discount.get('discountType', 'PERCENTAGE')}")
+                        content_parts.append(f"Giá trị giảm: {discount.get('discountValue', 0)}")
                         
                         # Handle None values for maxDiscountAmount
                         max_discount = discount.get('maxDiscountAmount')
                         if max_discount is not None:
-                            content_parts.append(f"- Giá trị tối đa: {max_discount:,.0f} VNĐ")
+                            content_parts.append(f"Giá trị tối đa: {max_discount:,.0f} VNĐ")
                         else:
-                            content_parts.append(f"- Giá trị tối đa: Không giới hạn")
+                            content_parts.append("Giá trị tối đa: Không giới hạn")
                         
-                        content_parts.append(f"- Đơn hàng tối thiểu: {discount.get('minOrderValue', 0):,.0f} VNĐ")
-                        content_parts.append(f"- Giới hạn sử dụng: {discount.get('usageLimit', 0)}")
-                        content_parts.append(f"- Đã sử dụng: {discount.get('usedCount', 0)}")
-                        content_parts.append(f"- Ngày bắt đầu: {discount.get('startDate', 'N/A')}")
-                        content_parts.append(f"- Ngày kết thúc: {discount.get('endDate', 'N/A')}")
-                        content_parts.append(f"- Trạng thái: {discount.get('status', 'N/A')}")
-                        content_parts.append(f"- Được tạo bởi: {discount.get('createdByUsername', 'N/A')}")
-
+                        content_parts.append(f"Đơn hàng tối thiểu: {discount.get('minOrderValue', 0):,.0f} VNĐ")
+                        content_parts.append(f"Giới hạn sử dụng: {discount.get('usageLimit', 0)}")
+                        content_parts.append(f"Đã sử dụng: {discount.get('usedCount', 0)}")
+                        content_parts.append(f"Ngày bắt đầu: {discount.get('startDate', 'N/A')}")
+                        content_parts.append(f"Ngày kết thúc: {discount.get('endDate', 'N/A')}")
+                        content_parts.append(f"Trạng thái: {discount.get('status', 'N/A')}")
+                        content_parts.append(f"Được tạo bởi: {discount.get('createdByUsername', 'N/A')}")
+                        
+                        # Thêm tất cả các trường khác từ Spring
+                        additional_fields = ['createdAt', 'updatedAt', 'isActive', 'applicableCategories', 
+                                           'applicableProducts', 'excludedCategories', 'excludedProducts',
+                                           'customerGroups', 'minQuantity', 'maxQuantity']
+                        additional_info = []
+                        for field in additional_fields:
+                            value = discount.get(field)
+                            if value is not None and value != '':
+                                if isinstance(value, list):
+                                    additional_info.append(f"{field}: {', '.join(map(str, value))}")
+                                else:
+                                    additional_info.append(f"{field}: {value}")
+                        
+                        if additional_info:
+                            content_parts.append("\nTHÔNG TIN BỔ SUNG:")
+                            content_parts.extend([f"  - {info}" for info in additional_info])
+                        
                         content = "\n".join(content_parts)
 
-                        # Prepare metadata
+                        # Tạo metadata với TẤT CẢ thông tin quan trọng + full discount data
                         metadata = {
                             "type": "discount",
-                            "discount_code": discount_code,
                             "discount_id": str(discount_id) if discount_id else "",
+                            "discount_code": discount_code,
                             "discount_value": float(discount.get('discountValue', 0)),
                             "discount_type": discount.get('discountType', 'PERCENTAGE'),
                             "status": discount.get('status', 'N/A'),
@@ -1163,7 +1279,9 @@ Doanh thu: {product.get('revenue', 0):,.0f} VNĐ
                             "used_count": int(discount.get('usedCount', 0)),
                             "max_discount_amount": float(max_discount or 0),
                             "is_valid": discount.get('isValid', False),
-                            "is_expired": discount.get('isExpired', False)
+                            "is_expired": discount.get('isExpired', False),
+                            # Lưu toàn bộ discount data để query linh hoạt
+                            "full_discount_data": json.dumps(discount)
                         }
 
                         logger.info(f"[Admin Chat] Adding discount {doc_id} to collection...")
@@ -1199,7 +1317,7 @@ Doanh thu: {product.get('revenue', 0):,.0f} VNĐ
             logger.info(f"[Admin Chat] Syncing {len(orders)} orders to chat_ai_orders")
             
             try:
-                orders_collection = chroma_service.client.create_collection(
+                orders_collection = chroma_service.client.get_or_create_collection(
                     name="chat_ai_orders",
                     metadata={"description": "Order history for AI Chat"}
                 )
@@ -1207,60 +1325,77 @@ Doanh thu: {product.get('revenue', 0):,.0f} VNĐ
                 for order in orders:
                     doc_id = f"order_{order.get('id', '')}"
                     
-                    # Lấy thông tin user
-                    user_email = order.get('userEmail', 'N/A')
-                    user_name = order.get('userName', 'N/A')
+                    # Lấy thông tin user từ Spring data (customerId, customerName)
+                    customer_id = order.get('customerId', '')
+                    customer_name = order.get('customerName', 'N/A')
                     
-                    # Lấy thông tin địa chỉ giao hàng
-                    shipping_address = order.get('shippingAddress', {})
-                    if isinstance(shipping_address, dict):
-                        address_str = f"{shipping_address.get('street', '')}, {shipping_address.get('ward', '')}, {shipping_address.get('district', '')}, {shipping_address.get('city', '')}"
-                    else:
-                        address_str = str(shipping_address)
+                    # Tìm email của customer từ users data nếu có
+                    user_email = 'N/A'
+                    if "users" in system_data and isinstance(system_data["users"], list):
+                        for user in system_data["users"]:
+                            if str(user.get('id', '')) == str(customer_id):
+                                user_email = user.get('email', 'N/A')
+                                break
                     
-                    # Lấy thông tin sản phẩm trong đơn
+                    # Tạo content với TẤT CẢ thông tin từ Spring
+                    content_parts = []
+                    content_parts.append(f"ĐƠN HÀNG ID: {order.get('id', 'N/A')}")
+                    content_parts.append(f"Khách hàng ID: {customer_id}")
+                    content_parts.append(f"Tên khách hàng: {customer_name}")
+                    content_parts.append(f"Email khách hàng: {user_email}")
+                    content_parts.append(f"Trạng thái: {order.get('status', 'N/A')}")
+                    content_parts.append(f"Tổng tiền: {order.get('totalAmount', 0):,.0f} VNĐ")
+                    content_parts.append(f"Tổng số sản phẩm: {order.get('totalItems', 0)}")
+                    content_parts.append(f"Ngày tạo: {order.get('createdAt', 'N/A')}")
+                    
+                    # Thêm tất cả items với đầy đủ thông tin
                     order_items = order.get('items', [])
-                    items_text = ""
                     if order_items:
-                        items_list = []
-                        for item in order_items:
-                            item_str = f"  + {item.get('productName', 'N/A')} x{item.get('quantity', 0)} - {item.get('price', 0):,.0f} VNĐ"
-                            items_list.append(item_str)
-                        items_text = "\n".join(items_list)
+                        content_parts.append("\nCHI TIẾT SẢN PHẨM:")
+                        for i, item in enumerate(order_items, 1):
+                            content_parts.append(f"  {i}. {item.get('productName', 'N/A')}")
+                            content_parts.append(f"     - ID sản phẩm: {item.get('productId', 'N/A')}")
+                            content_parts.append(f"     - Số lượng: {item.get('quantity', 0)}")
+                            content_parts.append(f"     - Đơn giá: {item.get('price', 0):,.0f} VNĐ")
+                            content_parts.append(f"     - Thành tiền: {item.get('subtotal', 0):,.0f} VNĐ")
                     
-                    # Tính tổng tiền
-                    total_amount = order.get('totalAmount', 0)
-                    discount_amount = order.get('discountAmount', 0)
-                    final_amount = order.get('finalAmount', total_amount - discount_amount)
+                    # Thêm tất cả các trường khác từ Spring (nếu có)
+                    additional_fields = ['shippingAddress', 'phone', 'paymentMethod', 'paymentStatus', 
+                                       'discountAmount', 'finalAmount', 'updatedAt', 'notes']
+                    additional_info = []
+                    for field in additional_fields:
+                        value = order.get(field)
+                        if value is not None and value != '':
+                            if isinstance(value, dict):
+                                additional_info.append(f"{field}: {value}")
+                            else:
+                                additional_info.append(f"{field}: {value}")
                     
-                    content = f"""Đơn hàng:
-- Mã đơn: {order.get('id', 'N/A')}
-- Khách hàng: {user_name} ({user_email})
-- Ngày đặt: {order.get('createdAt', 'N/A')}
-- Trạng thái: {order.get('status', 'N/A')}
-- Địa chỉ giao hàng: {address_str}
-- Số điện thoại: {order.get('phone', 'N/A')}
-
-Sản phẩm:
-{items_text}
-
-Tổng tiền hàng: {total_amount:,.0f} VNĐ
-Giảm giá: {discount_amount:,.0f} VNĐ
-Tổng thanh toán: {final_amount:,.0f} VNĐ
-Phương thức thanh toán: {order.get('paymentMethod', 'N/A')}
-Trạng thái thanh toán: {order.get('paymentStatus', 'N/A')}
-"""
+                    if additional_info:
+                        content_parts.append("\nTHÔNG TIN BỔ SUNG:")
+                        content_parts.extend([f"  - {info}" for info in additional_info])
+                    
+                    content = "\n".join(content_parts)
+                    
+                    # Tạo metadata với TẤT CẢ thông tin quan trọng
+                    metadata = {
+                        "type": "order",
+                        "order_id": str(order.get('id', '')),
+                        "customer_id": str(customer_id),
+                        "customer_name": customer_name,
+                        "user_email": user_email,
+                        "status": order.get('status', ''),
+                        "total_amount": float(order.get('totalAmount', 0)),
+                        "total_items": order.get('totalItems', 0),
+                        "created_at": order.get('createdAt', ''),
+                        # Lưu toàn bộ order data để query linh hoạt
+                        "full_order_data": json.dumps(order)
+                    }
                     
                     orders_collection.add(
                         ids=[doc_id],
                         documents=[content],
-                        metadatas=[{
-                            "type": "order",
-                            "order_id": str(order.get('id', '')),
-                            "user_email": user_email,
-                            "status": order.get('status', ''),
-                            "total_amount": float(final_amount)
-                        }]
+                        metadatas=[metadata]
                     )
                     synced_data["orders"] += 1
                 
@@ -1449,6 +1584,245 @@ async def get_available_models():
             content={
                 "status": "error",
                 "message": f"Error fetching models: {str(e)}"
+            },
+            status_code=500
+        )
+
+# ===== USER DATA MANAGEMENT FOR RAG =====
+
+@router.post("/user-data/sync")
+async def sync_user_data_to_rag():
+    """
+    Sync user data (orders, preferences) từ database vào ChromaDB để AI có thể tư vấn
+
+    Note: Hiện tại endpoint này cần được implement với data source thực
+    """
+    try:
+        # TODO: Implement với data source thực (Spring Service hoặc database)
+        # Hiện tại chỉ trả về message thông báo
+
+        return JSONResponse(
+            content={
+                "status": "success",
+                "message": "User data sync endpoint ready - cần implement data source",
+                "data": {
+                    "users_synced": 0,
+                    "orders_synced": 0,
+                    "note": "Endpoint cần kết nối với Spring Service để lấy user data thực"
+                }
+            },
+            status_code=200
+        )
+
+    except Exception as e:
+        logger.error(f"[Admin Chat] Error in user data sync: {str(e)}")
+        return JSONResponse(
+            content={
+                "status": "error",
+                "message": f"Lỗi khi sync user data: {str(e)}"
+            },
+            status_code=500
+        )
+
+@router.post("/user-data/{user_id}/sync")
+async def sync_single_user_data_to_rag(user_id: str):
+    """
+    Sync data của một user cụ thể vào ChromaDB
+
+    Args:
+        user_id: ID của user cần sync
+    """
+    try:
+        from services.data_sync_service import get_data_sync_service
+
+        data_sync_svc = get_data_sync_service()
+        chroma_svc = get_chat_ai_rag_service()
+
+        # Get user data
+        user_data = data_sync_svc.get_user_by_id(user_id)
+        if not user_data:
+            return JSONResponse(
+                content={
+                    "status": "error",
+                    "message": f"Không tìm thấy user {user_id}"
+                },
+                status_code=404
+            )
+
+        # Sync user personal data
+        user_personal_data = {
+            "name": user_data.get('name', ''),
+            "email": user_data.get('email', ''),
+            "preferences": user_data.get('preferences', {}),
+            "registration_date": user_data.get('created_at', ''),
+            "last_login": user_data.get('last_login', '')
+        }
+
+        chroma_svc.store_user_data(user_id, user_personal_data)
+
+        # Sync user orders
+        user_orders = data_sync_svc.get_user_orders(user_id)
+        orders_synced = 0
+        for order in user_orders:
+            chroma_svc.store_user_order(user_id, order)
+            orders_synced += 1
+
+        return JSONResponse(
+            content={
+                "status": "success",
+                "message": f"Đã sync user {user_id} và {orders_synced} orders vào RAG system",
+                "data": {
+                    "user_id": user_id,
+                    "orders_synced": orders_synced
+                }
+            },
+            status_code=200
+        )
+
+    except Exception as e:
+        logger.error(f"[Admin Chat] Error syncing user {user_id} data to RAG: {str(e)}")
+        return JSONResponse(
+            content={
+                "status": "error",
+                "message": f"Lỗi khi sync user data: {str(e)}"
+            },
+            status_code=500
+        )
+
+@router.get("/rag-stats")
+async def get_rag_stats():
+    """
+    Lấy thống kê ChromaDB collections cho RAG system
+    """
+    try:
+        chroma_svc = get_chat_ai_rag_service()
+        stats = chroma_svc.get_collection_stats()
+
+        return JSONResponse(
+            content={
+                "status": "success",
+                "data": stats
+            },
+            status_code=200
+        )
+
+    except Exception as e:
+        logger.error(f"[Admin Chat] Error getting RAG stats: {str(e)}")
+        return JSONResponse(
+            content={
+                "status": "error",
+                "message": f"Lỗi khi lấy RAG stats: {str(e)}"
+            },
+            status_code=500
+        )
+
+@router.get("/user-data/{user_id}")
+async def get_user_rag_data(user_id: str):
+    """
+    Lấy thông tin RAG data của một user (orders, personal data)
+
+    Args:
+        user_id: ID của user
+
+    Returns:
+        User RAG data
+    """
+    try:
+        chroma_svc = get_chat_ai_rag_service()
+
+        # Get user orders collection
+        orders_collection = chroma_svc._get_or_create_user_orders_collection()
+        orders_results = orders_collection.get(
+            where={"user_id": user_id}
+        )
+
+        # Get user data collection
+        data_collection = chroma_svc._get_or_create_user_data_collection()
+        data_results = data_collection.get(
+            where={"user_id": user_id}
+        )
+
+        user_orders = []
+        if orders_results and orders_results["documents"]:
+            for i, doc in enumerate(orders_results["documents"]):
+                metadata = orders_results["metadatas"][i] if orders_results["metadatas"] else {}
+                user_orders.append({
+                    "order_id": metadata.get("order_id"),
+                    "content": doc,
+                    "timestamp": metadata.get("timestamp")
+                })
+
+        user_data = None
+        if data_results and data_results["documents"]:
+            metadata = data_results["metadatas"][0] if data_results["metadatas"] else {}
+            user_data = {
+                "content": data_results["documents"][0],
+                "timestamp": metadata.get("timestamp")
+            }
+
+        return JSONResponse(
+            content={
+                "status": "success",
+                "data": {
+                    "user_id": user_id,
+                    "orders": user_orders,
+                    "personal_data": user_data,
+                    "orders_count": len(user_orders)
+                }
+            },
+            status_code=200
+        )
+
+    except Exception as e:
+        logger.error(f"[Admin Chat] Error getting user RAG data: {str(e)}")
+        return JSONResponse(
+            content={
+                "status": "error",
+                "message": f"Lỗi khi lấy user RAG data: {str(e)}"
+            },
+            status_code=500
+        )
+
+@router.delete("/user-data/{user_id}")
+async def delete_user_rag_data(user_id: str):
+    """
+    Xóa toàn bộ RAG data của một user (orders, personal data)
+
+    Args:
+        user_id: ID của user
+
+    Returns:
+        Delete status
+    """
+    try:
+        chroma_svc = get_chat_ai_rag_service()
+
+        # Delete user orders
+        orders_collection = chroma_svc._get_or_create_user_orders_collection()
+        orders_to_delete = orders_collection.get(where={"user_id": user_id})
+        if orders_to_delete and orders_to_delete["ids"]:
+            orders_collection.delete(ids=orders_to_delete["ids"])
+
+        # Delete user data
+        data_collection = chroma_svc._get_or_create_user_data_collection()
+        data_to_delete = data_collection.get(where={"user_id": user_id})
+        if data_to_delete and data_to_delete["ids"]:
+            data_collection.delete(ids=data_to_delete["ids"])
+
+        return JSONResponse(
+            content={
+                "status": "success",
+                "message": f"Đã xóa RAG data của user {user_id}"
+            },
+            status_code=200
+        )
+
+    except Exception as e:
+        logger.error(f"[Admin Chat] Error deleting user RAG data: {str(e)}")
+        return JSONResponse(
+            content={
+                "status": "error",
+                "message": f"Lỗi khi xóa user RAG data: {str(e)}"
             },
             status_code=500
         )

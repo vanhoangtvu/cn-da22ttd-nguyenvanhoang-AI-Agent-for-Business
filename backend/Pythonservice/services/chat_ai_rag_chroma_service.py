@@ -51,6 +51,7 @@ class ChatAIRAGChromaService:
         self.knowledge_collection = None
         self.context_collection = None
         self.modal_config_collection = None
+        self.users_collection = None  # Only users collection now
         
         # Remove automatic initialization
         # self._initialize_collections()
@@ -90,6 +91,15 @@ class ChatAIRAGChromaService:
                 metadata={"description": "Modal configuration for AI Chat"},
             )
         return self.modal_config_collection
+    
+    def _get_or_create_users_collection(self):
+        """Lazy initialization của users collection"""
+        if self.users_collection is None:
+            self.users_collection = self.client.get_or_create_collection(
+                name="chat_ai_users",
+                metadata={"description": "User profile information for AI Chat"},
+            )
+        return self.users_collection
         """Khởi tạo các collections cho Chat AI RAG"""
         try:
             # Collection cho product data
@@ -447,6 +457,193 @@ class ChatAIRAGChromaService:
         
         return context_text if context_text else "No relevant context found."
     
+    # === USER-SPECIFIC DATA METHODS ===
+    
+    def store_user_order(self, user_id: str, order_data: Dict[str, Any]) -> bool:
+        """
+        DEPRECATED: Order data is now stored in chat_ai_orders collection via Spring Service sync
+        
+        This method is kept for backward compatibility but no longer stores data.
+        
+        Args:
+            user_id: ID của user
+            order_data: Dữ liệu đơn hàng (deprecated)
+            
+        Returns:
+            Always returns True for compatibility
+        """
+        print(f"[ChatAIRAGChromaService] store_user_order is deprecated. Order data comes from chat_ai_orders collection via Spring Service sync.")
+        return True
+    
+    def store_user_data(self, user_id: str, user_data: Dict[str, Any]) -> bool:
+        """
+        DEPRECATED: User data is now stored in chat_ai_users collection via Spring Service sync
+        
+        This method is kept for backward compatibility but no longer stores data.
+        
+        Args:
+            user_id: ID của user
+            user_data: Thông tin user (deprecated)
+            
+        Returns:
+            Always returns True for compatibility
+        """
+        print(f"[ChatAIRAGChromaService] store_user_data is deprecated. User data comes from chat_ai_users collection via Spring Service sync.")
+        return True
+    
+    def retrieve_user_context(self, user_id: str, query: str, top_k_orders: int = 3, top_k_data: int = 1) -> str:
+        """
+        Retrieve user-specific context từ chat_ai_users và chat_ai_orders collections
+        
+        Args:
+            user_id: ID của user từ JWT token (format: user_X)
+            query: User query để tìm context relevant
+            top_k_orders: Max orders to retrieve
+            top_k_data: Max user data items (deprecated - now uses users collection)
+            
+        Returns:
+            Formatted user context string với đầy đủ thông tin cá nhân
+        """
+        print(f"[ChatAIRAGChromaService] Retrieving user context for user_id: {user_id}")
+        try:
+            context_text = ""
+            
+            # 1. Retrieve user profile information từ chat_ai_users collection
+            users_collection = self._get_or_create_users_collection()
+            print(f"[ChatAIRAGChromaService] Users collection has {users_collection.count()} documents")
+            
+            # Extract numeric ID from user_id (e.g., 'user_5' -> '5')
+            numeric_user_id = user_id.replace('user_', '') if user_id.startswith('user_') else user_id
+            print(f"[ChatAIRAGChromaService] Numeric user ID: {numeric_user_id}")
+            
+            # Try to get user data by document ID first (most reliable)
+            doc_id = f"user_{numeric_user_id}"
+            print(f"[ChatAIRAGChromaService] Trying to get user document by ID: {doc_id}")
+            try:
+                user_doc = users_collection.get(ids=[doc_id])
+                if user_doc and user_doc.get("documents") and len(user_doc["documents"]) > 0:
+                    print(f"[ChatAIRAGChromaService] Found user document by ID")
+                    users_results = user_doc
+                else:
+                    print(f"[ChatAIRAGChromaService] User document not found by ID, trying metadata filter")
+                    users_results = users_collection.get(
+                        where={"user_id": numeric_user_id}
+                    )
+                    print(f"[ChatAIRAGChromaService] Metadata filter results: {len(users_results.get('documents', []))} documents")
+            except Exception as e:
+                print(f"[ChatAIRAGChromaService] Error getting by ID: {e}, trying metadata filter")
+                users_results = users_collection.get(
+                    where={"user_id": numeric_user_id}
+                )
+            
+            # If no results, fallback to query
+            if not users_results or not users_results.get("documents"):
+                print(f"[ChatAIRAGChromaService] No results from get(), trying query")
+                users_results = users_collection.query(
+                    query_texts=[f"user profile information"],
+                    where={"user_id": numeric_user_id},
+                    n_results=1
+                )
+                print(f"[ChatAIRAGChromaService] Query results: {len(users_results.get('documents', [[]])[0]) if users_results.get('documents') else 0} documents found")
+            
+            if users_results and users_results.get("documents") and len(users_results["documents"]) > 0:
+                context_text += "=== THÔNG TIN CÁ NHÂN CỦA BẠN ===\n"
+                # Handle both get() and query() result formats
+                if isinstance(users_results["documents"][0], list):
+                    # query() result format (nested)
+                    doc = users_results["documents"][0][0]
+                    metadata = users_results["metadatas"][0][0] if users_results.get("metadatas") else {}
+                else:
+                    # get() result format (flat)
+                    doc = users_results["documents"][0]
+                    metadata = users_results["metadatas"][0] if users_results.get("metadatas") else {}
+                
+                # Extract key information for better formatting
+                name = metadata.get("username", "N/A")
+                email = metadata.get("email", "N/A") 
+                phone = metadata.get("phone_number", "N/A")
+                address = metadata.get("address", "N/A")
+                role = metadata.get("role", "N/A")
+                account_status = metadata.get("account_status", "N/A")
+                
+                context_text += f"Tên: {name}\n"
+                context_text += f"Email: {email}\n"
+                context_text += f"Số điện thoại: {phone}\n"
+                context_text += f"Địa chỉ: {address}\n"
+                context_text += f"Vai trò: {role}\n"
+                context_text += f"Trạng thái tài khoản: {account_status}\n\n"
+                
+                # Add full document for additional context
+                context_text += f"Thông tin chi tiết:\n{doc}\n\n"
+            
+            # 2. Retrieve user orders từ chat_ai_orders collection (không phải user_orders)
+            orders_collection = self.client.get_or_create_collection(
+                name="chat_ai_orders",
+                metadata={"description": "Order data for AI Chat RAG"}
+            )
+            
+            # Query orders by customer_id (from user profile)
+            customer_id = metadata.get("user_id")  # This is the numeric ID like "5"
+            orders_results = orders_collection.query(
+                query_texts=[query],
+                where={"customer_id": customer_id},  # Query theo customer_id từ user profile
+                n_results=top_k_orders
+            )
+            
+            if orders_results and orders_results["documents"] and len(orders_results["documents"]) > 0:
+                context_text += "=== LỊCH SỬ ĐƠN HÀNG CỦA BẠN ===\n"
+                for i, doc in enumerate(orders_results["documents"][0]):
+                    metadata_order = orders_results["metadatas"][0][i] if orders_results["metadatas"] else {}
+                    
+                    order_id = metadata_order.get('order_id', f'Order {i+1}')
+                    status = metadata_order.get('status', 'Unknown')
+                    total_amount = metadata_order.get('total_amount', 'N/A')
+                    
+                    context_text += f"Đơn hàng {order_id}:\n"
+                    context_text += f"- Trạng thái: {status}\n"
+                    context_text += f"- Tổng tiền: {total_amount}\n"
+                    context_text += f"- Chi tiết: {doc[:200]}...\n\n"
+            
+            return context_text if context_text else "No user-specific context found."
+            
+        except Exception as e:
+            print(f"[ChatAIRAGChromaService] Error retrieving user context: {e}")
+            return "Error retrieving user context."
+            
+        except Exception as e:
+            print(f"[ChatAIRAGChromaService] Error retrieving user context: {e}")
+            return "Error retrieving user context."
+    
+    def retrieve_combined_context_with_user(self, user_id: str, query: str, 
+                                          top_k_products: int = 3, 
+                                          top_k_knowledge: int = 2,
+                                          top_k_user: int = 2) -> str:
+        """
+        Retrieve kết hợp tất cả context: products + knowledge + user data
+        
+        Args:
+            user_id: User ID để lấy user-specific data
+            query: User query
+            top_k_products: Max products
+            top_k_knowledge: Max knowledge items
+            top_k_user: Max user-specific items
+            
+        Returns:
+            Formatted context string với bảo mật user data
+        """
+        # Get general context
+        general_context = self.retrieve_combined_context(query, top_k_products, top_k_knowledge)
+        
+        # Get user-specific context (bảo mật - chỉ data của user hiện tại)
+        user_context = self.retrieve_user_context(user_id, query, top_k_user, 1)
+        
+        # Combine contexts
+        full_context = general_context
+        if user_context and user_context != "No user-specific context found.":
+            full_context += "\n\n" + user_context
+        
+        return full_context
+    
     # === UTILITY METHODS ===
     
     def _format_product_text(self, product: Dict[str, Any]) -> str:
@@ -489,11 +686,88 @@ class ChatAIRAGChromaService:
                 "knowledge": self._get_or_create_knowledge_collection().count() if self.knowledge_collection else 0,
                 "context": self._get_or_create_context_collection().count() if self.context_collection else 0,
                 "modal_configs": self._get_or_create_modal_config_collection().count() if self.modal_config_collection else 0,
+                "users": self._get_or_create_users_collection().count() if self.users_collection else 0,
             }
             return stats
         except Exception as e:
             print(f"[ChatAIRAGChromaService] Error getting stats: {e}")
             return {}
+    
+    def _format_order_text(self, order: Dict[str, Any]) -> str:
+        """Format order data thành text để embedding"""
+        parts = []
+        
+        if "order_id" in order:
+            parts.append(f"Order ID: {order['order_id']}")
+        
+        if "status" in order:
+            parts.append(f"Status: {order['status']}")
+        
+        if "total_amount" in order:
+            parts.append(f"Total: ${order['total_amount']}")
+        
+        if "created_at" in order:
+            parts.append(f"Date: {order['created_at']}")
+        
+        if "items" in order and isinstance(order["items"], list):
+            parts.append("Items:")
+            for item in order["items"]:
+                item_name = item.get("name", "Unknown")
+                item_qty = item.get("quantity", 1)
+                item_price = item.get("price", 0)
+                parts.append(f"  - {item_name} (x{item_qty}) - ${item_price}")
+        
+        return "\n".join(parts)
+    
+    def _format_user_data_text(self, user_data: Dict[str, Any]) -> str:
+        """Format user data thành text để embedding"""
+        parts = []
+        
+        if "name" in user_data:
+            parts.append(f"Name: {user_data['name']}")
+        
+        if "email" in user_data:
+            parts.append(f"Email: {user_data['email']}")
+        
+        if "role" in user_data:
+            parts.append(f"Role: {user_data['role']}")
+        
+        if "account_status" in user_data:
+            parts.append(f"Account Status: {user_data['account_status']}")
+        
+        if "address" in user_data:
+            parts.append(f"Address: {user_data['address']}")
+        
+        if "phone" in user_data or "phone_number" in user_data:
+            phone = user_data.get('phone') or user_data.get('phone_number')
+            if phone:
+                parts.append(f"Phone: {phone}")
+        
+        if "user_id" in user_data:
+            parts.append(f"User ID: {user_data['user_id']}")
+        
+        if "preferences" in user_data:
+            prefs = user_data["preferences"]
+            if isinstance(prefs, dict):
+                parts.append("Preferences:")
+                for key, value in prefs.items():
+                    parts.append(f"  {key}: {value}")
+        
+        if "purchase_history" in user_data:
+            history = user_data["purchase_history"]
+            if isinstance(history, list):
+                parts.append("Purchase History:")
+                for item in history[:5]:  # Limit to 5 recent items
+                    parts.append(f"  - {item}")
+        
+        if "full_info" in user_data:
+            full_info = user_data["full_info"]
+            if isinstance(full_info, dict):
+                parts.append("Complete Information:")
+                for key, value in full_info.items():
+                    parts.append(f"  {key}: {value}")
+        
+        return "\n".join(parts)
 
 
 # === SINGLETON INSTANCE ===

@@ -93,22 +93,37 @@ async def clear_data_cache():
         raise HTTPException(status_code=500, detail=f"Failed to clear cache: {str(e)}")
 
 
-@router.get("/admin/analytics/cache-info")
-async def get_cache_info():
+@router.post("/admin/analytics/sync-users")
+async def sync_user_data_to_chroma():
     """
-    Get information about cached data
-
-    Returns cache status, age, and metadata
+    Sync user data from Spring Service to ChromaDB for AI personalization
+    
+    This endpoint fetches complete user information from Spring Service
+    and stores it in ChromaDB for personalized AI chat responses.
+    
+    Returns:
+        Sync results with success/failure counts
     """
     try:
-        health = data_sync_service.get_data_health_status()
-        cache_info = {
-            "has_data": health["cache"]["has_data"],
-            "age_seconds": health["cache"]["age_seconds"],
-            "is_valid": health["cache"]["is_valid"],
-            "last_sync": health["last_sync"],
-            "cache_duration": data_sync_service.cache_duration
-        }
-        return cache_info
+        result = data_sync_service.sync_user_data_to_chroma()
+        return result
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to get cache info: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to sync user data: {str(e)}")
+
+
+@router.post("/admin/analytics/sync-users-manual")
+async def sync_user_data_manually():
+    """
+    Manually sync sample user data to ChromaDB for testing
+    
+    This endpoint uses sample user data to demonstrate the sync functionality
+    when Spring Service is not available.
+    
+    Returns:
+        Sync results with sample data
+    """
+    try:
+        result = data_sync_service.sync_user_data_manually()
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to sync user data manually: {str(e)}")

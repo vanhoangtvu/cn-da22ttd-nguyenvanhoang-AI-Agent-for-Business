@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Loader2 } from 'lucide-react';
 import { API_CONFIG, getGroqChatUrl } from '@/config/api.config';
+import { useToast } from '@/components/Toast';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -49,6 +50,8 @@ export default function AIChatPage() {
   const [activeModalConfig, setActiveModalConfig] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  const { addToast } = useToast();
+
   // Scroll to bottom khi có message mới
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -72,7 +75,7 @@ export default function AIChatPage() {
         }
         
         const userData: LoginResponse = JSON.parse(userDataStr);
-        const authenticatedUserId = `user-${userData.userId}`;
+        const authenticatedUserId = `user_${userData.userId}`;  // Use underscore to match ChromaDB format
         
         // Kiểm tra xem session_id của user hiện tại có trong sessionStorage không
         const savedSessionId = sessionStorage.getItem('current_session_id');
@@ -314,9 +317,15 @@ export default function AIChatPage() {
     setLoading(true);
 
     try {
+      // Get auth token from localStorage
+      const authToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      
       const response = await fetch(getGroqChatUrl('/chat'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(authToken && { 'Authorization': `Bearer ${authToken}` }),
+        },
         body: JSON.stringify({
           message: messageContent,
           session_id: sessionId,
@@ -358,7 +367,11 @@ export default function AIChatPage() {
       setMessages([]);
       createNewSession(userId);
       setShowHistory(false);
-      alert('Lịch sử đã được xóa');
+      addToast({
+        type: 'success',
+        title: 'Thành công',
+        message: 'Lịch sử đã được xóa'
+      });
     } catch (error) {
       console.error('Error clearing history:', error);
     }

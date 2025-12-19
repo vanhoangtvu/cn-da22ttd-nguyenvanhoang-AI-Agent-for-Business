@@ -214,12 +214,118 @@ class DataSyncService:
             'last_sync': self._cache_timestamp.isoformat() if self._cache_timestamp else None
         }
 
-    def clear_cache(self) -> bool:
-        """Clear cached data"""
-        self._cached_data = None
-        self._cache_timestamp = None
-        logger.info("[Data Sync] Cache cleared")
-        return True
+    def sync_user_data_manually(self, sample_users: List[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """
+        Manually sync sample user data to ChromaDB for testing
+        
+        Args:
+            sample_users: List of sample user data
+            
+        Returns:
+            Dict with sync results
+        """
+        try:
+            from services.chat_ai_rag_chroma_service import get_chat_ai_rag_service
+            chroma_service = get_chat_ai_rag_service()
+            
+            # Default sample users based on user's example
+            if sample_users is None:
+                sample_users = [
+                    {
+                        "id": 5,
+                        "username": "Nguyen van Hoang",
+                        "email": "customer@ai.com",
+                        "role": "CUSTOMER",
+                        "accountStatus": "ACTIVE",
+                        "address": "12 Phan Xích Long, Phú Nhuận, TP.HCM",
+                        "phoneNumber": "0900000003"
+                    },
+                    {
+                        "id": 6,
+                        "username": "Nguyen Van A",
+                        "email": "nguyenvana@example.com",
+                        "role": "CUSTOMER", 
+                        "accountStatus": "ACTIVE",
+                        "address": "123 Nguyen Trai, District 1, HCMC",
+                        "phoneNumber": "0900000001"
+                    },
+                    {
+                        "id": 7,
+                        "username": "Tran Thi B",
+                        "email": "tranthib@example.com", 
+                        "role": "CUSTOMER",
+                        "accountStatus": "ACTIVE",
+                        "address": "456 Le Lai, District 3, HCMC",
+                        "phoneNumber": "0900000002"
+                    }
+                ]
+            
+            synced_users = 0
+            failed_users = 0
+            
+            for user in sample_users:
+                try:
+                    user_id = str(user.get('id', ''))
+                    if not user_id:
+                        continue
+                    
+                    # Prepare complete user data for ChromaDB with ALL fields
+                    user_data = {
+                        'name': user.get('username', ''),
+                        'email': user.get('email', ''),
+                        'role': user.get('role', ''),
+                        'account_status': user.get('accountStatus', ''),
+                        'address': user.get('address', ''),
+                        'phone': user.get('phoneNumber', ''),
+                        'phone_number': user.get('phoneNumber', ''),
+                        'user_id': user_id,
+                        'full_info': {
+                            'id': user.get('id'),
+                            'username': user.get('username', ''),
+                            'email': user.get('email', ''),
+                            'role': user.get('role', ''),
+                            'account_status': user.get('accountStatus', ''),
+                            'address': user.get('address', ''),
+                            'phone_number': user.get('phoneNumber', '')
+                        },
+                        'preferences': {
+                            'account_status': user.get('accountStatus', ''),
+                            'role': user.get('role', ''),
+                            'notifications': True
+                        }
+                    }
+                    
+                    # Store to ChromaDB
+                    success = chroma_service.store_user_data(f"user_{user_id}", user_data)
+                    
+                    if success:
+                        synced_users += 1
+                        logger.info(f"[Data Sync] Manually synced user {user_id}: {user.get('username', '')}")
+                    else:
+                        failed_users += 1
+                        logger.error(f"[Data Sync] Failed to sync user {user_id}")
+                        
+                except Exception as e:
+                    failed_users += 1
+                    logger.error(f"[Data Sync] Error syncing user {user.get('id', 'unknown')}: {str(e)}")
+            
+            return {
+                'success': True,
+                'total_users': len(sample_users),
+                'synced_users': synced_users,
+                'failed_users': failed_users,
+                'timestamp': datetime.now().isoformat(),
+                'method': 'manual_sync'
+            }
+            
+        except Exception as e:
+            logger.error(f"[Data Sync] Manual user sync failed: {str(e)}")
+            return {
+                'success': False,
+                'error': str(e),
+                'timestamp': datetime.now().isoformat(),
+                'method': 'manual_sync'
+            }
 
 
 # Global service instance
