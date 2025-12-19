@@ -441,21 +441,69 @@ class ChatAIRAGChromaService:
         
         context_text = ""
         
-        # Add product context
+        # Add product context with detailed information
         if product_context:
-            context_text += "=== RELATED PRODUCTS ===\n"
-            for item in product_context:
-                context_text += f"- {item['product_name']} (Score: {item['score']:.2f})\n"
-                context_text += f"  {item['content'][:200]}...\n\n"
+            context_text += "=== THÔNG TIN SẢN PHẨM LIÊN QUAN ===\n"
+            for i, item in enumerate(product_context, 1):
+                context_text += f"📱 SẢN PHẨM {i}: {item['product_name']} (Độ liên quan: {item['score']:.2f})\n"
+                
+                # Extract key information from content
+                content = item['content']
+                
+                # Price
+                if "Giá:" in content:
+                    price_start = content.find("Giá:") + 4
+                    price_end = content.find("VNĐ", price_start) + 3
+                    if price_end > price_start:
+                        price_info = content[price_start:price_end].strip()
+                        context_text += f"💰 Giá: {price_info}\n"
+                
+                # Brand
+                if "Thương hiệu:" in content:
+                    brand_start = content.find("Thương hiệu:") + 12
+                    brand_end = content.find("\n", brand_start)
+                    if brand_end > brand_start:
+                        brand = content[brand_start:brand_end].strip()
+                        if brand and brand != "N/A":
+                            context_text += f"🏷️ Thương hiệu: {brand}\n"
+                
+                # Stock quantity
+                if "Số lượng tồn kho:" in content:
+                    stock_start = content.find("Số lượng tồn kho:") + 18
+                    stock_end = content.find("\n", stock_start)
+                    if stock_end > stock_start:
+                        stock = content[stock_start:stock_end].strip()
+                        context_text += f"📦 Tồn kho: {stock} chiếc\n"
+                
+                # Specifications
+                if "THÔNG SỐ KỸ THUẬT:" in content:
+                    spec_start = content.find("THÔNG SỐ KỸ THUẬT:")
+                    spec_end = content.find("\n\n", spec_start)
+                    if spec_end == -1:
+                        spec_end = len(content)
+                    specs_section = content[spec_start:spec_end]
+                    context_text += f"⚙️ {specs_section}\n"
+                
+                # Description
+                if "Mô tả:" in content:
+                    desc_start = content.find("Mô tả:") + 7
+                    desc_end = content.find("\n", desc_start)
+                    if desc_end > desc_start:
+                        desc = content[desc_start:desc_end].strip()
+                        if len(desc) > 100:
+                            desc = desc[:100] + "..."
+                        context_text += f"📝 Mô tả: {desc}\n"
+                
+                context_text += "\n"
         
         # Add knowledge context
         if knowledge_context:
-            context_text += "\n=== RELEVANT KNOWLEDGE ===\n"
+            context_text += "\n=== KIẾN THỨC LIÊN QUAN ===\n"
             for item in knowledge_context:
-                context_text += f"- Knowledge (Score: {item['score']:.2f})\n"
-                context_text += f"  {item['content'][:200]}...\n\n"
+                context_text += f"📚 Kiến thức (Độ liên quan: {item['score']:.2f})\n"
+                context_text += f"   {item['content'][:300]}...\n\n"
         
-        return context_text if context_text else "No relevant context found."
+        return context_text if context_text else "Không tìm thấy thông tin liên quan."
     
     # === USER-SPECIFIC DATA METHODS ===
     
