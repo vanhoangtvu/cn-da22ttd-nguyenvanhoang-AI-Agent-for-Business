@@ -237,6 +237,14 @@ class ChatAIRAGChromaService:
         """
         try:
             doc_id = f"modal_config_{modal_name}"
+            collection = self._get_or_create_modal_config_collection()
+            
+            # Delete existing document first
+            try:
+                collection.delete(ids=[doc_id])
+                print(f"[ChatAIRAGChromaService] Deleted existing modal config {modal_name}")
+            except:
+                pass  # Ignore if document doesn't exist
             
             config_data = {
                 "modal_name": modal_name,
@@ -248,7 +256,7 @@ class ChatAIRAGChromaService:
                 "is_active": modal_config.get("is_active", False)
             }
             
-            self._get_or_create_modal_config_collection().add(
+            collection.add(
                 ids=[doc_id],
                 documents=[f"Modal config for {modal_name}: {json.dumps(modal_config)}"],
                 metadatas=[config_data]
