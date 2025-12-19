@@ -1330,7 +1330,9 @@ async def sync_data_from_spring(request: SyncDataRequest):
             raise HTTPException(status_code=500, detail="ChromaDB client chưa được khởi tạo")
         
         # Lấy Spring Service URL từ biến môi trường hoặc request
-        spring_base_url = request.spring_service_url or os.getenv('SPRING_SERVICE_URL', 'http://localhost:8089/api/v1')
+        spring_base_url = request.spring_service_url or os.getenv('SPRING_SERVICE_URL')
+        if not spring_base_url:
+            raise HTTPException(status_code=400, detail="SPRING_SERVICE_URL không được cấu hình")
         
         # Lấy dữ liệu từ Spring Service
         headers = {

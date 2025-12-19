@@ -7,7 +7,7 @@ import remarkGfm from 'remark-gfm';
 import ProductCard from './ProductCard';
 
 // Python AI Service URL
-const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'http://113.178.203.147:5000';
+const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'http://localhost:5000';
 
 // Generate a unique session ID for this widget instance
 const generateSessionId = () => {

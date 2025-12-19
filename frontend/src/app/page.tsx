@@ -6,7 +6,6 @@ import { apiClient } from '@/lib/api';
 import ProductDetailPanel from '@/components/ProductDetailPanel';
 import {
   ShoppingCart,
-  MessageCircle,
   Settings,
   FileText,
   ShoppingBag,
@@ -321,25 +320,7 @@ export default function ShopPage() {
                 <Menu className="w-6 h-6" />
               </button>
 
-              {/* Agent Chat Button */}
-              <Link
-                href="/chat"
-                className="group relative hidden sm:flex px-4 py-2 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 hover:from-blue-600 hover:via-indigo-600 hover:to-purple-600 text-white rounded-xl hover:shadow-xl hover:shadow-blue-400/25 transition-all duration-300 font-semibold items-center gap-2 hover:scale-105 overflow-hidden"
-              >
-                {/* Animated background */}
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 
-                {/* Shine effect */}
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-
-                {/* Icon with animation */}
-                <div className="relative z-10 p-1 bg-white/20 rounded-lg group-hover:bg-white/30 transition-colors duration-300">
-                  <MessageCircle className="w-4 h-4 group-hover:animate-pulse" />
-                </div>
-
-                {/* Text */}
-                <span className="relative z-10 hidden xl:inline text-sm tracking-wide">Agent Chat</span>
-              </Link>
 
               {isClient && apiClient.isAuthenticated() ? (
                 <>
@@ -356,6 +337,13 @@ export default function ShopPage() {
                       </Link>
                     ) : null;
                   })()}
+                  <Link
+                    href="/ai-chat"
+                    className="p-2 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                    title="Agent Chat"
+                  >
+                    <Sparkles className="w-6 h-6" />
+                  </Link>
                   <Link
                     href="/orders"
                     className="p-2 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -955,13 +943,6 @@ export default function ShopPage() {
                     <Grid3X3 className="w-5 h-5" />
                     Xem tất cả sản phẩm
                   </button>
-                  <Link
-                    href="/chat"
-                    className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-xl font-semibold hover:shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-2"
-                  >
-                    <MessageCircle className="w-5 h-5" />
-                    Agent Chat
-                  </Link>
                 </div>
 
                 {/* Popular Categories */}
@@ -1169,22 +1150,6 @@ export default function ShopPage() {
             <ArrowUp className="w-6 h-6 group-hover:animate-bounce" />
           </button>
         )}
-
-        {/* Agent Chat */}
-        <Link
-          href="/chat"
-          className="group relative w-14 h-14 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-500 hover:from-blue-600 hover:via-indigo-600 hover:to-purple-600 text-white rounded-2xl shadow-2xl hover:shadow-3xl hover:shadow-blue-400/30 transition-all duration-300 hover:scale-110 flex items-center justify-center overflow-hidden"
-          title="Agent Chat - Trợ lý AI thông minh"
-        >
-          {/* Animated background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-400 via-indigo-400 to-purple-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-
-          {/* Pulsing ring */}
-          <div className="absolute inset-0 rounded-2xl bg-blue-300/30 animate-ping"></div>
-
-          {/* Icon */}
-          <MessageCircle className="w-6 h-6 relative z-10 group-hover:animate-bounce transition-transform duration-300" />
-        </Link>
 
         {/* Quick Cart */}
         {isClient && apiClient.isAuthenticated() && (

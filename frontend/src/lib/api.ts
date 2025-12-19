@@ -1,5 +1,8 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://14.183.200.75:8089/api/v1';
-const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'http://14.183.200.75:5000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8089/api/v1';
+const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'http://localhost:5000';
+
+// Import centralized config
+import { API_CONFIG } from '@/config/api.config';
 
 // Types based on Spring Service DTOs
 export interface RegisterRequest {

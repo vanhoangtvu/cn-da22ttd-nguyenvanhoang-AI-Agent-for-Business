@@ -6,6 +6,9 @@ google-generativeai==0.3.2
 chromadb==0.4.22
 numpy<2.0.0
 groq>=0.15.0
+redis==5.0.1
+python-json-logger==2.0.7
+httpx==0.25.2
 
 # Document processing dependencies
 PyPDF2==3.0.1
