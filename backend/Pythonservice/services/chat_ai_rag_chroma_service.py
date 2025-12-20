@@ -350,7 +350,7 @@ class ChatAIRAGChromaService:
     
     def retrieve_product_context(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
         """
-        Retrieve product context dựa trên query
+        Retrieve product context dựa trên query với logic filtering thông minh
         
         Args:
             query: Câu query từ user
@@ -359,33 +359,131 @@ class ChatAIRAGChromaService:
         Returns:
             List of relevant products
         """
+        # Kiểm tra category từ query
+        category_keywords = {
+            'điện thoại': ['điện thoại', 'phone', 'smartphone', 'mobile', 'dien thoai'],
+            'laptop': ['laptop', 'laptop', 'computer', 'pc'],
+            'tablet': ['tablet', 'ipad', 'tab'],
+            'tai nghe': ['tai nghe', 'headphone', 'earphone', 'airpods'],
+            'phụ kiện': ['phụ kiện', 'accessory', 'charger', 'case']
+        }
+        
+        target_category = None
+        query_lower = query.lower()
+        for cat, keywords in category_keywords.items():
+            if any(keyword in query_lower for keyword in keywords):
+                target_category = cat
+                break
+        
+        # Kiểm tra nếu query chứa từ khóa về giá
+        price_keywords_low = ['giá rẻ', 'rẻ', 'cheap', 'budget', 'thấp', 'low price', 'affordable', 'giá mềm', 'gia re', 're']
+        price_keywords_high = ['cao cấp', 'premium', 'high-end', 'flagship', 'đỉnh cao', 'xịn', 'mạnh']
+        is_low_price = any(keyword in query_lower for keyword in price_keywords_low)
+        is_high_price = any(keyword in query_lower for keyword in price_keywords_high)
+        
         try:
-            results = self._get_or_create_product_collection().query(
+            # Lấy nhiều kết quả hơn để có thể filter
+            initial_results = self._get_or_create_product_collection().query(
                 query_texts=[query],
-                n_results=top_k
+                n_results=min(top_k * 4, 25)  # Lấy nhiều hơn để filter
             )
             
-            if not results or not results["documents"] or len(results["documents"]) == 0:
+            if not initial_results or not initial_results["documents"] or len(initial_results["documents"]) == 0:
                 return []
             
-            # Format results
-            context = []
-            for i, doc in enumerate(results["documents"][0]):
-                metadata = results["metadatas"][0][i] if results["metadatas"] else {}
-                distance = results["distances"][0][i] if results["distances"] else 0
+            # Parse và filter results
+            candidates = []
+            for i, doc in enumerate(initial_results["documents"][0]):
+                metadata = initial_results["metadatas"][0][i] if initial_results["metadatas"] else {}
+                distance = initial_results["distances"][0][i] if initial_results["distances"] else 0
                 
-                context.append({
+                # Extract price và category
+                price = self._extract_price_from_content(doc)
+                category = self._extract_category_from_content(doc)
+                
+                candidates.append({
                     "product_id": metadata.get("product_id", ""),
                     "product_name": metadata.get("product_name", ""),
                     "content": doc,
-                    "score": 1 - distance,  # Convert distance to similarity score
+                    "score": 1 - distance,
+                    "price": price,
+                    "category": category,
                     "metadata": metadata
                 })
             
-            return context
+            # Filter theo category và giá
+            if target_category:
+                # Ưu tiên sản phẩm cùng category
+                category_matches = [c for c in candidates if c["category"] == target_category]
+                other_matches = [c for c in candidates if c["category"] != target_category]
+                
+                if is_low_price:
+                    # Ưu tiên GIÁ THẤP hơn score - sort theo giá trước, score sau
+                    category_matches.sort(key=lambda x: (x["price"] if x["price"] else 999999999, -x["score"]))
+                    other_matches.sort(key=lambda x: (x["price"] if x["price"] else 999999999, -x["score"]))
+                elif is_high_price:
+                    # Sắp xếp theo giá giảm dần trong category phù hợp (ưu tiên sản phẩm đắt)
+                    category_matches.sort(key=lambda x: (-(x["price"] if x["price"] else 0), -x["score"]))
+                    other_matches.sort(key=lambda x: (-(x["price"] if x["price"] else 0), -x["score"]))
+                else:
+                    # Sắp xếp theo độ liên quan
+                    category_matches.sort(key=lambda x: -x["score"])
+                    other_matches.sort(key=lambda x: -x["score"])
+                
+                # Kết hợp: ưu tiên category phù hợp, sau đó category khác
+                filtered_candidates = category_matches[:top_k] + other_matches[:max(0, top_k - len(category_matches))]
+            else:
+                # Không có category cụ thể
+                if is_low_price:
+                    candidates.sort(key=lambda x: (x["price"] if x["price"] else 999999999, -x["score"]))
+                    filtered_candidates = candidates[:top_k]
+                elif is_high_price:
+                    candidates.sort(key=lambda x: (-(x["price"] if x["price"] else 0), -x["score"]))
+                    filtered_candidates = candidates[:top_k]
+                else:
+                    candidates.sort(key=lambda x: -x["score"])
+                    filtered_candidates = candidates[:top_k]
+            
+            return filtered_candidates
+            
         except Exception as e:
             print(f"[ChatAIRAGChromaService] Error retrieving product context: {e}")
             return []
+    
+    def _extract_price_from_content(self, content: str) -> Optional[int]:
+        """Extract price từ content text"""
+        try:
+            if "Giá:" in content:
+                price_start = content.find("Giá:") + 4
+                price_end = content.find("VNĐ", price_start)
+                if price_end > price_start:
+                    price_str = content[price_start:price_end].strip().replace(',', '').replace(' ', '')
+                    return int(price_str)
+        except:
+            pass
+        return None
+    
+    def _extract_category_from_content(self, content: str) -> str:
+        """Extract category từ content text"""
+        if "Danh mục:" in content:
+            cat_start = content.find("Danh mục:") + 10
+            cat_end = content.find("\n", cat_start)
+            if cat_end > cat_start:
+                category = content[cat_start:cat_end].strip().lower()
+                # Normalize category
+                if 'điện thoại' in category:
+                    return 'điện thoại'
+                elif 'laptop' in category:
+                    return 'laptop'
+                elif 'tablet' in category or 'tab' in category:
+                    return 'tablet'
+                elif 'tai nghe' in category or 'headphone' in category:
+                    return 'tai nghe'
+                elif 'phụ kiện' in category:
+                    return 'phụ kiện'
+                else:
+                    return category
+        return 'unknown'
     
     def retrieve_knowledge_context(self, query: str, top_k: int = 3) -> List[Dict[str, Any]]:
         """
@@ -493,6 +591,17 @@ class ChatAIRAGChromaService:
                         if len(desc) > 100:
                             desc = desc[:100] + "..."
                         context_text += f"📝 Mô tả: {desc}\n"
+                
+                # Image URL for AI to use in markdown
+                if "URL ảnh chính:" in content:
+                    img_start = content.find("URL ảnh chính:") + 15
+                    img_end = content.find("\n", img_start)
+                    if img_end == -1:  # URL is at the end of content
+                        img_end = len(content)
+                    if img_end > img_start:
+                        img_url = content[img_start:img_end].strip()
+                        if img_url and img_url != "N/A":
+                            context_text += f"🖼️ URL hình ảnh: {img_url}\n"
                 
                 context_text += "\n"
         
@@ -662,12 +771,102 @@ class ChatAIRAGChromaService:
             print(f"[ChatAIRAGChromaService] Error retrieving user context: {e}")
             return "Error retrieving user context."
     
+    def retrieve_discount_context(self, query: str, top_k: int = 3) -> str:
+        """
+        Retrieve discount/promotion context từ chat_ai_discounts collection
+        
+        Args:
+            query: User query để tìm discount relevant
+            top_k: Max discounts to retrieve
+            
+        Returns:
+            Formatted discount context string
+        """
+        try:
+            discounts_collection = self.client.get_or_create_collection(
+                name="chat_ai_discounts",
+                metadata={"description": "Discount codes for AI Chat"}
+            )
+            
+            results = discounts_collection.query(
+                query_texts=[query],
+                n_results=top_k
+            )
+            
+            # Filter results manually for active discounts
+            if results and results["documents"] and len(results["documents"]) > 0:
+                filtered_docs = []
+                filtered_metadatas = []
+                filtered_distances = []
+                
+                for i, doc in enumerate(results["documents"][0]):
+                    metadata = results["metadatas"][0][i] if results["metadatas"] else {}
+                    
+                    # Check if discount is active and valid
+                    if (metadata.get("status") == "ACTIVE" and 
+                        metadata.get("is_valid", True) and 
+                        not metadata.get("is_expired", False)):
+                        filtered_docs.append(doc)
+                        filtered_metadatas.append(metadata)
+                        filtered_distances.append(results["distances"][0][i] if results["distances"] else 0)
+                
+                # Replace with filtered results
+                results["documents"] = [filtered_docs[:top_k]]
+                results["metadatas"] = [filtered_metadatas[:top_k]]
+                results["distances"] = [filtered_distances[:top_k]]
+            
+            if not results or not results["documents"] or len(results["documents"]) == 0:
+                return ""
+            
+            context_text = "=== CHƯƠNG TRÌNH KHUYẾN MÃI HIỆN CÓ ===\n"
+            
+            for i, doc in enumerate(results["documents"][0]):
+                metadata = results["metadatas"][0][i] if results["metadatas"] else {}
+                score = results["distances"][0][i] if results["distances"] else 0
+                
+                discount_code = metadata.get("discount_code", "N/A")
+                discount_value = metadata.get("discount_value", 0)
+                discount_type = metadata.get("discount_type", "PERCENTAGE")
+                min_order = metadata.get("min_order_value", 0)
+                max_discount = metadata.get("max_discount_amount", 0)
+                usage_limit = metadata.get("usage_limit", 0)
+                used_count = metadata.get("used_count", 0)
+                
+                context_text += f"🎫 MÃ: {discount_code} (Độ liên quan: {1-score:.2f})\n"
+                
+                if discount_type == "PERCENTAGE":
+                    context_text += f"   Giảm: {discount_value}%"
+                    if max_discount > 0:
+                        context_text += f" (tối đa {max_discount:,.0f} VNĐ)"
+                else:
+                    context_text += f"   Giảm: {discount_value:,.0f} VNĐ"
+                
+                context_text += f"\n   Đơn tối thiểu: {min_order:,.0f} VNĐ\n"
+                context_text += f"   Còn lại: {usage_limit - used_count}/{usage_limit} lượt\n"
+                
+                # Extract description from document
+                if "Mô tả:" in doc:
+                    desc_start = doc.find("Mô tả:") + 7
+                    desc_end = doc.find("\n", desc_start)
+                    if desc_end > desc_start:
+                        desc = doc[desc_start:desc_end].strip()
+                        context_text += f"   Mô tả: {desc}\n"
+                
+                context_text += "\n"
+            
+            return context_text
+            
+        except Exception as e:
+            print(f"[ChatAIRAGChromaService] Error retrieving discount context: {e}")
+            return ""
+    
     def retrieve_combined_context_with_user(self, user_id: str, query: str, 
                                           top_k_products: int = 3, 
                                           top_k_knowledge: int = 2,
-                                          top_k_user: int = 2) -> str:
+                                          top_k_user: int = 2,
+                                          top_k_discounts: int = 2) -> str:
         """
-        Retrieve kết hợp tất cả context: products + knowledge + user data
+        Retrieve kết hợp tất cả context: products + knowledge + user data + discounts
         
         Args:
             user_id: User ID để lấy user-specific data
@@ -675,6 +874,7 @@ class ChatAIRAGChromaService:
             top_k_products: Max products
             top_k_knowledge: Max knowledge items
             top_k_user: Max user-specific items
+            top_k_discounts: Max discounts
             
         Returns:
             Formatted context string với bảo mật user data
@@ -682,11 +882,16 @@ class ChatAIRAGChromaService:
         # Get general context
         general_context = self.retrieve_combined_context(query, top_k_products, top_k_knowledge)
         
+        # Get discount context
+        discount_context = self.retrieve_discount_context(query, top_k_discounts)
+        
         # Get user-specific context (bảo mật - chỉ data của user hiện tại)
         user_context = self.retrieve_user_context(user_id, query, top_k_user, 1)
         
         # Combine contexts
         full_context = general_context
+        if discount_context:
+            full_context += "\n\n" + discount_context
         if user_context and user_context != "No user-specific context found.":
             full_context += "\n\n" + user_context
         

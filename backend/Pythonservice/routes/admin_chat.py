@@ -1098,126 +1098,150 @@ async def sync_system_data_to_chroma(authorization: Optional[str] = None):
             logger.info(f"[Admin Chat] Syncing {len(products)} products to chat_ai_products")
             
             try:
+                # Xóa collection cũ trước khi sync mới để tránh dữ liệu duplicate
+                try:
+                    chroma_service.client.delete_collection("chat_ai_products")
+                    logger.info("[Admin Chat] Deleted existing chat_ai_products collection")
+                except Exception as delete_error:
+                    logger.warning(f"[Admin Chat] Could not delete existing collection: {str(delete_error)}")
+                
                 products_collection = chroma_service.client.get_or_create_collection(
                     name="chat_ai_products",
                     metadata={"description": "Product catalog for AI Chat"}
                 )
                 
-                for product in products:
-                    doc_id = f"product_{product.get('id', product.get('name', ''))}"
-                    
-                    # Parse details JSON if it's a string
-                    details = product.get('details', {})
-                    if isinstance(details, str):
-                        try:
-                            import json
-                            details = json.loads(details)
-                        except:
+                for i, product in enumerate(products):
+                    try:
+                        logger.info(f"[Admin Chat] Processing product {i+1}/{len(products)}")
+                        if product is None:
+                            logger.warning(f"[Admin Chat] Skipping None product at index {i}")
+                            continue
+                        if not isinstance(product, dict):
+                            logger.warning(f"[Admin Chat] Skipping non-dict product at index {i}: {type(product)} - {product}")
+                            continue
+                            
+                        doc_id = f"product_{product.get('id', product.get('name', ''))}"
+                        
+                        # Parse details JSON if it's a string
+                        details = product.get('details', {})
+                        if details is None:
                             details = {}
-                    
-                    # Extract brand from details
-                    brand = details.get('brand', 'N/A') if isinstance(details, dict) else 'N/A'
-                    
-                    # Tạo content với TẤT CẢ thông tin từ Spring
-                    content_parts = []
-                    content_parts.append(f"SẢN PHẨM ID: {product.get('id', 'N/A')}")
-                    content_parts.append(f"Tên sản phẩm: {product.get('name', 'N/A')}")
-                    content_parts.append(f"Giá: {product.get('price', 0):,.0f} VNĐ")
-                    content_parts.append(f"Danh mục: {product.get('categoryName', 'N/A')}")
-                    content_parts.append(f"Thương hiệu: {brand}")
-                    content_parts.append(f"Số lượng tồn kho: {product.get('quantity', 0)}")
-                    content_parts.append(f"Trạng thái: {product.get('status', 'N/A')}")
-                    content_parts.append(f"Mô tả: {product.get('description', 'N/A')}")
-                    
-                    # Thêm thông tin seller
-                    seller_username = product.get('sellerUsername', 'N/A')
-                    seller_id = product.get('sellerId', 'N/A')
-                    if seller_username != 'N/A':
-                        content_parts.append(f"Người bán: {seller_username} (ID: {seller_id})")
-                    
-                    # Thêm thông tin bán hàng
-                    total_sold = product.get('totalSold', 0)
-                    total_revenue = product.get('totalRevenue', 0)
-                    if total_sold > 0:
-                        content_parts.append(f"Đã bán: {total_sold} sản phẩm")
-                        content_parts.append(f"Doanh thu: {total_revenue:,.0f} VNĐ")
-                    
-                    # Xử lý specifications từ details
-                    if isinstance(details, dict) and details:
-                        content_parts.append("\nTHÔNG SỐ KỸ THUẬT:")
-                        # Extract key specs
-                        spec_fields = ['os', 'storage', 'display', 'camera', 'battery', 'processor', 'color', 'origin', 'warranty']
-                        for field in spec_fields:
-                            value = details.get(field)
-                            if value:
-                                if isinstance(value, dict):
-                                    # Handle nested objects like camera, display
-                                    if field == 'camera':
-                                        main = value.get('main', 'N/A')
-                                        content_parts.append(f"  - Camera: {main} (chính)")
-                                    elif field == 'display':
-                                        size = value.get('size', 'N/A')
-                                        type_display = value.get('type', 'N/A')
-                                        content_parts.append(f"  - Màn hình: {size}, {type_display}")
+                        if isinstance(details, str):
+                            try:
+                                import json
+                                details = json.loads(details)
+                            except:
+                                details = {}
+                        
+                        # Extract brand from details
+                        brand = details.get('brand', 'N/A') if isinstance(details, dict) else 'N/A'
+                        
+                        # Tạo content với TẤT CẢ thông tin từ Spring
+                        content_parts = []
+                        content_parts.append(f"SẢN PHẨM ID: {product.get('id', 'N/A')}")
+                        content_parts.append(f"Tên sản phẩm: {product.get('name', 'N/A')}")
+                        content_parts.append(f"Giá: {product.get('price', 0):,.0f} VNĐ")
+                        content_parts.append(f"Danh mục: {product.get('categoryName', 'N/A')}")
+                        content_parts.append(f"Thương hiệu: {brand}")
+                        content_parts.append(f"Số lượng tồn kho: {product.get('quantity', 0)}")
+                        content_parts.append(f"Trạng thái: {product.get('status', 'N/A')}")
+                        content_parts.append(f"Mô tả: {product.get('description', 'N/A')}")
+                        
+                        # Thêm thông tin seller
+                        seller_username = product.get('sellerUsername', 'N/A')
+                        seller_id = product.get('sellerId', 'N/A')
+                        if seller_username != 'N/A':
+                            content_parts.append(f"Người bán: {seller_username} (ID: {seller_id})")
+                        
+                        # Thêm thông tin bán hàng
+                        total_sold = product.get('totalSold', 0)
+                        total_revenue = product.get('totalRevenue', 0)
+                        if total_sold > 0:
+                            content_parts.append(f"Đã bán: {total_sold} sản phẩm")
+                            content_parts.append(f"Doanh thu: {total_revenue:,.0f} VNĐ")
+                        
+                        # Xử lý specifications từ details
+                        if isinstance(details, dict) and details:
+                            content_parts.append("\nTHÔNG SỐ KỸ THUẬT:")
+                            # Extract key specs
+                            spec_fields = ['os', 'storage', 'display', 'camera', 'battery', 'processor', 'color', 'origin', 'warranty']
+                            for field in spec_fields:
+                                value = details.get(field)
+                                if value:
+                                    if isinstance(value, dict):
+                                        # Handle nested objects like camera, display
+                                        if field == 'camera':
+                                            main = value.get('main', 'N/A')
+                                            content_parts.append(f"  - Camera: {main} (chính)")
+                                        elif field == 'display':
+                                            size = value.get('size', 'N/A')
+                                            type_display = value.get('type', 'N/A')
+                                            content_parts.append(f"  - Màn hình: {size}, {type_display}")
+                                        else:
+                                            content_parts.append(f"  - {field}: {value}")
+                                    elif isinstance(value, list):
+                                        content_parts.append(f"  - {field}: {', '.join(map(str, value))}")
                                     else:
                                         content_parts.append(f"  - {field}: {value}")
-                                elif isinstance(value, list):
-                                    content_parts.append(f"  - {field}: {', '.join(map(str, value))}")
-                                else:
-                                    content_parts.append(f"  - {field}: {value}")
-                    
-                    # Xử lý imageUrls
-                    image_urls = product.get('imageUrls', [])
-                    if isinstance(image_urls, str):
-                        try:
-                            image_urls = json.loads(image_urls)
-                        except:
-                            image_urls = []
-                    
-                    if image_urls:
-                        content_parts.append(f"\nHình ảnh: {len(image_urls)} ảnh")
-                        for i, url in enumerate(image_urls[:3]):  # Show first 3 images
-                            content_parts.append(f"  - Hình {i+1}: {url}")
-                    
-                    content = "\n".join(content_parts)
-                    
-                    # Tạo metadata với TẤT CẢ thông tin quan trọng + full product data
-                    metadata = {
-                        "type": "product",
-                        "product_id": str(product.get('id', '')),
-                        "product_name": product.get('name', ''),
-                        "category": product.get('categoryName', ''),
-                        "price": float(product.get('price', 0)),
-                        "quantity": int(product.get('quantity', 0)),  # Changed from stockQuantity
-                        "status": product.get('status', ''),
-                        "brand": brand,  # Extracted from details JSON
-                        "seller_username": product.get('sellerUsername', ''),
-                        "seller_id": str(product.get('sellerId', '')),
-                        "total_sold": int(product.get('totalSold', 0)),
-                        "total_revenue": float(product.get('totalRevenue', 0)),
-                        "description": product.get('description', ''),
-                        # Add key specs from details
-                        "os": details.get('os', '') if isinstance(details, dict) else '',
-                        "storage": details.get('storage', '') if isinstance(details, dict) else '',
-                        "display": details.get('display', {}).get('size', '') if isinstance(details, dict) and isinstance(details.get('display'), dict) else '',
-                        "camera": details.get('camera', {}).get('main', '') if isinstance(details, dict) and isinstance(details.get('camera'), dict) else '',
-                        "battery": details.get('battery', '') if isinstance(details, dict) else '',
-                        "processor": details.get('processor', '') if isinstance(details, dict) else '',
-                        "color": details.get('color', '') if isinstance(details, dict) else '',
-                        "origin": details.get('origin', '') if isinstance(details, dict) else '',
-                        "warranty": details.get('warranty', '') if isinstance(details, dict) else '',
-                        # Lưu toàn bộ product data để query linh hoạt
-                        "full_product_data": json.dumps(product)
-                    }
-                    
-                    products_collection.add(
-                        ids=[doc_id],
-                        documents=[content],
-                        metadatas=[metadata]
-                    )
-                    synced_data["products"] += 1
-                
-                logger.info(f"[Admin Chat] Successfully synced {synced_data['products']} products to chat_ai_products")
+                        
+                        # Xử lý imageUrls - Lưu cả URL để AI có thể hiển thị ảnh
+                        image_urls = product.get('imageUrls', [])
+                        if isinstance(image_urls, str):
+                            try:
+                                image_urls = json.loads(image_urls)
+                            except:
+                                image_urls = []
+
+                        if image_urls:
+                            content_parts.append(f"\nHình ảnh: {len(image_urls)} ảnh")
+                            for i, url in enumerate(image_urls[:3]):  # Show first 3 images
+                                content_parts.append(f"  - Hình {i+1}: {url}")
+                            # Thêm thông tin để AI có thể sử dụng trong markdown
+                            content_parts.append(f"  - URL ảnh chính: {image_urls[0] if image_urls else 'N/A'}")
+                        content = "\n".join(content_parts)
+                        
+                        # Tạo metadata với TẤT CẢ thông tin quan trọng + full product data
+                        metadata = {
+                            "type": "product",
+                            "product_id": str(product.get('id', '')),
+                            "product_name": product.get('name', ''),
+                            "category": product.get('categoryName', ''),
+                            "price": float(product.get('price', 0)),
+                            "quantity": int(product.get('quantity', 0)),  # Changed from stockQuantity
+                            "status": product.get('status', ''),
+                            "brand": brand,  # Extracted from details JSON
+                            "seller_username": product.get('sellerUsername', ''),
+                            "seller_id": str(product.get('sellerId', '')),
+                            "total_sold": int(product.get('totalSold', 0)),
+                            "total_revenue": float(product.get('totalRevenue', 0)),
+                            "description": product.get('description', ''),
+                            # Add key specs from details
+                            "os": details.get('os', '') if isinstance(details, dict) else '',
+                            "storage": details.get('storage', '') if isinstance(details, dict) else '',
+                            "display": json.dumps(details.get('display', {})) if isinstance(details.get('display'), dict) else str(details.get('display', '')) if isinstance(details, dict) else '',
+                            "camera": json.dumps(details.get('camera', {})) if isinstance(details.get('camera'), dict) else str(details.get('camera', '')) if isinstance(details, dict) else '',
+                            "battery": json.dumps(details.get('battery', '')) if isinstance(details.get('battery'), dict) else str(details.get('battery', '')) if isinstance(details, dict) else '',
+                            "processor": details.get('processor', '') if isinstance(details, dict) else '',
+                            "color": details.get('color', '') if isinstance(details, dict) else '',
+                            "origin": details.get('origin', '') if isinstance(details, dict) else '',
+                            "warranty": details.get('warranty', '') if isinstance(details, dict) else '',
+                            "image_urls": json.dumps(image_urls) if image_urls else '',  # Thêm image URLs để AI có thể sử dụng
+                            # Lưu toàn bộ product data để query linh hoạt
+                            "full_product_data": json.dumps(product)
+                        }
+                        
+                        products_collection.add(
+                            ids=[doc_id],
+                            documents=[content],
+                            metadatas=[metadata]
+                        )
+                        synced_data["products"] += 1
+                        logger.info(f"[Admin Chat] Successfully processed product {i+1}/{len(products)}: {doc_id}")
+                        
+                    except Exception as product_error:
+                        logger.error(f"[Admin Chat] Error processing product {i+1}: {str(product_error)}")
+                        logger.error(f"[Admin Chat] Product data: {product}")
+                        continue  # Continue with next product                logger.info(f"[Admin Chat] Successfully synced {synced_data['products']} products to chat_ai_products")
             except Exception as e:
                 logger.error(f"[Admin Chat] Error syncing products: {str(e)}")
         

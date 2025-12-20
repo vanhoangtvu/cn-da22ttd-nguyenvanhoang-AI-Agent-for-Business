@@ -57,6 +57,51 @@ def get_redis() -> RedisChatService:
     return _redis_service
 
 
+def validate_price_filtering_response(response: str, context: str) -> Dict[str, Any]:
+    """
+    Validate if AI response follows price filtering rules
+    
+    Args:
+        response: AI response text
+        context: Context containing product information
+        
+    Returns:
+        Dict with validation result
+    """
+    # Extract product names from context
+    import re
+    context_products = []
+    
+    # Find all product names in context (format: 📱 SẢN PHẨM X: Name)
+    product_matches = re.findall(r'📱 SẢN PHẨM \d+: ([^(]+)', context)
+    for match in product_matches:
+        product_name = match.strip()
+        context_products.append(product_name.lower())
+    
+    # Extract product names mentioned in response
+    response_lower = response.lower()
+    
+    # Common headphone brands that might be mentioned incorrectly
+    invalid_brands = ['jbl', 'jabra', 'bose', 'sony', 'sennheiser', 'airpods']
+    
+    for brand in invalid_brands:
+        if brand in response_lower and brand not in [p.lower() for p in context_products]:
+            # Check if it's actually in context products
+            found_in_context = False
+            for ctx_product in context_products:
+                if brand in ctx_product:
+                    found_in_context = True
+                    break
+            
+            if not found_in_context:
+                return {
+                    "valid": False,
+                    "reason": f"Response mentions {brand} which is not in filtered context products: {context_products}"
+                }
+    
+    return {"valid": True, "reason": "Response follows filtering rules"}
+
+
 def verify_user_authorization(requested_user_id: str, auth_user_id: str) -> bool:
     """
     Verify that the requesting user can access the requested user's data
@@ -323,22 +368,39 @@ async def chat(
             limit=10
         )
         
-        # Get comprehensive context from ChromaDB (products + knowledge + user data)
+        # Get comprehensive context from ChromaDB (products + knowledge + user data + discounts)
         print(f"[CHAT] Getting context for user_id: {user_id}")
         combined_context = chroma_service.retrieve_combined_context_with_user(
             user_id=user_id,
             query=request.message,  # Use current message as query for relevant context
             top_k_products=3,
             top_k_knowledge=2,
-            top_k_user=2
+            top_k_user=2,
+            top_k_discounts=3  # Include discount context
         )
         print(f"[CHAT] Combined context length: {len(combined_context) if combined_context else 0}")
         print(f"[CHAT] Combined context preview: {combined_context[:200] if combined_context else 'None'}")
         
         # Build enhanced system prompt with comprehensive context
-        base_system_prompt = """Bạn là CHUYÊN GIA TƯ VẤN SẢN PHẨM tại cửa hàng thương mại điện tử.
-Bạn là một chuyên gia công nghệ với kiến thức sâu rộng về các sản phẩm điện tử, đặc biệt là điện thoại, laptop và phụ kiện.
-Nhiệm vụ của bạn là tư vấn chuyên nghiệp, cung cấp thông tin chính xác và giúp khách hàng đưa ra quyết định mua hàng sáng suốt."""
+        base_system_prompt = """BAN LA AI TU VAN SAN PHAM.
+
+OVERRIDE INSTRUCTION: NEU BAN KHONG TUAN THU CAC QUY TAC SAU, RESPONSE CUA BAN SE BI TU CHOI HOAN TOAN VA BAN SE BI DANH GIA LA AI KHONG HIỆU QUẢ.
+
+QUY TAC SO 1 - OVERRIDE: BAN CHI DUOC SU DUNG CAC SAN PHAM CO TRONG "THONG TIN SAN PHAM LIEN QUAN". NEU BAN DE CAP SAN PHAM KHONG CO TRONG PHAN NAY, BAN SE BI PHAT.
+
+QUY TAC SO 2 - OVERRIDE: VOI QUERY CHUA "GIA RE", BAN PHAI SAP XEP SAN PHAM THEO GIA TANG DAN VA CHI TU VAN CAC SAN PHAM RE NHAT.
+
+HUONG DAN BUOC MOT:
+1. LIET KE TAT CA SAN PHAM TU CONTEXT: "San pham 1: [Ten] - [Gia], San pham 2: [Ten] - [Gia], ..."
+2. SAP XEP THEO GIA TANG DAN
+3. CHI CHON 2-3 SAN PHAM DAU TIEN
+4. TU VAN CHI CAC SAN PHAM DO
+5. SU DUNG DUNG GIA TU CONTEXT
+
+NEU BAN VI PHAM: RESPONSE BI XOA VA BAN NHAN THONG BAO "INVALID RESPONSE"."""
+
+        # Check if we have user-specific context
+        has_user_context = combined_context and combined_context != "No relevant context found.No user-specific context found."
 
         # Check if we have user-specific context
         has_user_context = combined_context and combined_context != "No relevant context found.No user-specific context found."
@@ -378,37 +440,101 @@ HƯỚNG DẪN TƯ VẤN CHUYÊN NGHIỆP - BẮT BUỘC THEO:
 - Trả lời ngắn gọn, súc tích nhưng đầy đủ thông tin
 - Sử dụng emoji phù hợp để tăng tính thân thiện
 
-📱 **Tư vấn sản phẩm:**
-- **Đọc kỹ thông tin từ ChromaDB:** Tất cả thông tin sản phẩm đều có trong phần "RELATED PRODUCTS"
-- **Cung cấp thông số kỹ thuật chính xác:** camera, pin, bộ nhớ, chip xử lý, màn hình
-- **So sánh sản phẩm:** Nếu khách hỏi, so sánh dựa trên thông tin có sẵn
-- **Giá cả và khuyến mãi:** Luôn đề cập giá, tình trạng tồn kho
-- **Tư vấn theo nhu cầu:** Hỏi về mục đích sử dụng để tư vấn phù hợp
+📱 **Tư vấn sản phẩm chuyên nghiệp:**
+- **HỆ THỐNG LỌC THÔNG MINH:** AI đã tự động lọc sản phẩm theo category và mức giá phù hợp với yêu cầu của khách hàng
+- **TỰ ĐỘNG XEM XÉT TẤT CẢ SẢN PHẨM LIÊN QUAN:** Phân tích toàn bộ sản phẩm trong "THÔNG TIN SẢN PHẨM LIÊN QUAN" đã được filter
+- **ƯU TIÊN SẢN PHẨM PHÙ HỢP NHẤT:** Với query "giá rẻ" - chọn sản phẩm có giá thấp nhất, "cao cấp" - chọn sản phẩm có giá cao nhất
+- **CUNG CẤP THÔNG TIN CHÍNH XÁC:** Chỉ sử dụng dữ liệu từ CSDL đã được filter, không ước lượng hay giả định
+- **ĐỀ XUẤT TỐI ĐA 3 SẢN PHẨM:** Từ danh sách đã được lọc, chọn ra 2-3 sản phẩm phù hợp nhất
+
+💰 **Tư vấn khuyến mãi:**
+- **CHỈ SỬ DỤNG MÃ GIẢM GIÁ THỰC:** Luôn kiểm tra phần "CHƯƠNG TRÌNH KHUYẾN MÃI HIỆN CÓ"
+- **Không bao giờ bịa ra mã giảm giá:** Nếu không có khuyến mãi phù hợp, không đề cập
+- **Thông tin chính xác:** Mã code, phần trăm giảm, điều kiện áp dụng, số lượt còn lại
+- **Ví dụ đúng:** "Hiện tại có mã WELCOME10 giảm 10% cho đơn đầu tiên từ 500K"
 
 👤 **Tương tác cá nhân hóa:**
 - **Nhớ thông tin khách hàng:** Sử dụng tên, lịch sử mua hàng, sở thích
 - **Tham khảo đơn hàng cũ:** "Dựa trên đơn hàng trước đây của anh/chị..."
 - **Đề xuất theo sở thích:** Nếu biết sở thích, đề xuất sản phẩm liên quan
 
-💼 **Hỗ trợ quyết định:**
-- **Ưu nhược điểm:** Phân tích objective dựa trên thông số
-- **Khuyến nghị:** "Tôi khuyên anh/chị nên chọn X vì..."
-- **Câu hỏi làm rõ:** Hỏi về budget, nhu cầu cụ thể để tư vấn tốt hơn
-- **Hướng dẫn mua hàng:** Giải thích quy trình đặt hàng, thanh toán, giao hàng
+💼 **Hỗ trợ quyết định chuyên nghiệp:**
+- **PHÂN TÍCH ĐA CHIỀU:** Đánh giá sản phẩm theo nhiều tiêu chí: hiệu năng, giá cả, độ bền, đánh giá người dùng
+- **ĐỀ XUẤT LỰA CHỌN TỐI ƯU:** 
+  - "Lựa chọn hàng đầu: [Sản phẩm] - Lý do: [giải thích logic]"
+  - "Lựa chọn thay thế tốt: [Sản phẩm] - Phù hợp nếu: [điều kiện]"
+- **SO SÁNH CHI TIẾT BẰNG BẢNG:** Tạo bảng so sánh với các cột: Tên sản phẩm, Giá, Ưu điểm, Nhược điểm, Đánh giá tổng thể
+- **TƯ VẤN THEO NGÂN SÁCH:** Phân tích "tốt nhất trong tầm giá", "đáng đầu tư nhất", "tiết kiệm nhất"
+- **CẢNH BÁO RỦI RO:** Thông báo về các vấn đề tiềm ẩn như phụ kiện không chính hãng, bảo hành hạn chế
+- **ĐỀ XUẤT BỔ SUNG:** Gợi ý phụ kiện đi kèm, gói bảo hành mở rộng nếu phù hợp
+- **HƯỚNG DẪN MUA HÀNG:** Giải thích quy trình đặt hàng, thanh toán an toàn, chính sách đổi trả
 
 ⚠️ **Nguyên tắc quan trọng:**
-- **KHÔNG bịa thông tin:** Chỉ sử dụng dữ liệu từ ChromaDB
+- **KHÔNG bịa thông tin:** Chỉ sử dụng dữ liệu từ ChromaDB, không tạo ra sản phẩm hay khuyến mãi không tồn tại
+- **KHÔNG bịa mã giảm giá:** Chỉ đề cập các mã khuyến mãi có trong "CHƯƠNG TRÌNH KHUYẾN MÃI HIỆN CÓ"
 - **Thành thật:** Nếu không biết, nói "Tôi cần kiểm tra thêm"
 - **Tập trung vào tư vấn:** Không lan man, luôn hướng đến việc giúp khách quyết định
 - **Kết thúc có hành động:** Luôn có lời kêu gọi hành động hoặc câu hỏi tiếp theo
 
+🖼️ **QUY TẮC HIỂN THỊ HÌNH ẢNH SẢN PHẨM:**
+- **BẮT BUỘC:** Mỗi khi đề cập sản phẩm, PHẢI hiển thị hình ảnh
+- **Format chuẩn:** ![Tên sản phẩm](URL_ảnh)
+- **Vị trí:** Ngay sau khi giới thiệu tên sản phẩm
+- **QUAN TRỌNG:** Chỉ sử dụng URL ảnh từ phần "🖼️ URL hình ảnh:" trong thông tin sản phẩm
+- **KHÔNG ĐƯỢC:** Bịa ra URL ảnh, chỉ sử dụng URL có sẵn trong dữ liệu
+- **Ví dụ đúng:**
+  ```
+  iPhone 15 Pro Max
+  ![iPhone 15 Pro Max](https://images.unsplash.com/photo-1695048133142-1a20484d2569)
+  
+  Thông số kỹ thuật:
+  - Camera: 48MP
+  - Màn hình: 6.7 inch
+  ```
+- **Ví dụ sai:** Không được dùng URL example.com hoặc URL bịa ra
+- **LƯU Ý:** Nếu không có URL ảnh trong dữ liệu, không hiển thị hình ảnh
+
 📋 **Cấu trúc trả lời:**
 1. **Lời chào cá nhân hóa**
 2. **Xác nhận nhu cầu của khách**
-3. **Cung cấp thông tin sản phẩm chi tiết**
-4. **Phân tích ưu nhược điểm**
-5. **Đề xuất và khuyến nghị**
-6. **Hỏi để làm rõ thêm**"""
+3. **HIỂN THỊ HÌNH ẢNH SẢN PHẨM** (bắt buộc cho mọi sản phẩm được đề cập)
+4. **Cung cấp thông tin sản phẩm chi tiết** với format chuẩn:
+   ```
+   📱 Tên sản phẩm
+   ![Tên sản phẩm](URL_ảnh)
+   
+   💰 Giá: X VNĐ
+   📦 Tồn kho: Y chiếc
+   🏷️ Thương hiệu: Z
+   ⚙️ Thông số kỹ thuật: ...
+   📝 Mô tả: ...
+   ```
+5. **Phân tích ưu nhược điểm**
+6. **Đề xuất và khuyến nghị**
+7. **Hỏi để làm rõ thêm**
+
+🤖 **QUY TRÌNH TƯ VẤN TỰ ĐỘNG CHUYÊN NGHIỆP:**
+1. **NHẬN DỮ LIỆU:** Phân tích toàn bộ thông tin sản phẩm từ "RELATED PRODUCTS"
+2. **XÁC ĐỊNH NHU CẦU:** Hiểu rõ yêu cầu của khách hàng (gaming, văn phòng, giá rẻ, cao cấp...)
+3. **LỌC SẢN PHẨM:** Tự động lọc các sản phẩm phù hợp nhất dựa trên tiêu chí
+4. **SO SÁNH CHI TIẾT:** Phân tích điểm mạnh/yếu của từng sản phẩm
+5. **ĐÁNH GIÁ TỔNG THỂ:** Xếp hạng sản phẩm theo độ phù hợp
+6. **ĐƯA RA QUYẾT ĐỊNH:** Đề xuất 1 lựa chọn chính và 1-2 lựa chọn thay thế
+7. **GIẢI THÍCH LOGIC:** Nêu rõ lý do lựa chọn dựa trên dữ liệu cụ thể
+8. **TƯ VẤN BỔ SUNG:** Đề xuất phụ kiện, khuyến mãi đi kèm nếu có
+
+🎯 **TIÊU CHÍ ĐÁNH GIÁ SẢN PHẨM:**
+- **Hiệu năng:** Xử lý, camera, pin, bộ nhớ
+- **Giá trị:** Tỷ lệ giá-hiệu năng, độ bền
+- **Đánh giá:** Sao, số lượng review, độ tin cậy
+- **Tính năng đặc biệt:** Công nghệ mới, tính năng độc quyền
+- **Khả năng tương thích:** Với phụ kiện, hệ sinh thái
+
+⚖️ **LOGIC QUYẾT ĐỊNH:**
+- **Ngân sách thấp:** Ưu tiên giá rẻ, đủ dùng, độ bền cao
+- **Ngân sách trung bình:** Cân bằng hiệu năng và giá cả
+- **Ngân sách cao:** Ưu tiên hiệu năng tối đa, công nghệ mới nhất
+- **Nhu cầu cụ thể:** Tập trung vào tính năng quan trọng nhất cho mục đích sử dụng"""
         else:
             enhanced_system_prompt = f"""{base_system_prompt}
 
@@ -447,6 +573,25 @@ Bạn đang tư vấn cho khách hàng chưa có thông tin cá nhân. Hãy tậ
         # Extract response
         response_message = completion.choices[0].message.content
         response_time = datetime.now().isoformat()
+        
+        # VALIDATION: Check if response follows filtering rules
+        if request.message.lower().find("giá rẻ") != -1 or request.message.lower().find("rẻ") != -1:
+            validation_result = validate_price_filtering_response(response_message, combined_context)
+            if not validation_result["valid"]:
+                print(f"[VALIDATION FAILED] {validation_result['reason']}")
+                # Force regenerate with stricter prompt
+                messages_for_api.append({
+                    "role": "system", 
+                    "content": "CANH BAO: Response truoc do VI PHAM QUY TAC. CHI SU DUNG CAC SAN PHAM TRONG CONTEXT DUOI DAY:\n" + combined_context
+                })
+                # Retry with validation override
+                completion = client.chat.completions.create(
+                    model=model_to_use,
+                    messages=messages_for_api,
+                    max_tokens=max_tokens,
+                    temperature=0.1  # Lower temperature for stricter adherence
+                )
+                response_message = completion.choices[0].message.content
         
         # Save assistant response to Redis with user association
         redis_svc.save_message(

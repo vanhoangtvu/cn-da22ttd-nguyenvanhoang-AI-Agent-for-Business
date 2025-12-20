@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Plus, Loader2 } from 'lucide-react';
 import { API_CONFIG, getGroqChatUrl } from '@/config/api.config';
 import { useToast } from '@/components/Toast';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -35,6 +37,25 @@ interface LoginResponse {
   role: 'ADMIN' | 'BUSINESS' | 'CUSTOMER';
 }
 
+// Typing indicator component
+const TypingIndicator = () => (
+  <div className="flex justify-start animate-in fade-in slide-in-from-bottom-4 duration-300">
+    <div className="max-w-2xl rounded-2xl p-5 shadow-lg bg-gradient-to-r from-slate-700 to-slate-800 text-slate-100 rounded-bl-none border border-slate-600/50">
+      <div className="text-xs font-bold mb-2 opacity-75 uppercase tracking-wide">
+        🤖 Agent
+      </div>
+      <div className="flex items-center space-x-2">
+        <div className="flex space-x-1">
+          <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+          <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+          <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+        </div>
+        <span className="text-slate-400 text-sm">Đang trả lời...</span>
+      </div>
+    </div>
+  </div>
+);
+
 export default function AIChatPage() {
   const router = useRouter();
   const [userId, setUserId] = useState<string>('');
@@ -46,6 +67,7 @@ export default function AIChatPage() {
   const [selectedModel, setSelectedModel] = useState<string>('openai/gpt-oss-20b');
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [showHistory, setShowHistory] = useState<boolean>(false);
+  const [isTyping, setIsTyping] = useState<boolean>(false);
   const [showNewChat, setShowNewChat] = useState<boolean>(false);
   const [activeModalConfig, setActiveModalConfig] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -492,19 +514,71 @@ export default function AIChatPage() {
             messages.map((msg, idx) => (
               <div
                 key={idx}
-                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-4 duration-300`}
+                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} chat-message-enter`}
               >
                 <div
-                  className={`max-w-2xl rounded-2xl p-5 shadow-lg transition-all duration-300 hover:shadow-xl ${
+                  className={`max-w-2xl rounded-2xl p-5 shadow-lg transition-all duration-500 hover:shadow-2xl chat-message ${
                     msg.role === 'user'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-br-none'
-                      : 'bg-gradient-to-r from-slate-700 to-slate-800 text-slate-100 rounded-bl-none border border-slate-600/50'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-br-none hover:from-blue-500 hover:to-blue-600'
+                      : 'bg-gradient-to-r from-slate-700 to-slate-800 text-slate-100 rounded-bl-none border border-slate-600/50 hover:from-slate-600 hover:to-slate-700'
                   }`}
                 >
                   <div className="text-xs font-bold mb-2 opacity-75 uppercase tracking-wide">
                     {msg.role === 'user' ? '👤 Bạn' : '🤖 Agent'}
                   </div>
-                  <p className="text-base leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                  {msg.role === 'assistant' ? (
+                    <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:mt-3 prose-headings:mb-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          p: ({ children }) => <p className="text-base leading-relaxed mb-2">{children}</p>,
+                          strong: ({ children }) => <strong className="font-semibold text-white bg-slate-600/50 px-1 rounded">{children}</strong>,
+                          em: ({ children }) => <em className="italic text-slate-200">{children}</em>,
+                          ul: ({ children }) => <ul className="my-2 space-y-1 list-disc list-inside">{children}</ul>,
+                          ol: ({ children }) => <ol className="my-2 space-y-1 list-decimal list-inside">{children}</ol>,
+                          li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                          code: ({ inline, children }) => inline ? (
+                            <code className="bg-slate-600 text-blue-300 px-1.5 py-0.5 rounded text-sm font-mono">{children}</code>
+                          ) : (
+                            <code className="block bg-slate-600 text-slate-100 p-3 rounded-lg text-sm font-mono overflow-x-auto my-2">{children}</code>
+                          ),
+                          blockquote: ({ children }) => (
+                            <blockquote className="border-l-4 border-blue-400 pl-4 my-2 italic text-slate-300">{children}</blockquote>
+                          ),
+                          h1: ({ children }) => <h1 className="text-xl font-bold text-white mt-4 mb-2">{children}</h1>,
+                          h2: ({ children }) => <h2 className="text-lg font-bold text-white mt-3 mb-2">{children}</h2>,
+                          h3: ({ children }) => <h3 className="text-base font-semibold text-white mt-3 mb-1">{children}</h3>,
+                          table: ({ children }) => (
+                            <div className="overflow-x-auto my-4">
+                              <table className="min-w-full border-collapse border border-slate-600">{children}</table>
+                            </div>
+                          ),
+                          thead: ({ children }) => <thead className="bg-slate-600">{children}</thead>,
+                          tbody: ({ children }) => <tbody className="bg-slate-700">{children}</tbody>,
+                          tr: ({ children }) => <tr className="border-b border-slate-600">{children}</tr>,
+                          th: ({ children }) => <th className="border border-slate-600 px-4 py-2 text-left font-semibold text-white">{children}</th>,
+                          td: ({ children }) => <td className="border border-slate-600 px-4 py-2 text-slate-200">{children}</td>,
+                          a: ({ children, href }) => (
+                            <a href={href as string} className="text-blue-400 hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer">
+                              {children}
+                            </a>
+                          ),
+                          img: ({ src, alt }) => (
+                            <img
+                              src={src as string}
+                              alt={alt as string}
+                              className="max-w-full h-auto rounded-lg shadow-lg my-4 border border-slate-600 hover:shadow-xl transition-shadow duration-300"
+                              loading="lazy"
+                            />
+                          ),
+                        } as any}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
+                    </div>
+                  ) : (
+                    <p className="text-base leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                  )}
                   <div className="text-xs opacity-50 mt-3">
                     {new Date(msg.timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                   </div>
@@ -512,17 +586,7 @@ export default function AIChatPage() {
               </div>
             ))
           )}
-          {loading && (
-            <div className="flex justify-start">
-              <div className="bg-gradient-to-r from-slate-700 to-slate-800 rounded-2xl rounded-bl-none p-5 shadow-lg border border-slate-600/50">
-                <div className="flex gap-3">
-                  <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce"></div>
-                  <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                </div>
-              </div>
-            </div>
-          )}
+          {loading && <TypingIndicator />}
           <div ref={messagesEndRef} />
         </div>
 

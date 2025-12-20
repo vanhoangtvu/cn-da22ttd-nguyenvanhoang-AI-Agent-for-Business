@@ -133,11 +133,11 @@ export default function ShopPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<'name' | 'price-asc' | 'price-desc'>('name');
   const [cartCount, setCartCount] = useState(0);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [hoveredProduct, setHoveredProduct] = useState<number | null>(null);
-  const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Scroll to top button
   useEffect(() => {
@@ -217,7 +217,7 @@ export default function ShopPage() {
   const loadCartCount = async () => {
     try {
       const cart = await apiClient.getCart();
-      const count = cart?.items?.reduce((total, item) => total + item.quantity, 0) || 0;
+      const count = (cart as any)?.items?.reduce((total: number, item: any) => total + item.quantity, 0) || 0;
       setCartCount(count);
     } catch (err) {
       console.error('Không thể tải số lượng giỏ hàng:', err);

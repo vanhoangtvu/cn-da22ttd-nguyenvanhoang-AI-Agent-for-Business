@@ -183,7 +183,7 @@ const parseProducts = (content: string): { products: Product[]; cleanContent: st
   return { products: uniqueProducts, cleanContent };
 };
 
-export default function ChatWidget() {
+export default function AIContentWidget() {
   const [isOpen, setIsOpen] = useState(false);
   const [sessionId] = useState(generateSessionId);
   const [aiModel, setAiModel] = useState('gemini-2.0-flash');
