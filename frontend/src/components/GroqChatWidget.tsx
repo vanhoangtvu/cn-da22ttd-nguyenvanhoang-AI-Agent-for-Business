@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Loader, AlertCircle } from 'lucide-react';
+import { Send, Loader, AlertCircle, X, Hand, Lightbulb, Check } from 'lucide-react';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -123,7 +123,7 @@ export default function GroqChatWidget({
               onClick={onClose}
               className="text-white hover:bg-blue-800 p-2 rounded"
             >
-              ✕
+              <X className="w-5 h-5" />
             </button>
           )}
         </div>
@@ -132,7 +132,7 @@ export default function GroqChatWidget({
         <div className="h-80 overflow-y-auto p-4 space-y-4 bg-gray-50">
           {messages.length === 0 && (
             <div className="text-center text-gray-500 py-8">
-              <p className="text-sm">👋 Start a conversation!</p>
+              <p className="text-sm flex items-center gap-1"><Hand className="w-4 h-4" /> Start a conversation!</p>
             </div>
           )}
 
@@ -142,11 +142,10 @@ export default function GroqChatWidget({
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-xs px-4 py-2 rounded-lg ${
-                  msg.role === 'user'
+                className={`max-w-xs px-4 py-2 rounded-lg ${msg.role === 'user'
                     ? 'bg-blue-600 text-white rounded-br-none'
                     : 'bg-gray-300 text-gray-900 rounded-bl-none'
-                }`}
+                  }`}
               >
                 <p className="text-sm">{msg.content}</p>
               </div>
@@ -244,7 +243,7 @@ export default function GroqChatWidget({
             {messages.length === 0 && (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center">
-                  <p className="text-4xl mb-4">👋</p>
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-blue-100 flex items-center justify-center"><Hand className="w-8 h-8 text-blue-600" /></div>
                   <h2 className="text-2xl font-bold text-gray-800 mb-2">Welcome!</h2>
                   <p className="text-gray-600">
                     Start a conversation by typing a message below
@@ -259,18 +258,16 @@ export default function GroqChatWidget({
                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-md px-6 py-4 rounded-lg ${
-                    msg.role === 'user'
+                  className={`max-w-md px-6 py-4 rounded-lg ${msg.role === 'user'
                       ? 'bg-blue-600 text-white rounded-br-none'
                       : 'bg-white border border-gray-300 text-gray-900 rounded-bl-none'
-                  }`}
+                    }`}
                 >
                   <p className="whitespace-pre-wrap">{msg.content}</p>
                   {msg.timestamp && (
                     <p
-                      className={`text-xs mt-2 ${
-                        msg.role === 'user' ? 'text-blue-100' : 'text-gray-500'
-                      }`}
+                      className={`text-xs mt-2 ${msg.role === 'user' ? 'text-blue-100' : 'text-gray-500'
+                        }`}
                     >
                       {new Date(msg.timestamp).toLocaleTimeString()}
                     </p>
@@ -370,12 +367,12 @@ export default function GroqChatWidget({
 
         {/* Info Panel */}
         <div className="w-80 bg-blue-50 rounded-lg shadow p-6 border border-blue-200">
-          <h3 className="font-bold text-lg text-blue-900 mb-4">💡 Tips</h3>
+          <h3 className="font-bold text-lg text-blue-900 mb-4 flex items-center gap-2"><Lightbulb className="w-5 h-5" /> Tips</h3>
           <ul className="space-y-3 text-sm text-blue-800">
-            <li>✓ Ask any question and get instant answers</li>
-            <li>✓ Choose from multiple AI models</li>
-            <li>✓ Clear conversation to start fresh</li>
-            <li>✓ Fast responses powered by Groq API</li>
+            <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-600 flex-shrink-0" /> Ask any question and get instant answers</li>
+            <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-600 flex-shrink-0" /> Choose from multiple AI models</li>
+            <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-600 flex-shrink-0" /> Clear conversation to start fresh</li>
+            <li className="flex items-center gap-2"><Check className="w-4 h-4 text-green-600 flex-shrink-0" /> Fast responses powered by Groq API</li>
           </ul>
 
           <hr className="my-6 border-blue-200" />

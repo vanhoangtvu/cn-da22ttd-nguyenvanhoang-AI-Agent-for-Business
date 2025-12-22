@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Loader2 } from 'lucide-react';
+import { Plus, Loader2, Bot, Trash2, MessageSquare, User, Send, ClipboardList, ArrowLeft } from 'lucide-react';
 import { API_CONFIG, getGroqChatUrl } from '@/config/api.config';
 import { useToast } from '@/components/Toast';
 import ReactMarkdown from 'react-markdown';
@@ -41,8 +41,8 @@ interface LoginResponse {
 const TypingIndicator = () => (
   <div className="flex justify-start animate-in fade-in slide-in-from-bottom-4 duration-300">
     <div className="max-w-2xl rounded-2xl p-5 shadow-lg bg-gradient-to-r from-slate-700 to-slate-800 text-slate-100 rounded-bl-none border border-slate-600/50">
-      <div className="text-xs font-bold mb-2 opacity-75 uppercase tracking-wide">
-        🤖 Agent
+      <div className="text-xs font-bold mb-2 opacity-75 uppercase tracking-wide flex items-center gap-1">
+        <Bot className="w-3 h-3" /> Agent
       </div>
       <div className="flex items-center space-x-2">
         <div className="flex space-x-1">
@@ -89,29 +89,29 @@ export default function AIChatPage() {
       try {
         // Lấy user data từ localStorage (được set khi login)
         const userDataStr = typeof window !== 'undefined' ? localStorage.getItem('userData') : null;
-        
+
         if (!userDataStr) {
           // Không có user đăng nhập, redirect về login
           router.push('/login');
           return;
         }
-        
+
         const userData: LoginResponse = JSON.parse(userDataStr);
         const authenticatedUserId = `user_${userData.userId}`;  // Use underscore to match ChromaDB format
-        
+
         // Kiểm tra xem session_id của user hiện tại có trong sessionStorage không
         const savedSessionId = sessionStorage.getItem('current_session_id');
         const savedUserId = sessionStorage.getItem('user_id');
-        
+
         // Nếu user khác từ lần trước, clear sessionStorage
         if (savedUserId && savedUserId !== authenticatedUserId) {
           sessionStorage.clear();
         }
-        
+
         // Set user từ token
         setUserId(authenticatedUserId);
         sessionStorage.setItem('user_id', authenticatedUserId);
-        
+
         // Nếu có session_id cũ, dùng lại; nếu không thì tạo mới
         if (savedSessionId && savedUserId === authenticatedUserId) {
           // User cũ + session cũ → load tin nhắn cũ
@@ -121,7 +121,7 @@ export default function AIChatPage() {
           // User mới hoặc chưa có session → tạo session mới + load history
           // loadUserHistoryAndSetSession sẽ xử lý lúc userId thay đổi
         }
-        
+
         fetchAvailableModels();
         fetchActiveModalConfig();
       } catch (error) {
@@ -129,7 +129,7 @@ export default function AIChatPage() {
         router.push('/login');
       }
     };
-    
+
     initializeChat();
   }, [router]);
 
@@ -186,20 +186,20 @@ export default function AIChatPage() {
   // Load messages của session
   const loadSessionMessages = async (sid: string) => {
     if (!userId) return;
-    
+
     // Validate: session_id phải chứa user_id (để không load session của user khác)
     if (!sid.startsWith(userId)) {
       console.warn('Session ID does not match current user - creating new session');
       createNewSession(userId);
       return;
     }
-    
+
     try {
       // NEW: Use user-specific endpoint: /user/{user_id}/history/{session_id}
       const response = await fetch(
         getGroqChatUrl(`/user/${userId}/history/${sid}?auth_user_id=${userId}`)
       );
-      
+
       // Check for auth errors
       if (response.status === 401 || response.status === 403) {
         console.warn('Authorization failed - clearing messages');
@@ -207,7 +207,7 @@ export default function AIChatPage() {
         createNewSession(userId);
         return;
       }
-      
+
       const data = await response.json();
       if (data.messages) {
         setMessages(data.messages);
@@ -226,7 +226,7 @@ export default function AIChatPage() {
     if (!userId) return;
     try {
       const response = await fetch(getGroqChatUrl(`/user/${userId}/history?auth_user_id=${userId}`));
-      
+
       // Kiểm tra nếu lỗi 401 hoặc 403 - xóa lịch sử cũ
       if (response.status === 401 || response.status === 403) {
         console.warn('Authorization failed - clearing history');
@@ -234,7 +234,7 @@ export default function AIChatPage() {
         setUserHistory(null);
         return;
       }
-      
+
       const data: UserHistory = await response.json();
       // Verify response trả về của user này, không phải user khác
       if (data.user_id && data.user_id !== userId) {
@@ -243,7 +243,7 @@ export default function AIChatPage() {
         setUserHistory(null);
         return;
       }
-      
+
       setUserHistory(data);
       setShowHistory(true);
     } catch (error) {
@@ -258,9 +258,9 @@ export default function AIChatPage() {
   // LUÔN auto-load session gần nhất, không cần bấm nút
   const loadUserHistoryAndSetSession = async () => {
     if (!userId) return;
-    
+
     const savedSessionId = sessionStorage.getItem('current_session_id');
-    
+
     // Nếu đã có session_id lưu, load messages của session đó
     if (savedSessionId) {
       loadSessionMessages(savedSessionId);
@@ -278,35 +278,35 @@ export default function AIChatPage() {
       }
       return;
     }
-    
+
     // Không có session_id → load history, tìm session gần nhất + tự động load
     try {
       const response = await fetch(getGroqChatUrl(`/user/${userId}/history?auth_user_id=${userId}`));
-      
+
       if (response.status === 401 || response.status === 403) {
         console.warn('Authorization failed - creating new session');
         createNewSession(userId);
         return;
       }
-      
+
       const data: UserHistory = await response.json();
-      
+
       if (data.user_id && data.user_id !== userId) {
         console.error('Security: User mismatch');
         createNewSession(userId);
         return;
       }
-      
+
       setUserHistory(data);
-      
+
       // Nếu có sessions cũ, LUÔN tự động load session gần nhất
       if (data.sessions && data.sessions.length > 0) {
         const latestSession = data.sessions[0];
         const sessionId = latestSession.session_id;
-        
+
         setSessionId(sessionId);
         sessionStorage.setItem('current_session_id', sessionId);
-        
+
         // Tự động load messages của session này
         loadSessionMessages(sessionId);
       } else {
@@ -341,10 +341,10 @@ export default function AIChatPage() {
     try {
       // Get auth token from localStorage
       const authToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
-      
+
       const response = await fetch(getGroqChatUrl('/chat'), {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           ...(authToken && { 'Authorization': `Bearer ${authToken}` }),
         },
@@ -418,7 +418,7 @@ export default function AIChatPage() {
         <div className="p-6 border-b border-slate-700/50 bg-gradient-to-r from-blue-900/20 to-purple-900/20 backdrop-blur-sm">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center shadow-lg">
-              <span className="text-xl">🤖</span>
+              <Bot className="w-6 h-6 text-white" />
             </div>
             <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Agent Chat</h1>
           </div>
@@ -443,11 +443,10 @@ export default function AIChatPage() {
             <button
               key={session.session_id}
               onClick={() => loadSessionMessages(session.session_id)}
-              className={`w-full text-left p-3 rounded-lg transition-all duration-300 truncate group ${
-                sessionId === session.session_id
+              className={`w-full text-left p-3 rounded-lg transition-all duration-300 truncate group ${sessionId === session.session_id
                   ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg scale-105'
                   : 'bg-slate-700/40 hover:bg-slate-600/40 text-slate-200 hover:text-white hover:scale-105 border border-slate-600/30'
-              }`}
+                }`}
             >
               <div className="text-xs font-bold mb-1 opacity-75">SESSION</div>
               <div className="text-sm font-semibold truncate group-hover:translate-x-1 transition-transform">
@@ -465,7 +464,7 @@ export default function AIChatPage() {
           onClick={handleClearAllHistory}
           className="m-4 p-3 bg-gradient-to-r from-red-600/80 to-red-700/80 hover:from-red-700 hover:to-red-800 rounded-xl text-sm transition-all duration-300 hover:shadow-lg active:scale-95 font-medium backdrop-blur-sm border border-red-500/30"
         >
-          🗑️ Xóa lịch sử
+          <Trash2 className="w-4 h-4 mr-1 inline" /> Xóa lịch sử
         </button>
 
         {/* Exit Button */}
@@ -473,7 +472,7 @@ export default function AIChatPage() {
           onClick={() => router.push('/')}
           className="m-4 p-3 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 rounded-xl text-sm transition-all duration-300 hover:shadow-lg active:scale-95 font-medium backdrop-blur-sm border border-slate-500/30"
         >
-          ← Thoát chế độ Agent
+          <ArrowLeft className="w-4 h-4 mr-1 inline" /> Thoát chế độ Agent
         </button>
       </div>
 
@@ -503,7 +502,7 @@ export default function AIChatPage() {
           {messages.length === 0 ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
-                <div className="text-7xl mb-6 animate-bounce">💬</div>
+                <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center animate-bounce"><MessageSquare className="w-12 h-12 text-blue-400" /></div>
                 <h3 className="text-3xl font-bold mb-3 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Bắt đầu cuộc trò chuyện</h3>
                 <p className="text-slate-400 text-lg">
                   Nhập tin nhắn của bạn để bắt đầu với Agent Chat
@@ -517,14 +516,13 @@ export default function AIChatPage() {
                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} chat-message-enter`}
               >
                 <div
-                  className={`max-w-2xl rounded-2xl p-5 shadow-lg transition-all duration-500 hover:shadow-2xl chat-message ${
-                    msg.role === 'user'
+                  className={`max-w-2xl rounded-2xl p-5 shadow-lg transition-all duration-500 hover:shadow-2xl chat-message ${msg.role === 'user'
                       ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-br-none hover:from-blue-500 hover:to-blue-600'
                       : 'bg-gradient-to-r from-slate-700 to-slate-800 text-slate-100 rounded-bl-none border border-slate-600/50 hover:from-slate-600 hover:to-slate-700'
-                  }`}
+                    }`}
                 >
-                  <div className="text-xs font-bold mb-2 opacity-75 uppercase tracking-wide">
-                    {msg.role === 'user' ? '👤 Bạn' : '🤖 Agent'}
+                  <div className="text-xs font-bold mb-2 opacity-75 uppercase tracking-wide flex items-center gap-1">
+                    {msg.role === 'user' ? <><User className="w-3 h-3" /> Bạn</> : <><Bot className="w-3 h-3" /> Agent</>}
                   </div>
                   {msg.role === 'assistant' ? (
                     <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:mt-3 prose-headings:mb-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5">
@@ -614,7 +612,7 @@ export default function AIChatPage() {
               ) : (
                 <>
                   Gửi
-                  <span>➜</span>
+                  <Send className="w-4 h-4" />
                 </>
               )}
             </button>
@@ -627,9 +625,9 @@ export default function AIChatPage() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
           <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl max-w-2xl w-full max-h-96 overflow-hidden shadow-2xl border border-slate-700/50">
             <div className="p-8 border-b border-slate-700/50 sticky top-0 bg-gradient-to-r from-blue-900/20 to-purple-900/20 backdrop-blur-md">
-              <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-2">📋 Lịch sử Chat</h3>
+              <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-2 flex items-center gap-2"><ClipboardList className="w-6 h-6 text-blue-400" /> Lịch sử Chat</h3>
               <p className="text-sm text-slate-400">
-                <span className="text-blue-400 font-bold">{userHistory.total_sessions}</span> session - 
+                <span className="text-blue-400 font-bold">{userHistory.total_sessions}</span> session -
                 <span className="text-purple-400 font-bold ml-1">{userHistory.total_messages}</span> tin nhắn
               </p>
             </div>
@@ -645,7 +643,7 @@ export default function AIChatPage() {
                   }}
                 >
                   <div className="font-semibold text-blue-400 mb-2 group-hover:text-blue-300 transition-colors">
-                    💬 Session
+                    <MessageSquare className="w-4 h-4 inline mr-1" /> Session
                   </div>
                   <div className="text-sm text-slate-300 mb-2 font-medium truncate group-hover:translate-x-1 transition-transform">
                     {session.messages.length > 0
