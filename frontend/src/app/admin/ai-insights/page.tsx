@@ -452,6 +452,246 @@ export default function AIInsightsPage() {
     return `${hours}:${minutes}:${seconds} ${day}/${month}/${year}`;
   };
 
+  // Function to print the AI analysis report
+  const printReport = () => {
+    if (!insights) {
+      alert('Không có báo cáo để in. Vui lòng tạo phân tích trước.');
+      return;
+    }
+
+    const analysisTypeLabels: { [key: string]: string } = {
+      general: 'Phân tích tổng quan',
+      pricing: 'Chiến lược giá',
+      inventory: 'Quản lý kho hàng',
+      sales: 'Tăng trưởng bán hàng',
+    };
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert('Không thể mở cửa sổ in. Vui lòng cho phép popup.');
+      return;
+    }
+
+    const currentDate = new Date().toLocaleString('vi-VN');
+
+    // Convert markdown to HTML
+    const convertMarkdownToHTML = (markdown: string): string => {
+      let html = markdown;
+
+      // Convert tables (must be done first)
+      const lines = html.split('\n');
+      let inTable = false;
+      let tableHTML = '';
+      const result: string[] = [];
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+
+        // Check if line is a table row
+        if (line.trim().startsWith('|') && line.trim().endsWith('|')) {
+          if (!inTable) {
+            inTable = true;
+            tableHTML = '<table>';
+
+            // This is header row
+            const headers = line.split('|').filter(h => h.trim()).map(h => h.trim().replace(/\*\*/g, ''));
+            tableHTML += '<thead><tr>';
+            headers.forEach(h => {
+              tableHTML += `<th>${h}</th>`;
+            });
+            tableHTML += '</tr></thead><tbody>';
+
+            // Skip separator line
+            i++;
+          } else {
+            // This is data row
+            const cells = line.split('|').filter(c => c.trim()).map(c => c.trim());
+            tableHTML += '<tr>';
+            cells.forEach(c => {
+              // Convert bold in cells
+              const cellContent = c.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+              tableHTML += `<td>${cellContent}</td>`;
+            });
+            tableHTML += '</tr>';
+          }
+        } else {
+          if (inTable) {
+            tableHTML += '</tbody></table>';
+            result.push(tableHTML);
+            tableHTML = '';
+            inTable = false;
+          }
+          result.push(line);
+        }
+      }
+
+      if (inTable) {
+        tableHTML += '</tbody></table>';
+        result.push(tableHTML);
+      }
+
+      html = result.join('\n');
+
+      // Convert headings
+      html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+      html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
+      html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+
+      // Convert bold and italic
+      html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+
+      // Convert unordered lists
+      html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+
+      // Convert ordered lists
+      html = html.replace(/^\d+\. (.+)$/gm, '<li>$1</li>');
+
+      // Wrap consecutive list items in ul/ol tags
+      html = html.replace(/(<li>.*?<\/li>\n?)+/g, (match) => {
+        return '<ul>' + match + '</ul>';
+      });
+
+      // Convert paragraphs
+      html = html.replace(/\n\n/g, '</p><p>');
+
+      // Wrap in paragraph tags
+      const htmlLines = html.split('\n');
+      const finalLines: string[] = [];
+      let inParagraph = false;
+
+      for (const line of htmlLines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+
+        // Don't wrap headings, tables, or lists in p tags
+        if (trimmed.match(/^<(h[123]|table|ul|ol|li)/)) {
+          if (inParagraph) {
+            finalLines.push('</p>');
+            inParagraph = false;
+          }
+          finalLines.push(line);
+        } else if (trimmed.match(/<\/(h[123]|table|ul|ol|li)>$/)) {
+          finalLines.push(line);
+        } else {
+          if (!inParagraph) {
+            finalLines.push('<p>');
+            inParagraph = true;
+          }
+          finalLines.push(line);
+        }
+      }
+
+      if (inParagraph) {
+        finalLines.push('</p>');
+      }
+
+      return finalLines.join('\n');
+    };
+
+    const htmlContent = convertMarkdownToHTML(insights);
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Báo cáo AI Insights - ${analysisTypeLabels[analysisType] || analysisType}</title>
+        <meta charset="utf-8">
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap');
+          
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          
+          body {
+            font-family: 'Be Vietnam Pro', sans-serif;
+            line-height: 1.6;
+            color: #1f2937;
+            padding: 40px;
+            max-width: 210mm;
+            margin: 0 auto;
+          }
+          
+          .header {
+            text-align: center;
+            border-bottom: 3px solid #7c3aed;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+          }
+          
+          .header h1 { color: #7c3aed; font-size: 28px; font-weight: 700; margin-bottom: 8px; }
+          .header .subtitle { color: #6b7280; font-size: 14px; }
+          
+          .meta-info {
+            display: flex;
+            justify-content: space-between;
+            background: #f3f4f6;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            font-size: 13px;
+          }
+          
+          .meta-info span { color: #4b5563; }
+          .meta-info strong { color: #7c3aed; }
+          
+          .content { line-height: 1.8; }
+          .content h1 { font-size: 24px; color: #7c3aed; margin: 30px 0 15px 0; padding-bottom: 10px; border-bottom: 2px solid #e5e7eb; }
+          .content h2 { font-size: 20px; color: #1f2937; margin: 25px 0 12px 0; padding-left: 15px; border-left: 4px solid #7c3aed; }
+          .content h3 { font-size: 16px; color: #374151; margin: 20px 0 10px 0; }
+          .content p { margin-bottom: 12px; text-align: justify; }
+          .content ul, .content ol { margin: 10px 0 15px 25px; }
+          .content li { margin-bottom: 6px; }
+          .content table { width: 100%; border-collapse: collapse; margin: 15px 0 25px 0; font-size: 13px; }
+          .content th { background: #7c3aed; color: white; padding: 12px 10px; text-align: left; font-weight: 600; }
+          .content td { padding: 10px; border-bottom: 1px solid #e5e7eb; }
+          .content tr:nth-child(even) { background: #f9fafb; }
+          .content strong { color: #7c3aed; }
+          .content blockquote { background: #f3f4f6; border-left: 4px solid #7c3aed; padding: 15px 20px; margin: 15px 0; font-style: italic; }
+          
+          .footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #e5e7eb;
+            text-align: center;
+            color: #6b7280;
+            font-size: 12px;
+          }
+          
+          @media print {
+            body { padding: 20px; }
+            .no-print { display: none !important; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>📊 Báo Cáo Phân Tích AI</h1>
+          <p class="subtitle">Được tạo bởi AI Insights Engine</p>
+        </div>
+        
+        <div class="meta-info">
+          <span>📋 <strong>Loại:</strong> ${analysisTypeLabels[analysisType] || analysisType}</span>
+          <span>🤖 <strong>Model:</strong> ${selectedModel}</span>
+          <span>📅 <strong>Ngày:</strong> ${currentDate}</span>
+        </div>
+        
+        <div class="content">
+          ${htmlContent}
+        </div>
+        
+        <div class="footer">
+          <p>Báo cáo này được tạo tự động bởi hệ thống AI Insights</p>
+          <p>© ${new Date().getFullYear()} AI-Agent-for-Business</p>
+        </div>
+        
+        <script>window.onload = function() { window.print(); };</script>
+      </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+  };
+
   return (
     <AdminLayout userData={userStr} currentPage="ai-insights">
       <div className="container mx-auto px-4 py-8">
@@ -1001,6 +1241,18 @@ export default function AIInsightsPage() {
 
               {insights && !loading && (
                 <div className="animate-fade-in-up">
+                  {/* Print Button */}
+                  <div className="flex justify-end mb-4">
+                    <button
+                      onClick={printReport}
+                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl font-medium"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                      </svg>
+                      In báo cáo
+                    </button>
+                  </div>
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     rehypePlugins={[rehypeRaw]}
