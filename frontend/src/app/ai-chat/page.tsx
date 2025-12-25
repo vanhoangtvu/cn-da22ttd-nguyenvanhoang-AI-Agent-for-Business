@@ -94,38 +94,44 @@ interface ProductCardProps {
 }
 
 const ProductCard = ({ product, onAddToCart, onViewDetail }: ProductCardProps) => (
-  <div className="bg-slate-700/60 backdrop-blur-sm border border-slate-600/50 rounded-xl p-3 flex items-center gap-3 hover:bg-slate-700/80 hover:border-slate-500/60 hover:scale-[1.02] transition-all duration-300 hover:shadow-xl group">
+  <div className="bg-slate-800/40 backdrop-blur-md border border-slate-700/50 rounded-2xl p-4 flex items-center gap-4 hover:bg-slate-800/60 hover:border-blue-500/30 hover:shadow-blue-500/10 hover:shadow-xl transition-all duration-300 group relative overflow-hidden">
+    <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-blue-500/5 to-purple-500/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
     {product.img_url && (
-      <div className="overflow-hidden rounded-lg">
+      <div className="relative shrink-0 overflow-hidden rounded-xl border border-slate-700/50 shadow-sm">
         <img
           src={product.img_url}
           alt={product.name}
-          className="w-14 h-14 rounded-lg object-cover border border-slate-500/50 group-hover:scale-110 transition-transform duration-300"
+          className="w-16 h-16 object-cover group-hover:scale-110 transition-transform duration-500"
           onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
         />
       </div>
     )}
-    <div className="flex-1 min-w-0">
-      <p className={`font-semibold text-white text-sm truncate ${poppins.className}`}>{product.name}</p>
-      <div className="flex items-center gap-2 mt-0.5">
-        <span className="text-green-400 font-bold text-sm">{product.price?.toLocaleString('vi-VN')}đ</span>
+    <div className="flex-1 min-w-0 z-10">
+      <p className={`font-semibold text-slate-100 text-sm truncate mb-1 ${poppins.className}`}>{product.name}</p>
+      <div className="flex items-center gap-2">
+        <span className="text-emerald-400 font-bold text-base">{product.price?.toLocaleString('vi-VN')}đ</span>
         {product.stock !== undefined && product.stock > 0 && (
-          <span className="text-xs text-slate-400">📦 Còn {product.stock}</span>
+          <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-700/50 text-slate-400 border border-slate-600/50">
+            Kho: {product.stock}
+          </span>
         )}
       </div>
     </div>
-    <div className="flex gap-2 shrink-0">
+    <div className="flex flex-col gap-2 shrink-0 z-10">
       <button
         onClick={() => onAddToCart(product.id, product.name)}
-        className="px-3 py-1.5 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white text-xs font-medium rounded-lg transition-all duration-300 flex items-center gap-1 hover:shadow-lg hover:scale-105 active:scale-95"
+        className="px-3 py-1.5 bg-emerald-600/90 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg shadow-lg hover:shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-1.5"
       >
-        🛒 Thêm
+        <ShoppingCart className="w-3.5 h-3.5" />
+        Thêm
       </button>
       <button
         onClick={() => onViewDetail(product.id)}
-        className="px-3 py-1.5 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white text-xs font-medium rounded-lg transition-all duration-300 flex items-center gap-1 hover:shadow-lg hover:scale-105 active:scale-95"
+        className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold rounded-lg border border-slate-600 hover:border-slate-500 active:scale-95 transition-all flex items-center justify-center gap-1.5"
       >
-        👁️ Chi tiết
+        <Bot className="w-3.5 h-3.5" />
+        Chi tiết
       </button>
     </div>
   </div>
@@ -139,39 +145,49 @@ interface OrderCardProps {
 
 const OrderCard = ({ order, onViewDetail }: OrderCardProps) => {
   const statusColors: Record<string, string> = {
-    'PENDING': 'bg-yellow-500/20 text-yellow-300 border-yellow-500/50',
-    'PROCESSING': 'bg-blue-500/20 text-blue-300 border-blue-500/50',
-    'CONFIRMED': 'bg-green-500/20 text-green-300 border-green-500/50',
-    'SHIPPING': 'bg-purple-500/20 text-purple-300 border-purple-500/50',
-    'DELIVERED': 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50',
-    'CANCELLED': 'bg-red-500/20 text-red-300 border-red-500/50'
+    'PENDING': 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+    'PROCESSING': 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+    'CONFIRMED': 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+    'SHIPPING': 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+    'DELIVERED': 'bg-green-500/10 text-green-400 border-green-500/20',
+    'CANCELLED': 'bg-red-500/10 text-red-400 border-red-500/20'
   };
 
   const statusTexts: Record<string, string> = {
-    'PENDING': 'Đang chờ xử lý', 'PROCESSING': 'Đang xử lý', 'CONFIRMED': 'Đã xác nhận',
-    'SHIPPING': 'Đang giao', 'DELIVERED': 'Đã giao', 'CANCELLED': 'Đã hủy'
+    'PENDING': 'Chờ xử lý',
+    'PROCESSING': 'Đang xử lý',
+    'CONFIRMED': 'Đã xác nhận',
+    'SHIPPING': 'Đang giao hàng',
+    'DELIVERED': 'Giao thành công',
+    'CANCELLED': 'Đã hủy'
   };
 
   return (
-    <div className="bg-slate-700/60 backdrop-blur-sm border border-slate-600/50 rounded-xl p-4 hover:bg-slate-700/80 hover:scale-[1.01] transition-all duration-300 hover:shadow-xl group">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-3 mb-2">
-            <span className={`text-lg font-bold ${poppins.className}`}>Đơn #{order.id}</span>
-            <span className={`px-3 py-1 rounded-lg border text-xs font-semibold ${statusColors[order.status] || 'bg-gray-500/20 text-gray-300'}`}>
+    <div className="bg-slate-800/40 backdrop-blur-md border border-slate-700/50 rounded-2xl p-5 hover:bg-slate-800/60 hover:border-slate-600 transition-all duration-300 hover:shadow-xl group relative overflow-hidden">
+      <div className="absolute inset-0 bg-gradient-to-br from-slate-800/0 via-slate-700/10 to-blue-900/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+      <div className="relative z-10 flex items-center justify-between gap-4">
+        <div className="flex-1 space-y-2">
+          <div className="flex items-center gap-3">
+            <span className={`text-lg font-bold text-slate-100 ${poppins.className}`}>#{order.id}</span>
+            <span className={`px-2.5 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide ${statusColors[order.status] || 'bg-slate-700 text-slate-400'}`}>
               {statusTexts[order.status] || order.status}
             </span>
           </div>
-          <div className="text-sm text-slate-300">
-            <span className="text-green-400 font-bold text-lg">{order.totalAmount.toLocaleString('vi-VN')} đ</span>
-            <div className="text-xs text-slate-400 mt-1">{new Date(order.createdAt).toLocaleString('vi-VN')}</div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-slate-400 text-xs">Tổng tiền:</span>
+            <span className="text-emerald-400 font-bold text-lg">{order.totalAmount.toLocaleString('vi-VN')}đ</span>
+          </div>
+          <div className="text-[10px] text-slate-500">
+            {new Date(order.createdAt).toLocaleString('vi-VN')}
           </div>
         </div>
         <button
           onClick={() => onViewDetail(order.id)}
-          className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white text-sm font-semibold rounded-lg transition-all duration-300 flex items-center gap-2 hover:shadow-lg hover:scale-105 active:scale-95"
+          className="px-4 py-2 bg-blue-600/90 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-blue-500/20 hover:shadow-blue-500/40 hover:scale-105 active:scale-95 transition-all flex items-center gap-2"
         >
-          👁️ Xem chi tiết
+          <ClipboardList className="w-4 h-4" />
+          Chi tiết
         </button>
       </div>
     </div>
@@ -986,92 +1002,116 @@ export default function AIChatPage() {
 
       <div className="flex h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white overflow-hidden">
         {/* Sidebar */}
-        <div className="w-64 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900 border-r border-slate-700/50 flex flex-col overflow-hidden shadow-2xl">
+        <div className="w-[280px] bg-slate-900/95 backdrop-blur-xl border-r border-white/10 flex flex-col overflow-hidden shadow-2xl relative z-20">
           {/* Header */}
-          <div className="p-6 border-b border-slate-700/50 bg-gradient-to-r from-blue-900/20 to-purple-900/20 backdrop-blur-sm">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center shadow-lg">
+          <div className="p-6 border-b border-white/5 bg-slate-900/50">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
                 <Bot className="w-6 h-6 text-white" />
               </div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Agent Chat</h1>
+              <div>
+                <h1 className={`text-lg font-bold text-white leading-tight ${poppins.className}`}>AI Assistant</h1>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">Online</span>
+                </div>
+              </div>
             </div>
-            <p className="text-xs text-slate-400 font-medium">User: <span className="text-blue-400">{userId.substring(0, 12)}...</span></p>
-            <p className="text-xs text-slate-400 font-medium mt-1">Session: <span className="text-purple-400">{sessionId.substring(0, 12)}...</span></p>
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500 font-medium">ID:</span>
+                <span className="text-slate-300 font-mono bg-slate-800/50 px-2 py-0.5 rounded">{userId.substring(0, 8)}...</span>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500 font-medium">Session:</span>
+                <span className="text-indigo-300 font-mono bg-indigo-500/10 px-2 py-0.5 rounded">{sessionId.substring(0, 8)}...</span>
+              </div>
+            </div>
           </div>
 
           {/* New Chat Button */}
-          <button
-            onClick={() => {
-              createNewSession(userId);
-            }}
-            className="m-4 p-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 rounded-xl font-semibold transition-all duration-300 hover:shadow-lg hover:scale-105 active:scale-95 flex items-center justify-center gap-2 shadow-md"
-          >
-            <Plus className="w-5 h-5" />
-            Cuộc trò chuyện mới
-          </button>
+          <div className="p-4 pb-2">
+            <button
+              onClick={() => createNewSession(userId)}
+              className="w-full py-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 rounded-xl font-semibold text-white shadow-lg shadow-blue-500/20 hover:shadow-blue-500/30 active:scale-[0.98] transition-all duration-200 flex items-center justify-center gap-2 group border border-white/10"
+            >
+              <Plus className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+              <span>Cuộc hội thoại mới</span>
+            </button>
+          </div>
 
           {/* Sessions List */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-transparent">
+          <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent hover:scrollbar-thumb-slate-600 transition-colors">
+            <div className="px-3 py-2 text-xs font-bold text-slate-500 uppercase tracking-widest">Gần đây</div>
             {userHistory?.sessions.map((session) => (
               <button
                 key={session.session_id}
                 onClick={() => loadSessionMessages(session.session_id)}
-                className={`w-full text-left p-3 rounded-xl transition-all duration-300 truncate group relative overflow-hidden ${sessionId === session.session_id
-                  ? 'bg-gradient-to-r from-blue-600/90 to-purple-600/90 backdrop-blur-md text-white shadow-xl scale-105 border border-blue-400/30'
-                  : 'bg-slate-700/40 backdrop-blur-sm hover:bg-slate-600/50 text-slate-200 hover:text-white hover:scale-[1.02] border border-slate-600/30 hover:border-slate-500/50 hover:shadow-lg'
+                className={`w-full text-left p-3 rounded-xl transition-all duration-200 group relative overflow-hidden border ${sessionId === session.session_id
+                  ? 'bg-slate-800 border-indigo-500/50 shadow-md'
+                  : 'bg-transparent border-transparent hover:bg-slate-800/50 text-slate-400 hover:text-slate-200'
                   }`}
               >
-                {/* Gradient overlay on hover */}
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 to-purple-500/0 group-hover:from-blue-500/10 group-hover:to-purple-500/10 transition-all duration-300" />
-
-                <div className="relative z-10">
-                  <div className="flex items-center gap-2 mb-1">
-                    <MessageSquare className="w-3 h-3 opacity-75" />
-                    <div className="text-xs font-bold opacity-75 uppercase tracking-wide">Session</div>
-                  </div>
-                  <div className={`text-sm font-semibold truncate group-hover:translate-x-1 transition-transform ${poppins.className}`}>
+                {sessionId === session.session_id && (
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500 rounded-l-xl" />
+                )}
+                <div className="flex flex-col gap-1 pl-2">
+                  <span className={`text-sm font-medium truncate ${sessionId === session.session_id ? 'text-white' : ''}`}>
                     {session.messages.length > 0
-                      ? session.messages[session.messages.length - 1].content.substring(0, 30) + '...'
-                      : 'Trống'}
+                      ? session.messages[session.messages.length - 1].content.substring(0, 40)
+                      : 'Trò chuyện mới'}
+                  </span>
+                  <div className="flex items-center justify-between text-[10px] opacity-60">
+                    <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" /> {session.message_count}</span>
+                    <span>{session.messages.length > 0 && new Date(session.messages[session.messages.length - 1].timestamp).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}</span>
                   </div>
-                  <div className="text-xs text-slate-400 mt-1">{session.message_count} tin nhắn</div>
                 </div>
               </button>
             ))}
           </div>
 
-          {/* Clear History */}
-          <button
-            onClick={handleClearAllHistory}
-            className="m-4 p-3 bg-gradient-to-r from-red-600/80 to-red-700/80 hover:from-red-700 hover:to-red-800 rounded-xl text-sm transition-all duration-300 hover:shadow-lg active:scale-95 font-medium backdrop-blur-sm border border-red-500/30"
-          >
-            <Trash2 className="w-4 h-4 mr-1 inline" /> Xóa lịch sử
-          </button>
-
-          {/* Exit Button */}
-          <button
-            onClick={() => router.push('/')}
-            className="m-4 p-3 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 rounded-xl text-sm transition-all duration-300 hover:shadow-lg active:scale-95 font-medium backdrop-blur-sm border border-slate-500/30"
-          >
-            <ArrowLeft className="w-4 h-4 mr-1 inline" /> Thoát chế độ Agent
-          </button>
+          {/* Footer Actions */}
+          <div className="p-4 border-t border-white/5 space-y-2 bg-slate-900/50">
+            <button
+              onClick={handleClearAllHistory}
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors text-sm font-medium group"
+            >
+              <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+              Xóa lịch sử & làm mới
+            </button>
+            <button
+              onClick={() => router.push('/')}
+              className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors text-sm font-medium group"
+            >
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+              Thoát ra trang chủ
+            </button>
+          </div>
         </div>
 
         {/* Main Chat Area */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col relative bg-slate-950 overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-900/20 via-slate-900/0 to-slate-900/0 pointer-events-none" />
+
           {/* Top Bar */}
-          <div className="bg-gradient-to-r from-slate-800/50 to-slate-700/50 backdrop-blur-md border-b border-slate-700/50 p-6 flex justify-between items-center shadow-lg">
-            <div>
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Agent Chat - Groq</h2>
-              <p className="text-sm text-slate-400">Trò chuyện với AI Agent thông minh</p>
-            </div>
+          <div className="bg-slate-900/80 backdrop-blur-xl border-b border-white/5 p-4 flex justify-between items-center z-10 sticky top-0 shadow-sm">
             <div className="flex items-center gap-4">
-              <div className="px-4 py-2 bg-slate-700/40 rounded-xl border border-slate-600/50 backdrop-blur-sm">
-                <div className="text-white text-sm font-medium">
+              <div>
+                <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+                  Agent Chat <span className="text-slate-600 font-light">/</span> Powered by LLM
+                </h2>
+                <p className="text-xs text-slate-500 font-medium tracking-wide">AI-POWERED ASSISTANT</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="px-3 py-1.5 bg-slate-800/50 rounded-lg border border-white/5 backdrop-blur-sm shadow-inner">
+                <div className="text-slate-300 text-xs font-mono flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                   {activeModalConfig ? (
-                    <span>Modal: {activeModalConfig.modal_name}</span>
+                    <span>{activeModalConfig.modal_name}</span>
                   ) : (
-                    <span>Modal: {selectedModel.split('/')[1] || selectedModel}</span>
+                    <span>{selectedModel.split('/')[1] || selectedModel}</span>
                   )}
                 </div>
               </div>
@@ -1079,14 +1119,16 @@ export default function AIChatPage() {
           </div>
 
           {/* Messages Area */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-gradient-to-b from-transparent via-slate-900/20 to-slate-900/40">
+          <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 relative z-0 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
             {messages.length === 0 ? (
               <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 flex items-center justify-center"><MessageSquare className="w-10 h-10 text-blue-400" /></div>
-                  <h3 className="text-3xl font-bold mb-3 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">Bắt đầu cuộc trò chuyện</h3>
-                  <p className="text-slate-400 text-base">
-                    Nhập tin nhắn của bạn để bắt đầu với Agent Chat
+                <div className="text-center p-8 bg-slate-800/30 rounded-3xl border border-white/5 backdrop-blur-sm">
+                  <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center shadow-lg shadow-blue-500/20 animate-bounce-slow">
+                    <MessageSquare className="w-8 h-8 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold mb-2 text-white">Xin chào!</h3>
+                  <p className="text-slate-400 text-sm max-w-xs mx-auto leading-relaxed">
+                    Tôi là trợ lý AI của bạn. Hãy hỏi tôi về sản phẩm, đơn hàng hoặc bất cứ điều gì bạn cần hỗ trợ.
                   </p>
                 </div>
               </div>
@@ -1097,9 +1139,9 @@ export default function AIChatPage() {
                   className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} chat-message-enter`}
                 >
                   <div
-                    className={`max-w-4xl rounded-2xl p-4 shadow-lg transition-all duration-300 hover:shadow-2xl chat-message ${msg.role === 'user'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-br-none hover:from-blue-500 hover:to-blue-600 hover:scale-[1.01]'
-                      : 'bg-gradient-to-r from-slate-700/80 to-slate-800/80 backdrop-blur-md text-slate-100 rounded-bl-none border border-slate-600/50 hover:from-slate-600/80 hover:to-slate-700/80 hover:border-slate-500/50 hover:scale-[1.01]'
+                    className={`max-w-4xl rounded-2xl p-5 shadow-sm transition-all duration-200 chat-message relative group ${msg.role === 'user'
+                      ? 'bg-indigo-600 text-white rounded-tr-sm shadow-md shadow-indigo-500/20'
+                      : 'bg-slate-900/60 backdrop-blur-md text-slate-200 rounded-tl-sm border border-slate-700/50 shadow-sm'
                       } ${poppins.className}`}
                   >
                     <div className="text-xs font-semibold mb-2 opacity-75 uppercase tracking-wide flex items-center gap-1.5">
@@ -1316,96 +1358,87 @@ export default function AIChatPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input Area - Floating Design */}
-          <div className="bg-gradient-to-t from-slate-900 to-slate-800/50 backdrop-blur-md border-t border-slate-700/50 p-6 shadow-2xl">
-            <form onSubmit={handleSendMessage} className="flex gap-4 relative">
-              {/* Floating gradient background */}
-              <div className="absolute -inset-1 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-2xl blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
+          {/* Input Area - Modern Floating Design */}
+          <div className="p-4 md:p-6 bg-slate-900/80 backdrop-blur-xl border-t border-white/5 relative z-10">
+            <form onSubmit={handleSendMessage} className="flex gap-3 relative max-w-5xl mx-auto">
+              {/* Glow Effect */}
+              <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500/20 via-purple-500/20 to-blue-500/20 rounded-2xl blur opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
 
-              <div className="relative flex-1">
+              <div className="relative flex-1 group">
                 <input
                   type="text"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
-                  placeholder="Nhập tin nhắn của bạn..."
+                  placeholder="Nhập tin nhắn..."
                   disabled={loading}
-                  className={`w-full px-6 py-4 bg-slate-700/50 border-2 border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 disabled:opacity-50 backdrop-blur-sm transition-all duration-300 font-medium hover:border-slate-500/70 ${inter.className}`}
+                  className={`w-full px-5 py-4 bg-slate-800/50 border border-slate-700/50 rounded-2xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 focus:bg-slate-800 focus:ring-1 focus:ring-indigo-500/50 disabled:opacity-50 transition-all duration-300 font-medium shadow-inner ${inter.className}`}
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={loading || !inputValue.trim()}
-                className={`px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-slate-600 disabled:to-slate-600 disabled:opacity-50 rounded-xl font-bold transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/25 active:scale-95 disabled:cursor-not-allowed shadow-lg hover:scale-105 flex items-center justify-center gap-2 min-w-32 relative overflow-hidden group ${poppins.className}`}
+                className={`px-6 py-4 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-600 rounded-2xl font-bold transition-all duration-200 shadow-lg shadow-indigo-500/20 active:scale-95 flex items-center justify-center gap-2 min-w-[100px] ${poppins.className}`}
               >
-                {/* Pulse animation overlay */}
-                {!loading && inputValue.trim() && (
-                  <div className="absolute inset-0 bg-white/20 rounded-xl animate-pulse" />
+                {loading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <span>Gửi</span>
+                    <Send className="w-4 h-4" />
+                  </>
                 )}
-
-                <span className="relative z-10 flex items-center gap-2">
-                  {loading ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Đang gửi...
-                    </>
-                  ) : (
-                    <>
-                      Gửi
-                      <Send className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
-                    </>
-                  )}
-                </span>
               </button>
 
-              {/* Cart Icon - bên phải nút gửi */}
+              {/* Cart Icon */}
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setShowCartPreview(!showCartPreview)}
-                  className="p-4 rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 transition-all shadow-lg hover:shadow-green-500/25"
+                  className="h-full px-5 rounded-2xl bg-slate-800/50 hover:bg-slate-700 border border-slate-700/50 hover:border-slate-600 text-slate-300 hover:text-white transition-all shadow-sm flex items-center justify-center"
                   title="Giỏ hàng"
                 >
-                  <ShoppingCart className="w-5 h-5 text-white" />
-                  {cartCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center animate-pulse">
-                      {cartCount}
-                    </span>
-                  )}
+                  <div className="relative">
+                    <ShoppingCart className="w-5 h-5" />
+                    {cartCount > 0 && (
+                      <span className="absolute -top-2 -right-2 w-4 h-4 bg-emerald-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/40">
+                        {cartCount}
+                      </span>
+                    )}
+                  </div>
                 </button>
-
-                {/* Cart Preview Dropdown */}
+                {/* Cart Preview (Keep existing logic visual) */}
                 {showCartPreview && (
-                  <div className="absolute bottom-16 right-0 w-80 bg-slate-800 border border-slate-600/50 rounded-xl shadow-2xl z-50 overflow-hidden">
-                    <div className="bg-gradient-to-r from-green-600 to-emerald-600 p-3">
-                      <h3 className="font-bold text-white flex items-center gap-2">
-                        <ShoppingCart className="w-4 h-4" /> Giỏ hàng ({cartCount} sản phẩm)
+                  <div className="absolute bottom-full right-0 mb-4 w-80 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in slide-in-from-bottom-2 fade-in duration-200">
+                    <div className="bg-slate-800 p-3 border-b border-slate-700">
+                      <h3 className="font-bold text-slate-200 flex items-center gap-2 text-sm">
+                        <ShoppingCart className="w-4 h-4 text-emerald-400" /> Giỏ hàng ({cartCount})
                       </h3>
                     </div>
-                    <div className="max-h-60 overflow-y-auto p-3 space-y-2">
+                    <div className="max-h-60 overflow-y-auto p-2 space-y-1">
                       {cartItems.length > 0 ? (
                         cartItems.map((item: any, idx: number) => (
-                          <div key={idx} className="flex justify-between items-center bg-slate-700/30 p-2 rounded-lg text-sm">
-                            <div className="flex-1">
-                              <p className="font-medium text-white truncate">{item.product?.name || `SP #${item.productId}`}</p>
-                              <p className="text-xs text-slate-400">SL: {item.quantity}</p>
+                          <div key={idx} className="flex justify-between items-center bg-slate-800/50 p-2 rounded-lg text-xs group hover:bg-slate-800 transition-colors">
+                            <div className="flex-1 min-w-0 pr-2">
+                              <p className="font-medium text-slate-300 truncate">{item.product?.name || `SP #${item.productId}`}</p>
+                              <p className="text-slate-500">SL: {item.quantity}</p>
                             </div>
-                            <p className="text-green-400 font-semibold text-sm">
+                            <p className="text-emerald-400 font-semibold whitespace-nowrap">
                               {((item.product?.price || 0) * item.quantity).toLocaleString('vi-VN')}đ
                             </p>
                           </div>
                         ))
                       ) : (
-                        <p className="text-center text-slate-400 py-4">Giỏ hàng trống</p>
+                        <p className="text-center text-slate-500 py-6 text-sm">Giỏ hàng trống</p>
                       )}
                     </div>
                     {cartItems.length > 0 && (
-                      <div className="p-3 border-t border-slate-600/50">
+                      <div className="p-2 border-t border-slate-700 bg-slate-800/50">
                         <button
                           onClick={() => window.location.href = '/cart'}
-                          className="w-full py-2 bg-green-600 hover:bg-green-500 text-white rounded-lg font-medium transition-all"
+                          className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold uppercase tracking-wide transition-all"
                         >
-                          Xem giỏ hàng →
+                          Xem giỏ hàng
                         </button>
                       </div>
                     )}
