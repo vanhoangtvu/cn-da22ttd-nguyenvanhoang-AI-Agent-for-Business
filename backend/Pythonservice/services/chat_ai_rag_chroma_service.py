@@ -52,6 +52,7 @@ class ChatAIRAGChromaService:
         self.context_collection = None
         self.modal_config_collection = None
         self.users_collection = None  # Only users collection now
+        self.carts_collection = None  # Cart data collection
         
         # Remove automatic initialization
         # self._initialize_collections()
@@ -100,6 +101,15 @@ class ChatAIRAGChromaService:
                 metadata={"description": "User profile information for AI Chat"},
             )
         return self.users_collection
+    
+    def _get_or_create_carts_collection(self):
+        """Lazy initialization của carts collection"""
+        if self.carts_collection is None:
+            self.carts_collection = self.client.get_or_create_collection(
+                name="chat_ai_carts",
+                metadata={"description": "Cart data for AI Chat context"},
+            )
+        return self.carts_collection
         """Khởi tạo các collections cho Chat AI RAG"""
         try:
             # Collection cho product data
@@ -152,6 +162,7 @@ class ChatAIRAGChromaService:
                     "product_name": product_data.get("name", ""),
                     "price": str(product_data.get("price", 0)),
                     "category": product_data.get("category", ""),
+                    "status": product_data.get("status", "ACTIVE"),
                     "timestamp": datetime.now().isoformat(),
                 }]
             )
@@ -348,6 +359,384 @@ class ChatAIRAGChromaService:
             print(f"[ChatAIRAGChromaService] Error deleting modal config {modal_name}: {e}")
             return False
     
+    def get_all_products_for_ai(self, query: str = "") -> str:
+        """
+        Lấy TOÀN BỘ sản phẩm từ ChromaDB với đề xuất thông minh
+        
+        Features:
+        - Detect mục đích sử dụng (gaming, văn phòng, chụp ảnh...)
+        - Detect khoảng giá
+        - Highlight sản phẩm nổi bật cho mỗi category
+        - Gợi ý thông minh dựa trên query
+        
+        Args:
+            query: Query từ user
+            
+        Returns:
+            Formatted string với đề xuất thông minh
+        """
+        try:
+            collection = self._get_or_create_product_collection()
+            total_count = collection.count()
+            
+            if total_count == 0:
+                return "Hiện tại shop chưa có sản phẩm nào."
+            
+            print(f"[ChatAIRAGChromaService] Getting ALL {total_count} products for AI with smart recommendations")
+            
+            # Lấy TẤT CẢ sản phẩm từ collection
+            all_results = collection.get(
+                limit=total_count,
+                include=["documents", "metadatas"]
+            )
+            
+            if not all_results or not all_results.get("documents"):
+                return "Không thể lấy dữ liệu sản phẩm."
+            
+            # Parse và tổ chức sản phẩm theo category
+            products_by_category = {}
+            all_products = []
+            
+            for i, doc in enumerate(all_results["documents"]):
+                metadata = all_results["metadatas"][i] if all_results.get("metadatas") else {}
+                
+                # Extract thông tin
+                price = self._extract_price_from_content(doc)
+                category = self._extract_category_from_content(doc)
+                product_name = metadata.get("product_name", f"Sản phẩm {i+1}")
+                
+                # Extract thêm thông tin cho đề xuất thông minh
+                brand = self._extract_field_from_content(doc, "Thương hiệu:")
+                stock = self._extract_field_from_content(doc, "Số lượng tồn kho:")
+                img_url = self._extract_field_from_content(doc, "URL ảnh chính:")
+                
+                product_info = {
+                    "id": metadata.get("product_id", ""),
+                    "name": product_name,
+                    "price": price,
+                    "category": category,
+                    "brand": brand,
+                    "stock": int(stock) if stock and stock.isdigit() else 0,
+                    "img_url": img_url,
+                    "status": metadata.get("status", "ACTIVE"),
+                    "content": doc
+                }
+                
+                all_products.append(product_info)
+                
+                # Tổ chức theo category
+                if category not in products_by_category:
+                    products_by_category[category] = []
+                products_by_category[category].append(product_info)
+            
+            # === FILTER CHỈ LẤY SẢN PHẨM ACTIVE ===
+            # Lọc bỏ sản phẩm không hoạt động trước khi đề xuất
+            active_products = []
+            active_by_category = {}
+            for p in all_products:
+                status = p.get('status', 'ACTIVE')
+                if status == 'ACTIVE' or status == '':
+                    active_products.append(p)
+                    cat = p.get('category', 'Khác')
+                    if cat not in active_by_category:
+                        active_by_category[cat] = []
+                    active_by_category[cat].append(p)
+            
+            all_products = active_products
+            products_by_category = active_by_category
+            print(f"[ChatAIRAGChromaService] Filtered to {len(all_products)} ACTIVE products")
+            
+            # === FILTER GAMING LAPTOPS ===
+            is_gaming_query = any(kw in query.lower() for kw in [
+                'gaming', 'game', 'choi game', 'chơi game', 'rog', 'legion'
+            ])
+            if is_gaming_query and 'laptop' in query.lower():
+                # Filter for gaming laptops only
+                gaming_laptops = [
+                    p for p in all_products
+                    if 'laptop' in (p.get('category') or '').lower() and
+                       any(gaming_kw in (p.get('name') or '').lower() for gaming_kw in ['rog', 'legion', 'gaming', 'tuf'])
+                ]
+                if gaming_laptops:
+                    all_products = gaming_laptops
+                    # Update category dict
+                    products_by_category = {'Laptop': gaming_laptops}
+                    print(f"[ChatAIRAGChromaService] Gaming filter applied: {len(gaming_laptops)} gaming laptops")
+            
+            # === PHÂN TÍCH QUERY THÔNG MINH ===
+            query_lower = query.lower()
+            
+            # 1. Detect mục đích sử dụng
+            purpose_keywords = {
+                'gaming': ['gaming', 'game', 'chơi game', 'fps', 'pubg', 'lol', 'liên quân'],
+                'văn phòng': ['văn phòng', 'làm việc', 'office', 'word', 'excel', 'công việc'],
+                'chụp ảnh': ['chụp ảnh', 'camera', 'photography', 'quay phim', 'selfie', 'chụp hình'],
+                'học tập': ['học tập', 'sinh viên', 'học sinh', 'học online', 'học trực tuyến'],
+                'giải trí': ['giải trí', 'xem phim', 'nghe nhạc', 'youtube', 'netflix', 'tiktok']
+            }
+            
+            detected_purpose = None
+            for purpose, keywords in purpose_keywords.items():
+                if any(kw in query_lower for kw in keywords):
+                    detected_purpose = purpose
+                    break
+            
+            # 2. Detect yêu cầu về giá
+            is_low_price = any(kw in query_lower for kw in ['giá rẻ', 'rẻ', 'cheap', 'budget', 'thấp', 'tiết kiệm', 'sinh viên'])
+            is_high_price = any(kw in query_lower for kw in ['cao cấp', 'premium', 'flagship', 'đắt', 'xịn', 'tốt nhất', 'pro', 'ultra'])
+            is_mid_price = any(kw in query_lower for kw in ['tầm trung', 'vừa phải', 'không quá đắt', 'mid-range'])
+            
+            # 3. Detect khoảng giá cụ thể
+            price_range = None
+            if 'dưới 5 triệu' in query_lower or 'duoi 5 trieu' in query_lower:
+                price_range = (0, 5000000)
+            elif 'dưới 10 triệu' in query_lower or 'duoi 10 trieu' in query_lower:
+                price_range = (0, 10000000)
+            elif 'dưới 15 triệu' in query_lower or 'duoi 15 trieu' in query_lower:
+                price_range = (0, 15000000)
+            elif 'dưới 20 triệu' in query_lower or 'duoi 20 trieu' in query_lower:
+                price_range = (0, 20000000)
+            elif '10 đến 20 triệu' in query_lower or '10-20 triệu' in query_lower:
+                price_range = (10000000, 20000000)
+            elif '20 đến 30 triệu' in query_lower or '20-30 triệu' in query_lower:
+                price_range = (20000000, 30000000)
+            elif 'trên 30 triệu' in query_lower or 'tren 30 trieu' in query_lower:
+                price_range = (30000000, 999999999)
+            
+            # 4. Detect category từ query
+            target_category = None
+            category_keywords = {
+                'điện thoại': ['điện thoại', 'phone', 'smartphone', 'mobile', 'dien thoai', 'iphone', 'samsung', 'xiaomi'],
+                'laptop': ['laptop', 'máy tính', 'notebook', 'macbook', 'pc'],
+                'tai nghe': ['tai nghe', 'headphone', 'earphone', 'airpods', 'earbuds'],
+                'đồng hồ thông minh': ['đồng hồ', 'smartwatch', 'apple watch', 'galaxy watch']
+            }
+            
+            for cat, keywords in category_keywords.items():
+                if any(kw in query_lower for kw in keywords):
+                    target_category = cat
+                    break
+            
+            # 5. Detect SẢN PHẨM/THƯƠNG HIỆU CỤ THỂ từ query
+            specific_product_keywords = {
+                # Apple ecosystem - phải đặt trước để ưu tiên
+                'apple': ['apple', 'táo', 'hệ sinh thái apple'],
+                # Laptop brands/products
+                'macbook': ['macbook', 'mac book'],
+                'dell': ['dell', 'xps'],
+                'hp': ['hp ', 'hp pavilion', 'hp probook'],
+                'lenovo': ['lenovo', 'thinkpad', 'ideapad', 'legion'],
+                'asus': ['asus', 'vivobook', 'zenbook', 'rog'],
+                'acer': ['acer', 'aspire', 'swift'],
+                # Phone brands/products
+                'iphone': ['iphone', 'ip '],
+                'samsung': ['samsung', 'galaxy'],
+                'xiaomi': ['xiaomi', 'redmi', 'poco', 'mi '],
+                'oppo': ['oppo', 'find x'],
+                'vivo': ['vivo'],
+                'realme': ['realme'],
+                'oneplus': ['oneplus', 'one plus'],
+                'google': ['google', 'pixel'],
+                'nothing': ['nothing phone'],
+                # Headphones
+                'airpods': ['airpods', 'air pods'],
+                'sony headphone': ['sony wf', 'sony wh', 'xm4', 'xm5'],
+                'bose': ['bose', 'quietcomfort'],
+                'jabra': ['jabra'],
+                'jbl': ['jbl'],
+                'edifier': ['edifier'],
+                'anker': ['anker', 'soundcore'],
+                'sennheiser': ['sennheiser'],
+                # Smartwatch
+                'apple watch': ['apple watch', 'iwatch'],
+            }
+            
+            detected_specific_product = None
+            for product_name, keywords in specific_product_keywords.items():
+                if any(kw in query_lower for kw in keywords):
+                    detected_specific_product = product_name
+                    break
+            
+            # Detect comparison query (so sánh nhiều sản phẩm)
+            is_comparison = any(kw in query_lower for kw in [
+                'so sánh', 'so sanh', 'so với', 'so voi', 'với', 'voi', 
+                'hay', 'hoặc', 'hoac', 'vs', 'versus', 'compare'
+            ])
+            
+            # Filter sản phẩm theo sản phẩm/thương hiệu cụ thể
+            # SKIP nếu là comparison query để trả về tất cả products liên quan
+            if detected_specific_product and not is_comparison:
+                keywords_to_match = specific_product_keywords[detected_specific_product]
+                filtered_products = []
+                for prod in all_products:
+                    product_name_lower = prod['name'].lower()
+                    brand_lower = (prod['brand'] or '').lower()
+                    # Kiểm tra tên sản phẩm hoặc thương hiệu có match không
+                    if any(kw in product_name_lower or kw in brand_lower for kw in keywords_to_match):
+                        filtered_products.append(prod)
+                
+                if filtered_products:
+                    # Tạo products_by_category mới chỉ chứa sản phẩm matching
+                    products_by_category = {}
+                    for prod in filtered_products:
+                        cat = prod['category']
+                        if cat not in products_by_category:
+                            products_by_category[cat] = []
+                        products_by_category[cat].append(prod)
+                    
+                    all_products = filtered_products
+                    total_count = len(filtered_products)
+                    print(f"[ChatAIRAGChromaService] Filtered to {total_count} products matching '{detected_specific_product}'")
+            
+            # === FORMAT OUTPUT VỚI ĐỀ XUẤT THÔNG MINH ===
+            context_text = f"=== TOÀN BỘ SẢN PHẨM CỦA SHOP ({total_count} sản phẩm) ===\n\n"
+            
+            # Phân tích yêu cầu của khách hàng
+            context_text += "🎯 PHÂN TÍCH YÊU CẦU KHÁCH HÀNG:\n"
+            if detected_specific_product:
+                context_text += f"  • ⭐ SẢN PHẨM CỤ THỂ: {detected_specific_product.upper()} ({total_count} sản phẩm tìm thấy)\n"
+            if target_category:
+                context_text += f"  • Danh mục quan tâm: {target_category.upper()}\n"
+            if detected_purpose:
+                context_text += f"  • Mục đích sử dụng: {detected_purpose.upper()}\n"
+            if is_low_price:
+                context_text += f"  • Ngân sách: GIÁ RẺ / TIẾT KIỆM\n"
+            elif is_high_price:
+                context_text += f"  • Ngân sách: CAO CẤP / PREMIUM\n"
+            elif is_mid_price:
+                context_text += f"  • Ngân sách: TẦM TRUNG\n"
+            if price_range:
+                context_text += f"  • Khoảng giá: {price_range[0]:,} - {price_range[1]:,} VNĐ\n"
+            context_text += "\n"
+            
+            # Thống kê theo category với sản phẩm nổi bật
+            context_text += "📊 THỐNG KÊ VÀ ĐỀ XUẤT THEO DANH MỤC:\n\n"
+            
+            for cat, prods in products_by_category.items():
+                prices = [p['price'] for p in prods if p['price']]
+                if not prices:
+                    continue
+                
+                min_price = min(prices)
+                max_price = max(prices)
+                avg_price = sum(prices) // len(prices)
+                
+                # Tìm sản phẩm nổi bật cho category này
+                cheapest = min(prods, key=lambda x: x['price'] if x['price'] else 999999999)
+                most_expensive = max(prods, key=lambda x: x['price'] if x['price'] else 0)
+                best_stock = max(prods, key=lambda x: x['stock'] if x['stock'] else 0)
+                
+                context_text += f"━━━ {cat.upper()} ({len(prods)} sản phẩm) ━━━\n"
+                context_text += f"💰 Giá: {min_price:,} - {max_price:,} VNĐ (TB: {avg_price:,} VNĐ)\n"
+                context_text += f"⭐ RẺ NHẤT: {cheapest['name']} - {cheapest['price']:,} VNĐ\n"
+                context_text += f"👑 CAO CẤP NHẤT: {most_expensive['name']} - {most_expensive['price']:,} VNĐ\n"
+                if best_stock['stock'] > 0:
+                    context_text += f"📦 TỒN KHO NHIỀU: {best_stock['name']} ({best_stock['stock']} chiếc)\n"
+                context_text += "\n"
+            
+            # Filter sản phẩm theo yêu cầu
+            def filter_products(prods):
+                filtered = prods.copy()
+                
+                # Filter theo price range
+                if price_range:
+                    filtered = [p for p in filtered if p['price'] and price_range[0] <= p['price'] <= price_range[1]]
+                
+                # Sort theo yêu cầu
+                if is_low_price:
+                    filtered.sort(key=lambda x: x['price'] if x['price'] else 999999999)
+                elif is_high_price:
+                    filtered.sort(key=lambda x: -(x['price'] if x['price'] else 0))
+                else:
+                    # Mặc định sort theo tồn kho (phổ biến)
+                    filtered.sort(key=lambda x: -x['stock'])
+                
+                return filtered
+            
+            # Chi tiết sản phẩm theo category
+            context_text += "\n📱 CHI TIẾT TẤT CẢ SẢN PHẨM:\n"
+            
+            # Nếu có target_category, ưu tiên hiển thị category đó trước
+            categories_order = list(products_by_category.keys())
+            if target_category and target_category in categories_order:
+                categories_order.remove(target_category)
+                categories_order.insert(0, target_category)
+            
+            for cat in categories_order:
+                prods = products_by_category[cat]
+                filtered_prods = filter_products(prods)
+                
+                is_target = cat == target_category
+                highlight = "⭐" if is_target else ""
+                
+                context_text += f"\n{highlight}━━━ {cat.upper()} ({len(filtered_prods)} sản phẩm) ━━━{highlight}\n"
+                
+                for idx, prod in enumerate(filtered_prods, 1):
+                    price_str = f"{prod['price']:,}" if prod['price'] else "?"
+                    
+                    # Đánh dấu sản phẩm đặc biệt (rút gọn tags)
+                    tags = []
+                    if prod == min(prods, key=lambda x: x['price'] if x['price'] else 999999999):
+                        tags.append("💰RẺ NHẤT")
+                    if prod == max(prods, key=lambda x: x['price'] if x['price'] else 0):
+                        tags.append("👑CAO CẤP")
+                    
+                    tag_str = f" [{', '.join(tags)}]" if tags else ""
+                    brand_str = f" | {prod['brand']}" if prod['brand'] and prod['brand'] != "N/A" else ""
+                    stock_str = f" | SL:{prod['stock']}" if prod['stock'] else ""
+                    
+                    # Format compact: số. Tên - Giá [tags] | Brand | Stock
+                    context_text += f"{idx}. {prod['name']} - {price_str} VNĐ{tag_str}{brand_str}{stock_str}\n"
+                    
+                    # Hiển thị ảnh cho TẤT CẢ sản phẩm
+                    if prod['img_url'] and prod['img_url'] != "N/A":
+                        context_text += f"   🖼️ {prod['img_url']}\n"
+            
+            # Gợi ý thông minh cho AI
+            context_text += "\n\n🤖 HƯỚNG DẪN TƯ VẤN CHO AI:\n"
+            context_text += f"📌 Tổng: {total_count} sản phẩm trong {len(products_by_category)} danh mục\n"
+            
+            if target_category:
+                target_prods = products_by_category.get(target_category, [])
+                context_text += f"📌 Khách đang tìm {target_category.upper()}: {len(target_prods)} sản phẩm\n"
+            
+            if detected_purpose:
+                context_text += f"📌 Mục đích: {detected_purpose} - Hãy đề xuất sản phẩm phù hợp với nhu cầu này\n"
+            
+            if is_low_price:
+                context_text += "📌 Khách muốn GIÁ RẺ → Ưu tiên đề xuất sản phẩm có giá THẤP NHẤT trong danh mục\n"
+            elif is_high_price:
+                context_text += "📌 Khách muốn CAO CẤP → Ưu tiên đề xuất sản phẩm PREMIUM, flagship\n"
+            elif is_mid_price:
+                context_text += "📌 Khách muốn TẦM TRUNG → Đề xuất sản phẩm cân bằng giá-hiệu năng\n"
+            
+            if price_range:
+                # Đếm sản phẩm trong khoảng giá
+                in_range = [p for p in all_products if p['price'] and price_range[0] <= p['price'] <= price_range[1]]
+                context_text += f"📌 Trong khoảng giá {price_range[0]:,}-{price_range[1]:,}: {len(in_range)} sản phẩm phù hợp\n"
+            
+            context_text += "\n📌 Luôn so sánh 2-3 sản phẩm, nêu ưu/nhược điểm, và đưa ra đề xuất cuối cùng!"
+            
+            print(f"[ChatAIRAGChromaService] Formatted {total_count} products with smart recommendations, context length: {len(context_text)}")
+            return context_text
+            
+        except Exception as e:
+            print(f"[ChatAIRAGChromaService] Error getting all products: {e}")
+            import traceback
+            traceback.print_exc()
+            return f"Lỗi khi lấy dữ liệu sản phẩm: {str(e)}"
+    
+    def _extract_field_from_content(self, content: str, field_name: str) -> str:
+        """Helper để extract field từ content"""
+        if field_name in content:
+            start = content.find(field_name) + len(field_name)
+            end = content.find("\n", start)
+            if end == -1:
+                end = len(content)
+            if end > start:
+                return content[start:end].strip()
+        return ""
+    
     def retrieve_product_context(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
         """
         Retrieve product context dựa trên query với logic filtering thông minh
@@ -526,84 +915,23 @@ class ChatAIRAGChromaService:
         """
         Retrieve kết hợp product + knowledge context để dùng cho AI response
         
+        QUAN TRỌNG: Giờ đây sẽ lấy TOÀN BỘ sản phẩm của shop để AI biết hết
+        
         Args:
             query: User query
-            top_k_products: Max products
+            top_k_products: IGNORED - giờ lấy tất cả sản phẩm
             top_k_knowledge: Max knowledge items
             
         Returns:
-            Formatted context string
+            Formatted context string với TOÀN BỘ sản phẩm
         """
-        product_context = self.retrieve_product_context(query, top_k_products)
+        # Lấy TOÀN BỘ sản phẩm của shop
+        all_products_context = self.get_all_products_for_ai(query)
+        
+        # Lấy knowledge context
         knowledge_context = self.retrieve_knowledge_context(query, top_k_knowledge)
         
-        context_text = ""
-        
-        # Add product context with detailed information
-        if product_context:
-            context_text += "=== THÔNG TIN SẢN PHẨM LIÊN QUAN ===\n"
-            for i, item in enumerate(product_context, 1):
-                context_text += f"📱 SẢN PHẨM {i}: {item['product_name']} (Độ liên quan: {item['score']:.2f})\n"
-                
-                # Extract key information from content
-                content = item['content']
-                
-                # Price
-                if "Giá:" in content:
-                    price_start = content.find("Giá:") + 4
-                    price_end = content.find("VNĐ", price_start) + 3
-                    if price_end > price_start:
-                        price_info = content[price_start:price_end].strip()
-                        context_text += f"💰 Giá: {price_info}\n"
-                
-                # Brand
-                if "Thương hiệu:" in content:
-                    brand_start = content.find("Thương hiệu:") + 12
-                    brand_end = content.find("\n", brand_start)
-                    if brand_end > brand_start:
-                        brand = content[brand_start:brand_end].strip()
-                        if brand and brand != "N/A":
-                            context_text += f"🏷️ Thương hiệu: {brand}\n"
-                
-                # Stock quantity
-                if "Số lượng tồn kho:" in content:
-                    stock_start = content.find("Số lượng tồn kho:") + 18
-                    stock_end = content.find("\n", stock_start)
-                    if stock_end > stock_start:
-                        stock = content[stock_start:stock_end].strip()
-                        context_text += f"📦 Tồn kho: {stock} chiếc\n"
-                
-                # Specifications
-                if "THÔNG SỐ KỸ THUẬT:" in content:
-                    spec_start = content.find("THÔNG SỐ KỸ THUẬT:")
-                    spec_end = content.find("\n\n", spec_start)
-                    if spec_end == -1:
-                        spec_end = len(content)
-                    specs_section = content[spec_start:spec_end]
-                    context_text += f"⚙️ {specs_section}\n"
-                
-                # Description
-                if "Mô tả:" in content:
-                    desc_start = content.find("Mô tả:") + 7
-                    desc_end = content.find("\n", desc_start)
-                    if desc_end > desc_start:
-                        desc = content[desc_start:desc_end].strip()
-                        if len(desc) > 100:
-                            desc = desc[:100] + "..."
-                        context_text += f"📝 Mô tả: {desc}\n"
-                
-                # Image URL for AI to use in markdown
-                if "URL ảnh chính:" in content:
-                    img_start = content.find("URL ảnh chính:") + 15
-                    img_end = content.find("\n", img_start)
-                    if img_end == -1:  # URL is at the end of content
-                        img_end = len(content)
-                    if img_end > img_start:
-                        img_url = content[img_start:img_end].strip()
-                        if img_url and img_url != "N/A":
-                            context_text += f"🖼️ URL hình ảnh: {img_url}\n"
-                
-                context_text += "\n"
+        context_text = all_products_context + "\n"
         
         # Add knowledge context
         if knowledge_context:
@@ -1021,6 +1349,140 @@ class ChatAIRAGChromaService:
                     parts.append(f"  {key}: {value}")
         
         return "\n".join(parts)
+    
+    # === CART DATA OPERATIONS ===
+    
+    def sync_carts_from_analytics(self, admin_token: str) -> int:
+        """
+        Đồng bộ cart data từ Spring Analytics API vào ChromaDB
+        
+        Args:
+            admin_token: JWT token của admin để gọi Analytics API
+            
+        Returns:
+            Số lượng carts đã sync
+        """
+        import httpx
+        
+        try:
+            spring_url = os.getenv("SPRING_SERVICE_URL", "http://14.164.29.11:8089/api/v1")
+            
+            with httpx.Client(timeout=30.0) as client:
+                response = client.get(
+                    f"{spring_url}/admin/analytics/system-data",
+                    headers={"Authorization": f"Bearer {admin_token}"}
+                )
+                
+                if response.status_code != 200:
+                    print(f"[ChatAIRAGChromaService] Failed to fetch analytics: {response.status_code}")
+                    return 0
+                
+                data = response.json()
+                carts = data.get('carts', [])
+                
+                if not carts:
+                    print("[ChatAIRAGChromaService] No carts found in analytics data")
+                    return 0
+                
+                # Clear old cart data
+                self.clear_carts()
+                
+                cart_collection = self._get_or_create_carts_collection()
+                synced = 0
+                
+                for cart in carts:
+                    user_id = cart.get('userId')
+                    username = cart.get('username', '')
+                    items = cart.get('items', [])
+                    total_value = cart.get('totalValue', 0)
+                    
+                    # Format cart content for embedding
+                    cart_content = f"Giỏ hàng của {username} (user_id: {user_id}):\n"
+                    for item in items:
+                        cart_content += f"- {item.get('productName')} x{item.get('quantity')} = {item.get('subtotal'):,.0f}đ\n"
+                    cart_content += f"Tổng giá trị: {total_value:,.0f}đ"
+                    
+                    cart_collection.upsert(
+                        ids=[f"cart_user_{user_id}"],
+                        documents=[cart_content],
+                        metadatas=[{
+                            "user_id": str(user_id),
+                            "username": username,
+                            "total_items": len(items),
+                            "total_value": str(total_value),
+                            "items_json": json.dumps(items, ensure_ascii=False),
+                            "synced_at": datetime.now().isoformat()
+                        }]
+                    )
+                    synced += 1
+                
+                print(f"[ChatAIRAGChromaService] Synced {synced} carts from Analytics API")
+                return synced
+                
+        except Exception as e:
+            print(f"[ChatAIRAGChromaService] Error syncing carts: {e}")
+            return 0
+    
+    def get_user_cart_context(self, user_id: str) -> str:
+        """
+        Lấy cart context của user từ ChromaDB để đưa vào AI chat
+        
+        Args:
+            user_id: ID của user (dạng 'user_5' hoặc '5')
+            
+        Returns:
+            Formatted cart context string
+        """
+        try:
+            # Normalize user_id
+            if user_id.startswith("user_"):
+                numeric_id = user_id.replace("user_", "")
+            else:
+                numeric_id = user_id
+            
+            cart_collection = self._get_or_create_carts_collection()
+            
+            # Debug: Check all carts in collection
+            all_carts = cart_collection.get()
+            print(f"[ChatAIRAGChromaService] Looking for cart of user_id: {user_id} (numeric: {numeric_id})")
+            print(f"[ChatAIRAGChromaService] Available cart IDs: {all_carts.get('ids', [])}")
+            
+            # Try to get by cart_user_X id
+            result = cart_collection.get(ids=[f"cart_user_{numeric_id}"])
+            print(f"[ChatAIRAGChromaService] Query result for cart_user_{numeric_id}: {len(result.get('documents', [])) if result else 0} documents")
+            
+            if result and result.get('documents') and result['documents'][0]:
+                metadata = result['metadatas'][0] if result.get('metadatas') else {}
+                items_json = metadata.get('items_json', '[]')
+                items = json.loads(items_json)
+                
+                cart_text = "\n\n=== GIỎ HÀNG THỰC TẾ CỦA KHÁCH ===\n"
+                for item in items:
+                    cart_text += f"- {item.get('productName')} (ID: {item.get('productId')}) | SL: {item.get('quantity')} | Giá: {item.get('productPrice'):,.0f}đ | Thành tiền: {item.get('subtotal'):,.0f}đ\n"
+                
+                total_value = metadata.get('total_value', '0')
+                cart_text += f"Tổng tiền giỏ hàng: {float(total_value):,.0f}đ\n"
+                cart_text += "📌 LƯU Ý CHO AI: Đây là giỏ hàng thực tế từ database. Khi khách nói 'đặt hàng sản phẩm trong giỏ', hãy xác nhận các sản phẩm này."
+                
+                return cart_text
+            
+            return ""
+            
+        except Exception as e:
+            print(f"[ChatAIRAGChromaService] Error getting user cart context: {e}")
+            return ""
+    
+    def clear_carts(self):
+        """Xóa tất cả cart data trong ChromaDB"""
+        try:
+            cart_collection = self._get_or_create_carts_collection()
+            # Get all existing cart IDs
+            all_data = cart_collection.get()
+            if all_data and all_data.get('ids'):
+                cart_collection.delete(ids=all_data['ids'])
+                print(f"[ChatAIRAGChromaService] Cleared {len(all_data['ids'])} carts")
+        except Exception as e:
+            print(f"[ChatAIRAGChromaService] Error clearing carts: {e}")
 
 
 # === SINGLETON INSTANCE ===

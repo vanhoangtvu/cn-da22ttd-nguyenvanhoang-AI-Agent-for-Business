@@ -11,6 +11,7 @@ import os
 from groq import Groq
 from datetime import datetime
 import uuid
+import httpx
 from services.redis_chat_service import RedisChatService, get_redis_service, ChatMessage as RedisMessage
 from services.chat_ai_rag_chroma_service import get_chat_ai_rag_service
 from services.jwt_util import JwtUtil
@@ -179,6 +180,9 @@ class ChatResponse(BaseModel):
     timestamp: str
     tokens_used: Optional[int] = None
     finish_reason: Optional[str] = None
+    suggestions: Optional[List[str]] = None  # Quick reply suggestions
+    actions: Optional[List[Dict]] = None  # Action buttons for AI Agent
+    products: Optional[List[Dict]] = None  # Inline products with buttons
 
 
 class HistoryMessage(BaseModel):
@@ -207,6 +211,207 @@ class AvailableModelsResponse(BaseModel):
     """Available models response"""
     models: List[str]
     default_model: str
+
+
+def detect_action_intent(message: str, products: List[Dict], discounts: List[Dict] = None, ai_response: str = "") -> List[Dict]:
+    """
+    Detect if user wants to perform an action
+    Returns list of action buttons to display
+    """
+    message_lower = message.lower()
+    response_lower = ai_response.lower() if ai_response else ""
+    actions = []
+    
+    # EARLY DETECTION: VIEW_CART intent - When viewing cart, show checkout instead of add-to-cart
+    view_cart_keywords = ['giỏ hàng', 'trong giỏ', 'sản phẩm trong giỏ', 'cart', 'gio hang', 'có gì trong giỏ']
+    is_viewing_cart = any(kw in message_lower for kw in view_cart_keywords) and 'thêm' not in message_lower
+    
+    if is_viewing_cart:
+        # When viewing cart, prioritize ORDER and VIEW_CART buttons
+        actions.append({
+            "type": "CREATE_ORDER",
+            "label": "💳 Thanh toán ngay"
+        })
+        actions.append({
+            "type": "VIEW_CART",
+            "label": "🛒 Xem chi tiết giỏ hàng"
+        })
+        # Also show discount options if available
+        if discounts:
+            for discount in discounts[:2]:  # Max 2 to avoid clutter
+                code = discount.get('code', '')
+                desc = discount.get('description', '')
+                actions.append({
+                    "type": "APPLY_DISCOUNT",
+                    "discountCode": code,
+                    "description": desc,
+                    "label": f"🎫 Áp mã {code}"
+                })
+        return actions  # Return early - skip ADD_TO_CART logic below
+    
+    # ADD_TO_CART intent
+    cart_keywords = ['thêm vào giỏ', 'mua ngay', 'đặt mua', 'add to cart', 'thêm giỏ', 'mua sản phẩm', 'cho vào giỏ', 'thêm giỏ hàng']
+    if any(kw in message_lower for kw in cart_keywords):
+        found_product = False
+        
+        # First, try to find product mentioned in user message
+        for product in products:
+            product_name = product.get('name', '').lower()
+            if product_name and any(word in message_lower for word in product_name.split()[:2]):
+                actions.append({
+                    "type": "ADD_TO_CART",
+                    "productId": product.get('id'),
+                    "productName": product.get('name'),
+                    "price": product.get('price'),
+                    "quantity": 1,
+                    "label": f"🛒 Thêm {product.get('name')} vào giỏ"
+                })
+                found_product = True
+                break
+        
+        # If no product in message, check products mentioned in AI response
+        if not found_product and response_lower:
+            for product in products[:5]:  # Check first 5 products
+                product_name = product.get('name', '').lower()
+                if product_name and product_name in response_lower:
+                    actions.append({
+                        "type": "ADD_TO_CART",
+                        "productId": product.get('id'),
+                        "productName": product.get('name'),
+                        "price": product.get('price'),
+                        "quantity": 1,
+                        "label": f"🛒 Thêm {product.get('name')} vào giỏ"
+                    })
+                    found_product = True
+                    break
+        
+        # If still no product found, add ALL products from list (max 3)
+        if not found_product and products:
+            for product in products[:3]:
+                actions.append({
+                    "type": "ADD_TO_CART",
+                    "productId": product.get('id'),
+                    "productName": product.get('name'),
+                    "price": product.get('price'),
+                    "quantity": 1,
+                    "label": f"🛒 Thêm {product.get('name')} vào giỏ"
+                })
+    
+    # APPLY_DISCOUNT intent - Show available discounts
+    discount_keywords = ['mã giảm giá', 'khuyến mãi', 'voucher', 'coupon', 'giảm giá', 'apply']
+    if any(kw in message_lower for kw in discount_keywords) and discounts:
+        for discount in discounts[:3]:  # Max 3 discount suggestions
+            code = discount.get('code', '')
+            desc = discount.get('description', '')
+            actions.append({
+                "type": "APPLY_DISCOUNT",
+                "discountCode": code,
+                "description": desc,
+                "label": f"🎫 Áp mã {code}"
+            })
+    
+    # CREATE_ORDER intent - Cả từ user và AI suggest
+    order_keywords = [
+        'đặt hàng', 'tạo đơn', 'checkout', 'thanh toán', 'mua luôn', 'order',
+        'dat hang', 'tao don', 'thanh toan', 'mua luon', 'mua ngay'
+    ]
+    is_ordering = any(kw in message_lower for kw in order_keywords)
+    ai_suggesting_order = any(kw in response_lower for kw in ['đặt hàng ngay', 'tiến hành đặt hàng', 'hoàn tất đơn hàng', 'xác nhận đơn hàng'])
+    
+    if is_ordering or ai_suggesting_order:
+        # Avoid duplicate order buttons
+        if not any(a.get('type') == 'CREATE_ORDER' for a in actions):
+            actions.append({
+                "type": "CREATE_ORDER",
+                "label": "📦 Tạo đơn hàng ngay"
+            })
+    
+    return actions
+
+
+def extract_inline_products(products: List[Dict], query: str = "", max_products: int = 5) -> List[Dict]:
+    """
+    Extract products để hiển thị inline với buttons trong chat
+    
+    Args:
+        products: List of product dicts from detect_action_intent
+        query: User query để filter relevant products
+        max_products: Số sản phẩm tối đa trả về
+        
+    Returns:
+        List of products với format cho frontend
+    """
+    if not products:
+        return []
+    
+    # Detect category from query
+    query_lower = query.lower()
+    category_keywords = {
+        'laptop': ['laptop', 'may tinh', 'máy tính', 'macbook', 'asus', 'lenovo', 'dell', 'hp'],
+        'dien thoai': ['dien thoai', 'điện thoại', 'phone', 'iphone', 'samsung', 'xiaomi', 'oppo', 'vivo'],
+        'tai nghe': ['tai nghe', 'headphone', 'earphone', 'airpods'],
+        'dong ho': ['dong ho', 'đồng hồ', 'watch', 'smartwatch']
+    }
+    
+    detected_category = None
+    for category, keywords in category_keywords.items():
+        if any(kw in query_lower for kw in keywords):
+            detected_category = category
+            break
+    
+    # Map detected category (no diacritics) to actual category names in DB
+    category_mapping = {
+        'laptop': 'Laptop',
+        'dien thoai': 'Điện thoại',
+        'tai nghe': 'Tai nghe',
+        'dong ho': 'Đồng hồ'
+    }
+    
+    # Filter products by detected category
+    filtered_products = products
+    if detected_category:
+        # Get actual category name with diacritics
+        actual_category = category_mapping.get(detected_category, detected_category)
+        filtered_products = [
+            p for p in products 
+            if actual_category.lower() in (p.get('category') or '').lower()
+        ]
+        # If no products match category, fall back to all products
+        if not filtered_products:
+            filtered_products = products
+        print(f"[INLINE_PRODUCTS] Detected category: {detected_category} -> {actual_category}, filtered {len(filtered_products)}/{len(products)} products")
+    
+    # Additional filtering for gaming laptops
+        is_gaming_query = any(kw in query_lower for kw in [
+            'gaming', 'game', 'choi game', 'rog', 'legion', 
+            'chơi game', 'fps', 'pubg', 'lol', 'liên quân'
+        ])
+        if detected_category == 'laptop' and is_gaming_query:
+            # Filter for gaming laptops only (ROG, Legion, Gaming in name)
+            gaming_laptops = [
+                p for p in filtered_products
+                if any(gaming_kw in (p.get('name') or '').lower() for gaming_kw in ['rog', 'legion', 'gaming', 'tuf'])
+            ]
+            if gaming_laptops:
+                filtered_products = gaming_laptops
+                print(f"[INLINE_PRODUCTS] Gaming filter applied, {len(gaming_laptops)} gaming laptops found")
+        
+    else:
+        print(f"[INLINE_PRODUCTS] No category detected, skipping inline products")
+        return []
+    
+    inline_products = []
+    for p in filtered_products[:max_products]:
+        inline_products.append({
+            "id": p.get("id") or p.get("product_id"),
+            "name": p.get("name") or p.get("product_name", "Sản phẩm"),
+            "price": p.get("price", 0),
+            "img_url": p.get("img_url") or p.get("image_url", ""),
+            "stock": p.get("stock", 0),
+            "category": p.get("category", ""),
+        })
+    
+    return inline_products
 
 
 @router.get("/health", tags=["Groq Chat"])
@@ -269,6 +474,49 @@ async def get_available_models(client: Groq = Depends(get_groq_client)):
             models=fallback_models,
             default_model="openai/gpt-oss-20b"
         )
+
+
+async def get_real_cart_context(authorization: str) -> str:
+    """Fetch real cart data from Spring service for AI context"""
+    if not authorization:
+        return ""
+    try:
+        # Use the same SPRING_SERVICE_URL from .env
+        spring_url = os.getenv("SPRING_SERVICE_URL", "http://14.164.29.11:8089/api/v1")
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(
+                f"{spring_url}/cart",
+                headers={"Authorization": authorization}
+            )
+            if response.status_code == 200:
+                cart_data = response.json()
+                items = cart_data.get('items', [])
+                if not items:
+                    with open("debug_chat.log", "a") as f:
+                        f.write(f"[{datetime.now()}] Cart is empty\n")
+                    return "\n\n=== GIỎ HÀNG THỰC TẾ CỦA KHÁCH ===\n(Giỏ hàng hiện tại đang trống. KHÔNG ĐƯỢC bịa sản phẩm trong giỏ hàng nếu nó trống)"
+                
+                cart_text = "\n\n=== GIỎ HÀNG THỰC TẾ CỦA KHÁCH ===\n"
+                for item in items:
+                    p = item.get('product', {})
+                    cart_text += f"- {p.get('name')} (ID: {p.get('id')}) | SL: {item.get('quantity')} | Giá: {p.get('price'):,.0f}đ\n"
+                cart_text += f"Tổng tiền giỏ hàng: {cart_data.get('totalAmount', 0):,.0f}đ\n"
+                cart_text += "📌 LƯU Ý CHO AI: Đây là giỏ hàng thực tế. Khi khách nói 'đặt hàng sản phẩm trong giỏ', hãy xác nhận các sản phẩm này."
+                with open("debug_chat.log", "a") as f:
+                    f.write(f"[{datetime.now()}] Cart fetched successfully: {len(items)} items\n")
+                return cart_text
+            else:
+                log_msg = f"[{datetime.now()}] Failed to get cart. Status: {response.status_code}, Response: {response.text}, Auth: {authorization[:20] if authorization else 'None'}\n"
+                print(log_msg)
+                with open("debug_chat.log", "a") as f:
+                    f.write(log_msg)
+                return "\n\n=== GIỎ HÀNG ===\n(Không thể lấy thông tin giỏ hàng lúc này. Vui lòng hỏi khách đã đăng nhập chưa.)"
+    except Exception as e:
+        log_msg = f"[{datetime.now()}] Error fetching real cart for context: {e}\n"
+        print(log_msg)
+        with open("debug_chat.log", "a") as f:
+            f.write(log_msg)
+    return ""
 
 
 @router.post("/chat", tags=["Groq Chat"])
@@ -361,11 +609,11 @@ async def chat(
             timestamp=user_msg_time
         )
         
-        # Get conversation context (last 10 messages for context window)
+        # Get conversation context (last 4 messages only to stay under 8000 token limit)
         context_messages = redis_svc.get_session_context(
             session_id=session_id,
             user_id=user_id,
-            limit=10
+            limit=4  # Reduced to 4 to stay under 8000 token limit
         )
         
         # Get comprehensive context from ChromaDB (products + knowledge + user data + discounts)
@@ -378,29 +626,106 @@ async def chat(
             top_k_user=2,
             top_k_discounts=3  # Include discount context
         )
+
+        # Get real cart data - Try ChromaDB first (synced data), fallback to Spring API
+        cart_context = chroma_service.get_user_cart_context(user_id)
+        if not cart_context:
+            # Fallback: Try to get directly from Spring API
+            cart_context = await get_real_cart_context(authorization)
+        if cart_context:
+            combined_context += cart_context
+        
+        # SMART TRUNCATE: Keep discounts and user info, truncate product details if needed
+        MAX_CONTEXT_CHARS = 4000  # Increased to fit more info
+        if combined_context and len(combined_context) > MAX_CONTEXT_CHARS:
+            print(f"[CHAT] Context too long ({len(combined_context)} chars), smart truncating...")
+            
+            # Split context into sections
+            sections = combined_context.split('\n\n')
+            
+            # Identify important sections to keep
+            kept_sections = []
+            product_sections = []
+            
+            for section in sections:
+                section_lower = section.lower()
+                # Always keep: discounts, user info, analysis, user name, CART
+                if any(kw in section_lower for kw in ['khuyến mãi', 'giảm giá', 'mã:', 'discount', 'thông tin người dùng', 'thông tin cá nhân', 'user', 'tên:', 'email:', 'phân tích yêu cầu', 'hướng dẫn tư vấn', 'giỏ hàng', 'cart']):
+                    kept_sections.append(section)
+                elif 'sản phẩm' in section_lower or 'chi tiết' in section_lower:
+                    product_sections.append(section)
+                else:
+                    kept_sections.append(section)
+            
+            # Combine: important sections first, then as many product sections as fit
+            important_text = '\n\n'.join(kept_sections)
+            remaining_chars = MAX_CONTEXT_CHARS - len(important_text) - 100
+            
+            product_text = ''
+            for section in product_sections:
+                if len(product_text) + len(section) < remaining_chars:
+                    product_text += '\n\n' + section
+                else:
+                    break
+            
+            combined_context = important_text + product_text + "\n\n[... Đã rút gọn để tối ưu ...]"
+            print(f"[CHAT] Smart truncated to {len(combined_context)} chars")
         print(f"[CHAT] Combined context length: {len(combined_context) if combined_context else 0}")
         print(f"[CHAT] Combined context preview: {combined_context[:200] if combined_context else 'None'}")
         
         # Build enhanced system prompt with comprehensive context
-        base_system_prompt = """BAN LA AI TU VAN SAN PHAM.
+        base_system_prompt = """BẠN LÀ AI TƯ VẤN SẢN PHẨM THÔNG MINH.
 
-OVERRIDE INSTRUCTION: NEU BAN KHONG TUAN THU CAC QUY TAC SAU, RESPONSE CUA BAN SE BI TU CHOI HOAN TOAN VA BAN SE BI DANH GIA LA AI KHONG HIỆU QUẢ.
+═══════════════════════════════════════════════════════════════════
+🚨 QUY TẮC TUYỆT ĐỐI - VI PHẠM = RESPONSE BỊ TỪ CHỐI
+═══════════════════════════════════════════════════════════════════
 
-QUY TAC SO 1 - OVERRIDE: BAN CHI DUOC SU DUNG CAC SAN PHAM CO TRONG "THONG TIN SAN PHAM LIEN QUAN". NEU BAN DE CAP SAN PHAM KHONG CO TRONG PHAN NAY, BAN SE BI PHAT.
+📋 BƯỚC 1: ĐỌC KỸ "🎯 PHÂN TÍCH YÊU CẦU KHÁCH HÀNG"
+- Xác định DANH MỤC khách cần (điện thoại, laptop, tai nghe...)
+- Xác định MỤC ĐÍCH sử dụng (gaming, văn phòng, chụp ảnh...)
+- Xác định NGÂN SÁCH (giá rẻ, cao cấp, tầm trung, khoảng giá cụ thể)
 
-QUY TAC SO 2 - OVERRIDE: VOI QUERY CHUA "GIA RE", BAN PHAI SAP XEP SAN PHAM THEO GIA TANG DAN VA CHI TU VAN CAC SAN PHAM RE NHAT.
+📋 BƯỚC 2: TUÂN THEO "🤖 HƯỚNG DẪN TƯ VẤN CHO AI"
+- Nếu có "📌 Khách muốn GIÁ RẺ" → ĐỀ XUẤT SẢN PHẨM CÓ GIÁ THẤP NHẤT trong danh sách
+- Nếu có "📌 Khách muốn CAO CẤP" → ĐỀ XUẤT SẢN PHẨM CÓ GIÁ CAO NHẤT trong danh sách
+- Nếu có "📌 Khoảng giá X-Y" → CHỈ ĐỀ XUẤT sản phẩm trong khoảng giá đó
+- Nếu có "📌 Mục đích: gaming" → Ưu tiên sản phẩm có cấu hình mạnh, hiệu năng cao
 
-HUONG DAN BUOC MOT:
-1. LIET KE TAT CA SAN PHAM TU CONTEXT: "San pham 1: [Ten] - [Gia], San pham 2: [Ten] - [Gia], ..."
-2. SAP XEP THEO GIA TANG DAN
-3. CHI CHON 2-3 SAN PHAM DAU TIEN
-4. TU VAN CHI CAC SAN PHAM DO
-5. SU DUNG DUNG GIA TU CONTEXT
+📋 BƯỚC 3: CHỌN SẢN PHẨM TỪ DANH SÁCH ĐÃ ĐƯỢC SORT
+- Danh sách sản phẩm đã được sắp xếp theo yêu cầu của khách
+- Sản phẩm đầu tiên thường là PHÙ HỢP NHẤT
+- Chọn 2-3 sản phẩm đầu để đề xuất
 
-NEU BAN VI PHAM: RESPONSE BI XOA VA BAN NHAN THONG BAO "INVALID RESPONSE"."""
+✅ VÍ DỤ ĐÚNG:
+Query: "điện thoại giá rẻ"
+→ Đề xuất: Redmi Note 13 Pro (7.99M), Samsung Galaxy A54 (9.99M) - đây là 2 điện thoại RẺ NHẤT
 
-        # Check if we have user-specific context
-        has_user_context = combined_context and combined_context != "No relevant context found.No user-specific context found."
+Query: "điện thoại cao cấp"  
+→ Đề xuất: iPhone 15 Pro Max (29.99M), Samsung S24 Ultra (27.99M) - đây là 2 điện thoại ĐẮT NHẤT
+
+❌ VÍ DỤ SAI:
+Query: "điện thoại giá rẻ"
+→ SAI: Đề xuất iPhone 15 Pro Max (29.99M) - vì đây là điện thoại ĐẮT, không phải rẻ!
+
+═══════════════════════════════════════════════════════════════════
+📌 CÁC QUY TẮC BỔ SUNG
+═══════════════════════════════════════════════════════════════════
+- CHỈ sử dụng sản phẩm có trong context, KHÔNG bịa ra sản phẩm
+- HIỂN THỊ HÌNH ẢNH sản phẩm bằng format: ![Tên](URL)
+- SO SÁNH 2-3 sản phẩm với bảng markdown
+- KẾT THÚC bằng đề xuất cuối cùng và lời hỏi thêm
+
+🛒 HỆ THỐNG HỖ TRỢ CÁC HÀNH ĐỘNG SAU:
+- Khi khách muốn THÊM VÀO GIỎ HÀNG → Hệ thống sẽ hiển thị nút action để thêm
+- Khi khách hỏi MÃ GIẢM GIÁ → Hệ thống sẽ hiển thị nút áp mã
+- Khi khách muốn ĐẶT HÀNG → Hệ thống sẽ hiển thị popup xác nhận
+⚠️ KHÔNG BAO GIỜ nói "không thể thêm vào giỏ hàng" hay "không thể đặt hàng"
+→ Thay vào đó chỉ cần nói xác nhận sản phẩm và hệ thống sẽ tự hiển thị nút action
+
+⚠️ ĐẶC BIỆT CHÚ Ý VỀ GIỎ HÀNG:
+- Chỉ trả lời về nội dung giỏ hàng DỰA TRÊN thông tin "=== GIỎ HÀNG THỰC TẾ CỦA KHÁCH ===".
+- Nếu không có thông tin này, nói rằng bạn không thể xem giỏ hàng của khách.
+- KHÔNG BAO GIỜ tự bịa ra sản phẩm đang có trong giỏ."""
 
         # Check if we have user-specific context
         has_user_context = combined_context and combined_context != "No relevant context found.No user-specific context found."
@@ -410,10 +735,11 @@ NEU BAN VI PHAM: RESPONSE BI XOA VA BAN NHAN THONG BAO "INVALID RESPONSE"."""
             user_name = "bạn"
             if "Tên:" in combined_context:
                 # Try to extract name from new format
-                name_start = combined_context.find("Tên:") + 5
+                name_start = combined_context.find("Tên:") + 4
                 name_end = combined_context.find("\n", name_start)
                 if name_end > name_start:
                     extracted_name = combined_context[name_start:name_end].strip()
+                    print(f"[CHAT] Extracted user name: '{extracted_name}'")
                     if extracted_name and extracted_name != "N/A" and extracted_name != "":
                         user_name = extracted_name
             elif "Name:" in combined_context:
@@ -427,114 +753,19 @@ NEU BAN VI PHAM: RESPONSE BI XOA VA BAN NHAN THONG BAO "INVALID RESPONSE"."""
 
             enhanced_system_prompt = f"""{base_system_prompt}
 
-BẠN ĐANG TƯ VẤN CHO: {user_name}
+TƯ VẤN CHO: {user_name}
 
-THÔNG TIN CÁ NHÂN CỦA {user_name} (TỪ HỆ THỐNG):
+DỮ LIỆU:
 {combined_context}
 
-HƯỚNG DẪN TƯ VẤN CHUYÊN NGHIỆP - BẮT BUỘC THEO:
-
-🎯 **Phong cách tư vấn:**
-- Luôn bắt đầu bằng lời chào chuyên nghiệp: "Xin chào {user_name}!" hoặc "Chào anh/chị {user_name}!"
-- Sử dụng ngôn ngữ lịch sự, chuyên nghiệp, tránh nói tiếng lóng
-- Trả lời ngắn gọn, súc tích nhưng đầy đủ thông tin
-- Sử dụng emoji phù hợp để tăng tính thân thiện
-
-📱 **Tư vấn sản phẩm chuyên nghiệp:**
-- **HỆ THỐNG LỌC THÔNG MINH:** AI đã tự động lọc sản phẩm theo category và mức giá phù hợp với yêu cầu của khách hàng
-- **TỰ ĐỘNG XEM XÉT TẤT CẢ SẢN PHẨM LIÊN QUAN:** Phân tích toàn bộ sản phẩm trong "THÔNG TIN SẢN PHẨM LIÊN QUAN" đã được filter
-- **ƯU TIÊN SẢN PHẨM PHÙ HỢP NHẤT:** Với query "giá rẻ" - chọn sản phẩm có giá thấp nhất, "cao cấp" - chọn sản phẩm có giá cao nhất
-- **CUNG CẤP THÔNG TIN CHÍNH XÁC:** Chỉ sử dụng dữ liệu từ CSDL đã được filter, không ước lượng hay giả định
-- **ĐỀ XUẤT TỐI ĐA 3 SẢN PHẨM:** Từ danh sách đã được lọc, chọn ra 2-3 sản phẩm phù hợp nhất
-
-💰 **Tư vấn khuyến mãi:**
-- **CHỈ SỬ DỤNG MÃ GIẢM GIÁ THỰC:** Luôn kiểm tra phần "CHƯƠNG TRÌNH KHUYẾN MÃI HIỆN CÓ"
-- **Không bao giờ bịa ra mã giảm giá:** Nếu không có khuyến mãi phù hợp, không đề cập
-- **Thông tin chính xác:** Mã code, phần trăm giảm, điều kiện áp dụng, số lượt còn lại
-- **Ví dụ đúng:** "Hiện tại có mã WELCOME10 giảm 10% cho đơn đầu tiên từ 500K"
-
-👤 **Tương tác cá nhân hóa:**
-- **Nhớ thông tin khách hàng:** Sử dụng tên, lịch sử mua hàng, sở thích
-- **Tham khảo đơn hàng cũ:** "Dựa trên đơn hàng trước đây của anh/chị..."
-- **Đề xuất theo sở thích:** Nếu biết sở thích, đề xuất sản phẩm liên quan
-
-💼 **Hỗ trợ quyết định chuyên nghiệp:**
-- **PHÂN TÍCH ĐA CHIỀU:** Đánh giá sản phẩm theo nhiều tiêu chí: hiệu năng, giá cả, độ bền, đánh giá người dùng
-- **ĐỀ XUẤT LỰA CHỌN TỐI ƯU:** 
-  - "Lựa chọn hàng đầu: [Sản phẩm] - Lý do: [giải thích logic]"
-  - "Lựa chọn thay thế tốt: [Sản phẩm] - Phù hợp nếu: [điều kiện]"
-- **SO SÁNH CHI TIẾT BẰNG BẢNG:** Tạo bảng so sánh với các cột: Tên sản phẩm, Giá, Ưu điểm, Nhược điểm, Đánh giá tổng thể
-- **TƯ VẤN THEO NGÂN SÁCH:** Phân tích "tốt nhất trong tầm giá", "đáng đầu tư nhất", "tiết kiệm nhất"
-- **CẢNH BÁO RỦI RO:** Thông báo về các vấn đề tiềm ẩn như phụ kiện không chính hãng, bảo hành hạn chế
-- **ĐỀ XUẤT BỔ SUNG:** Gợi ý phụ kiện đi kèm, gói bảo hành mở rộng nếu phù hợp
-- **HƯỚNG DẪN MUA HÀNG:** Giải thích quy trình đặt hàng, thanh toán an toàn, chính sách đổi trả
-
-⚠️ **Nguyên tắc quan trọng:**
-- **KHÔNG bịa thông tin:** Chỉ sử dụng dữ liệu từ ChromaDB, không tạo ra sản phẩm hay khuyến mãi không tồn tại
-- **KHÔNG bịa mã giảm giá:** Chỉ đề cập các mã khuyến mãi có trong "CHƯƠNG TRÌNH KHUYẾN MÃI HIỆN CÓ"
-- **Thành thật:** Nếu không biết, nói "Tôi cần kiểm tra thêm"
-- **Tập trung vào tư vấn:** Không lan man, luôn hướng đến việc giúp khách quyết định
-- **Kết thúc có hành động:** Luôn có lời kêu gọi hành động hoặc câu hỏi tiếp theo
-
-🖼️ **QUY TẮC HIỂN THỊ HÌNH ẢNH SẢN PHẨM:**
-- **BẮT BUỘC:** Mỗi khi đề cập sản phẩm, PHẢI hiển thị hình ảnh
-- **Format chuẩn:** ![Tên sản phẩm](URL_ảnh)
-- **Vị trí:** Ngay sau khi giới thiệu tên sản phẩm
-- **QUAN TRỌNG:** Chỉ sử dụng URL ảnh từ phần "🖼️ URL hình ảnh:" trong thông tin sản phẩm
-- **KHÔNG ĐƯỢC:** Bịa ra URL ảnh, chỉ sử dụng URL có sẵn trong dữ liệu
-- **Ví dụ đúng:**
-  ```
-  iPhone 15 Pro Max
-  ![iPhone 15 Pro Max](https://images.unsplash.com/photo-1695048133142-1a20484d2569)
-  
-  Thông số kỹ thuật:
-  - Camera: 48MP
-  - Màn hình: 6.7 inch
-  ```
-- **Ví dụ sai:** Không được dùng URL example.com hoặc URL bịa ra
-- **LƯU Ý:** Nếu không có URL ảnh trong dữ liệu, không hiển thị hình ảnh
-
-📋 **Cấu trúc trả lời:**
-1. **Lời chào cá nhân hóa**
-2. **Xác nhận nhu cầu của khách**
-3. **HIỂN THỊ HÌNH ẢNH SẢN PHẨM** (bắt buộc cho mọi sản phẩm được đề cập)
-4. **Cung cấp thông tin sản phẩm chi tiết** với format chuẩn:
-   ```
-   📱 Tên sản phẩm
-   ![Tên sản phẩm](URL_ảnh)
-   
-   💰 Giá: X VNĐ
-   📦 Tồn kho: Y chiếc
-   🏷️ Thương hiệu: Z
-   ⚙️ Thông số kỹ thuật: ...
-   📝 Mô tả: ...
-   ```
-5. **Phân tích ưu nhược điểm**
-6. **Đề xuất và khuyến nghị**
-7. **Hỏi để làm rõ thêm**
-
-🤖 **QUY TRÌNH TƯ VẤN TỰ ĐỘNG CHUYÊN NGHIỆP:**
-1. **NHẬN DỮ LIỆU:** Phân tích toàn bộ thông tin sản phẩm từ "RELATED PRODUCTS"
-2. **XÁC ĐỊNH NHU CẦU:** Hiểu rõ yêu cầu của khách hàng (gaming, văn phòng, giá rẻ, cao cấp...)
-3. **LỌC SẢN PHẨM:** Tự động lọc các sản phẩm phù hợp nhất dựa trên tiêu chí
-4. **SO SÁNH CHI TIẾT:** Phân tích điểm mạnh/yếu của từng sản phẩm
-5. **ĐÁNH GIÁ TỔNG THỂ:** Xếp hạng sản phẩm theo độ phù hợp
-6. **ĐƯA RA QUYẾT ĐỊNH:** Đề xuất 1 lựa chọn chính và 1-2 lựa chọn thay thế
-7. **GIẢI THÍCH LOGIC:** Nêu rõ lý do lựa chọn dựa trên dữ liệu cụ thể
-8. **TƯ VẤN BỔ SUNG:** Đề xuất phụ kiện, khuyến mãi đi kèm nếu có
-
-🎯 **TIÊU CHÍ ĐÁNH GIÁ SẢN PHẨM:**
-- **Hiệu năng:** Xử lý, camera, pin, bộ nhớ
-- **Giá trị:** Tỷ lệ giá-hiệu năng, độ bền
-- **Đánh giá:** Sao, số lượng review, độ tin cậy
-- **Tính năng đặc biệt:** Công nghệ mới, tính năng độc quyền
-- **Khả năng tương thích:** Với phụ kiện, hệ sinh thái
-
-⚖️ **LOGIC QUYẾT ĐỊNH:**
-- **Ngân sách thấp:** Ưu tiên giá rẻ, đủ dùng, độ bền cao
-- **Ngân sách trung bình:** Cân bằng hiệu năng và giá cả
-- **Ngân sách cao:** Ưu tiên hiệu năng tối đa, công nghệ mới nhất
-- **Nhu cầu cụ thể:** Tập trung vào tính năng quan trọng nhất cho mục đích sử dụng"""
+QUY TẮC BẮT BUỘC:
+1. LUÔN BẮT ĐẦU bằng: "Xin chào {user_name}! 👋"
+2. LUÔN GỌI TÊN "{user_name}" trong mọi tin nhắn, KHÔNG dùng từ "bạn"
+3. Đề xuất 2-3 sản phẩm PHÙ HỢP NHẤT từ danh sách đã được sort
+4. Hiển thị ảnh: ![Tên](URL) - CHỈ dùng URL có trong dữ liệu
+5. So sánh bằng bảng markdown nếu có nhiều sản phẩm
+6. KHÔNG bịa sản phẩm hoặc mã giảm giá
+7. Kết thúc ngắn gọn, KHÔNG gợi ý thêm (hệ thống tự động hiển thị gợi ý)"""
         else:
             enhanced_system_prompt = f"""{base_system_prompt}
 
@@ -603,19 +834,182 @@ Bạn đang tư vấn cho khách hàng chưa có thông tin cá nhân. Hãy tậ
             timestamp=response_time
         )
 
+        # Generate smart suggestions based on context
+        suggestions = []
+        query_lower = request.message.lower()
+        
+        # Category-based suggestions
+        if 'điện thoại' in query_lower or 'phone' in query_lower:
+            suggestions = [
+                "So sánh điện thoại giá rẻ và cao cấp",
+                "Điện thoại chơi game tốt nhất",
+                "Điện thoại chụp ảnh đẹp dưới 15 triệu",
+                "Xem mã giảm giá điện thoại"
+            ]
+        elif 'laptop' in query_lower or 'macbook' in query_lower:
+            suggestions = [
+                "Laptop văn phòng giá rẻ",
+                "So sánh MacBook và laptop Windows",
+                "Laptop gaming dưới 25 triệu",
+                "Xem khuyến mãi laptop"
+            ]
+        elif 'tai nghe' in query_lower or 'headphone' in query_lower or 'airpods' in query_lower:
+            suggestions = [
+                "Tai nghe chống ồn tốt nhất",
+                "So sánh AirPods và Sony",
+                "Tai nghe bluetooth giá rẻ",
+                "Xem tất cả tai nghe"
+            ]
+        elif 'apple' in query_lower:
+            suggestions = [
+                "So sánh các sản phẩm Apple",
+                "Phụ kiện Apple chính hãng",
+                "Chương trình trade-in Apple",
+                "Xem mã giảm giá Apple"
+            ]
+        elif 'giá rẻ' in query_lower or 'rẻ' in query_lower:
+            suggestions = [
+                "Xem thêm sản phẩm giá rẻ",
+                "Sản phẩm dưới 5 triệu",
+                "Khuyến mãi hot hôm nay",
+                "Tư vấn theo ngân sách cụ thể"
+            ]
+        elif 'cao cấp' in query_lower or 'premium' in query_lower:
+            suggestions = [
+                "Sản phẩm flagship mới nhất",
+                "So sánh các dòng cao cấp",
+                "Chính sách bảo hành VIP",
+                "Xem ưu đãi premium"
+            ]
+        else:
+            # Default suggestions
+            suggestions = [
+                "Xem điện thoại hot nhất",
+                "Laptop bán chạy",
+                "Tai nghe được yêu thích",
+                "Khuyến mãi đang có"
+            ]
+        
+        # Detect action intents from user message AND AI response
+        actions = []
+        try:
+            import re
+            # Get products list for action detection
+            chroma_service = get_chat_ai_rag_service()
+            products_for_action = []
+            discounts_for_action = []
+            
+            # Get products from ChromaDB
+            product_collection = chroma_service._get_or_create_product_collection()
+            all_products = product_collection.get(limit=50, include=['metadatas'])
+            if all_products and all_products.get('metadatas'):
+                for meta in all_products['metadatas']:
+                    products_for_action.append({
+                        'id': int(meta.get('product_id', 0)),
+                        'name': meta.get('product_name', ''),
+                        'price': meta.get('price', 0)
+                    })
+            
+            # Get discounts mentioned in AI response
+            discount_context = chroma_service.retrieve_discount_context(request.message, top_k=5)
+            
+            # Extract discount codes from AI response OR context
+            discount_codes_in_response = re.findall(r'(?:GADGET|SAVE|BLACK|WELCOME|LOYAL|FLASH|HOT|VIP)\w*', response_message.upper())
+            discount_codes_in_context = re.findall(r'MÃ: (\w+)', discount_context) if discount_context else []
+            
+            # Combine and deduplicate
+            all_discount_codes = list(set(discount_codes_in_response + discount_codes_in_context))
+            
+            for code in all_discount_codes[:4]:  # Max 4 discount buttons
+                discounts_for_action.append({
+                    'code': code,
+                    'description': f'Áp dụng mã {code}'
+                })
+            
+            # Detect user intent actions
+            actions = detect_action_intent(request.message, products_for_action, discounts_for_action, response_message)
+            
+            # Also detect products mentioned in AI response and add cart buttons
+            response_lower = response_message.lower()
+            
+            # Keywords indicating AI is suggesting to add to cart
+            suggesting_buy = any(kw in response_lower for kw in ['thêm vào giỏ', 'muốn mua', 'muốn đặt', 'đặt hàng', 'mua ngay'])
+            
+            for product in products_for_action:
+                product_name = product.get('name', '').lower()
+                if not product_name or len(product_name) < 3:
+                    continue
+                    
+                # Check if product name words appear in response
+                name_words = product_name.split()
+                # Match if at least 2 significant words match (for multi-word names)
+                significant_words = [w for w in name_words if len(w) > 2]
+                if significant_words:
+                    matches = sum(1 for w in significant_words if w in response_lower)
+                    is_mentioned = matches >= min(2, len(significant_words))
+                else:
+                    is_mentioned = product_name in response_lower
+                
+                if is_mentioned or (suggesting_buy and len(products_for_action) <= 3):
+                    # Check if we already have this product action
+                    already_added = any(a.get('productId') == product.get('id') for a in actions)
+                    if not already_added:
+                        actions.append({
+                            "type": "ADD_TO_CART",
+                            "productId": product.get('id'),
+                            "productName": product.get('name'),
+                            "price": product.get('price'),
+                            "quantity": 1,
+                            "label": f"🛒 Thêm {product.get('name')} vào giỏ"
+                        })
+            
+            # If discounts were shown in response, add discount buttons
+            if discounts_for_action and ('mã giảm' in response_lower or 'khuyến mãi' in response_lower or 'giảm giá' in response_lower):
+                for discount in discounts_for_action:
+                    # Check if we already have this discount action
+                    already_added = any(a.get('discountCode') == discount.get('code') for a in actions)
+                    if not already_added:
+                        actions.append({
+                            "type": "APPLY_DISCOUNT",
+                            "discountCode": discount.get('code'),
+                            "description": discount.get('description'),
+                            "label": f"🎫 Áp mã {discount.get('code')}"
+                        })
+            
+            print(f"[CHAT] Detected {len(actions)} actions: {[a.get('type') for a in actions]}")
+        except Exception as action_error:
+            print(f"[CHAT] Action detection error: {action_error}")
+            actions = []
+        
+        # Extract inline products for display in chat
+        inline_products = extract_inline_products(products_for_action, request.message)
+        print(f"[CHAT] Extracted {len(inline_products)} inline products")
         
         return ChatResponse(
             message=response_message,
             model=model_to_use,
             timestamp=response_time,
             tokens_used=completion.usage.total_tokens if hasattr(completion, 'usage') else None,
-            finish_reason=completion.choices[0].finish_reason if hasattr(completion.choices[0], 'finish_reason') else None
+            finish_reason=completion.choices[0].finish_reason if hasattr(completion.choices[0], 'finish_reason') else None,
+            suggestions=suggestions,
+            actions=actions if actions else None,
+            products=inline_products if inline_products else None
         )
         
     except Exception as e:
+        error_msg = str(e)
+        print(f"[CHAT ERROR] {error_msg}")
+        
+        # Check for token limit errors
+        if "token" in error_msg.lower() or "context" in error_msg.lower() or "limit" in error_msg.lower():
+            raise HTTPException(
+                status_code=400,
+                detail="Cuộc hội thoại quá dài. Vui lòng tạo session mới để tiếp tục."
+            )
+        
         raise HTTPException(
             status_code=500,
-            detail=f"Error calling Groq API: {str(e)}"
+            detail=f"Error calling Groq API: {error_msg}"
         )
 
 

@@ -204,4 +204,37 @@ public class SystemAnalyticsDataDTO {
         private BigDecimal totalSavings;
         private String createdAt;
     }
+    
+    // Cart analytics
+    private Long totalCarts;
+    private Long cartsWithItems;
+    private BigDecimal totalCartValue;
+    private List<CartAnalyticsDTO> carts;
+    
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CartAnalyticsDTO {
+        private Long cartId;
+        private Long userId;
+        private String username;
+        private String userEmail;
+        private Integer totalItems;
+        private BigDecimal totalValue;
+        private String updatedAt;
+        private List<CartItemAnalyticsDTO> items;
+    }
+    
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CartItemAnalyticsDTO {
+        private Long productId;
+        private String productName;
+        private String productCategory;
+        private Integer quantity;
+        private BigDecimal productPrice;
+        private BigDecimal subtotal;
+        private String addedAt;
+    }
 }

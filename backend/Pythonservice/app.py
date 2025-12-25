@@ -22,6 +22,7 @@ from routes.business_analytics import set_chroma_client, router as business_anal
 from routes.data_sync import router as data_sync_router
 from routes.groq_chat import router as groq_chat_router, set_groq_client
 from routes.admin_chat import router as admin_chat_router
+from routes.agent_actions import router as agent_actions_router
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -106,6 +107,7 @@ app.include_router(admin_chat_router, prefix="/api/admin", tags=["Admin Chat Man
 app.include_router(analytics_router, prefix="/api/analytics", tags=["Business Analytics"])
 app.include_router(business_analytics_router, prefix="/api/business", tags=["Business Analytics Extended"])
 app.include_router(data_sync_router, tags=["Data Synchronization"])
+app.include_router(agent_actions_router, tags=["Agent Actions"])
 
 @app.get("/")
 async def root():
