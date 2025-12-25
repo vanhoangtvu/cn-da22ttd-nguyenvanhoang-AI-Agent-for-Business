@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Loader2, Bot, Trash2, MessageSquare, User, Send, ClipboardList, ArrowLeft, ShoppingCart } from 'lucide-react';
 import { API_CONFIG, getGroqChatUrl } from '@/config/api.config';
+import { apiClient } from '@/lib/api';
 import { useToast } from '@/components/Toast';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -235,19 +236,21 @@ export default function AIChatPage() {
   // Fetch cart count
   const fetchCartCount = async () => {
     try {
-      const authToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
-      if (!authToken) return;
+      if (!apiClient.isAuthenticated()) return;
+      const cart: any = await apiClient.getCart();
 
-      const response = await fetch(`${API_CONFIG.AI_SERVICE_URL}/api/agent/cart`, {
-        headers: { 'Authorization': `Bearer ${authToken}` }
-      });
-      const data = await response.json();
-
-      if (data.success && data.cart) {
-        const items = data.cart.items || [];
-        const count = items.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0);
-        setCartCount(count);
+      if (cart && cart.items) {
+        const items = cart.items.map((item: any) => ({
+          ...item,
+          product: {
+            name: item.productName,
+            price: item.productPrice,
+            imageUrl: item.productImageUrl
+          }
+        }));
         setCartItems(items);
+        const count = items.reduce((acc: number, item: any) => acc + (item.quantity || 0), 0);
+        setCartCount(count);
       }
     } catch (error) {
       console.error('Error fetching cart:', error);
@@ -1084,7 +1087,7 @@ export default function AIChatPage() {
               className="w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors text-sm font-medium group"
             >
               <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-              Thoát ra trang chủ
+              Thoát chế độ Agent
             </button>
           </div>
         </div>
@@ -1213,25 +1216,16 @@ export default function AIChatPage() {
                                 key={product.id}
                                 product={product}
                                 onAddToCart={async (productId, productName) => {
-                                  const authToken = localStorage.getItem('authToken');
-                                  if (!authToken) {
+                                  if (!apiClient.isAuthenticated()) {
                                     addToast({ type: 'error', title: 'Lỗi', message: 'Vui lòng đăng nhập' });
                                     return;
                                   }
                                   try {
-                                    const res = await fetch(`${API_CONFIG.AI_SERVICE_URL}/api/agent/cart/add`, {
-                                      method: 'POST',
-                                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
-                                      body: JSON.stringify({ productId, quantity: 1 })
-                                    });
-                                    if (res.ok) {
-                                      addToast({ type: 'success', title: 'Thành công', message: `Đã thêm ${productName} vào giỏ` });
-                                      fetchCartCount();
-                                    } else {
-                                      addToast({ type: 'error', title: 'Lỗi', message: 'Không thể thêm vào giỏ' });
-                                    }
+                                    await apiClient.addToCart(productId, 1);
+                                    addToast({ type: 'success', title: 'Thành công', message: `Đã thêm ${productName} vào giỏ` });
+                                    fetchCartCount();
                                   } catch (err) {
-                                    addToast({ type: 'error', title: 'Lỗi', message: 'Lỗi kết nối' });
+                                    addToast({ type: 'error', title: 'Lỗi', message: 'Không thể thêm vào giỏ' });
                                   }
                                 }}
                                 onViewDetail={async (productId) => {
@@ -1248,13 +1242,13 @@ export default function AIChatPage() {
                                     user_id: userId,
                                   };
                                   setMessages((prev) => [...prev, userMsg]);
-                                  setInput('');
+                                  setInputValue('');
                                   setLoading(true);
 
                                   // Send to AI
                                   try {
                                     const authToken = localStorage.getItem('authToken');
-                                    const response = await fetch(`${API_CONFIG.AI_SERVICE_URL}/api/groq-chat/chat`, {
+                                    const response = await fetch(getGroqChatUrl('/chat'), {
                                       method: 'POST',
                                       headers: { 'Content-Type': 'application/json', 'Authorization': authToken ? `Bearer ${authToken}` : '' },
                                       body: JSON.stringify({

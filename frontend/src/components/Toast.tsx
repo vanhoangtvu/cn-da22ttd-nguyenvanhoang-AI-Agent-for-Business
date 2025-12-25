@@ -1,6 +1,10 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { CheckCircle2, XCircle, AlertTriangle, Info, X } from 'lucide-react';
+import { Inter } from 'next/font/google';
+
+const inter = Inter({ subsets: ['latin'] });
 
 export interface Toast {
   id: string;
@@ -36,16 +40,17 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
   const addToast = (toast: Omit<Toast, 'id'>) => {
     const id = Date.now().toString();
     const newToast = { ...toast, id };
-    setToasts(prev => [...prev, newToast]);
+    setToasts((prev) => [...prev, newToast]);
 
-    // Auto remove after duration
-    setTimeout(() => {
-      removeToast(id);
-    }, toast.duration || 5000);
+    if (toast.duration !== 0) {
+      setTimeout(() => {
+        removeToast(id);
+      }, toast.duration || 5000);
+    }
   };
 
   const removeToast = (id: string) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
   };
 
   return (
@@ -60,8 +65,8 @@ const ToastContainer: React.FC = () => {
   const { toasts, removeToast } = useToast();
 
   return (
-    <div className="fixed top-4 right-4 z-50 space-y-2">
-      {toasts.map(toast => (
+    <div className="fixed top-4 right-4 z-[9999] space-y-3 pointer-events-none">
+      {toasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} />
       ))}
     </div>
@@ -74,57 +79,47 @@ interface ToastItemProps {
 }
 
 const ToastItem: React.FC<ToastItemProps> = ({ toast, onClose }) => {
-  const getToastStyles = () => {
-    switch (toast.type) {
-      case 'success':
-        return 'bg-green-500 border-green-600 text-white';
-      case 'error':
-        return 'bg-red-500 border-red-600 text-white';
-      case 'warning':
-        return 'bg-yellow-500 border-yellow-600 text-black';
-      case 'info':
-      default:
-        return 'bg-blue-500 border-blue-600 text-white';
-    }
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    requestAnimationFrame(() => setIsVisible(true));
+  }, []);
+
+  const styles = {
+    success: 'bg-emerald-950/90 border-emerald-500/30 text-emerald-50 shadow-lg shadow-emerald-500/10',
+    error: 'bg-red-950/90 border-red-500/30 text-red-50 shadow-lg shadow-red-500/10',
+    warning: 'bg-amber-950/90 border-amber-500/30 text-amber-50 shadow-lg shadow-amber-500/10',
+    info: 'bg-blue-950/90 border-blue-500/30 text-blue-50 shadow-lg shadow-blue-500/10',
   };
 
-  const getIcon = () => {
-    switch (toast.type) {
-      case 'success':
-        return '✓';
-      case 'error':
-        return '✕';
-      case 'warning':
-        return '⚠';
-      case 'info':
-      default:
-        return 'ℹ';
-    }
+  const icons = {
+    success: <CheckCircle2 className="w-6 h-6 text-emerald-400" />,
+    error: <XCircle className="w-6 h-6 text-red-400" />,
+    warning: <AlertTriangle className="w-6 h-6 text-amber-400" />,
+    info: <Info className="w-6 h-6 text-blue-400" />,
   };
 
   return (
-    <div className={`max-w-sm w-full shadow-lg rounded-lg border-l-4 p-4 ${getToastStyles()}`}>
-      <div className="flex items-start">
-        <div className="flex-shrink-0">
-          <span className="text-lg font-bold">{getIcon()}</span>
+    <div
+      className={`pointer-events-auto max-w-sm w-full backdrop-blur-md rounded-2xl border p-4 transition-all duration-300 transform ${isVisible ? 'translate-x-0 opacity-100 scale-100' : 'translate-x-12 opacity-0 scale-95'
+        } ${styles[toast.type]} ${inter.className}`}
+    >
+      <div className="flex items-start gap-4">
+        <div className="flex-shrink-0 pt-0.5">
+          {icons[toast.type]}
         </div>
-        <div className="ml-3 w-0 flex-1">
-          <p className="text-sm font-medium">{toast.title}</p>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold tracking-wide">{toast.title}</p>
           {toast.message && (
-            <p className="mt-1 text-sm opacity-90">{toast.message}</p>
+            <p className="mt-1 text-sm opacity-90 leading-relaxed font-light">{toast.message}</p>
           )}
         </div>
-        <div className="ml-4 flex-shrink-0 flex">
-          <button
-            onClick={onClose}
-            className="inline-flex text-current hover:opacity-75 focus:outline-none"
-          >
-            <span className="sr-only">Close</span>
-            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-            </svg>
-          </button>
-        </div>
+        <button
+          onClick={onClose}
+          className="flex-shrink-0 text-white/40 hover:text-white transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
       </div>
     </div>
   );

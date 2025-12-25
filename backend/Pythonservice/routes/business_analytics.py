@@ -250,10 +250,10 @@ def get_business_data():
             print(f"Error getting collections: {e}")
             return {'products': [], 'orders': [], 'categories': [], 'discounts': [], 'business_performance': [], 'users': [], 'documents': [], 'revenue_overview': []}
         
-        # Lấy tất cả dữ liệu từ collections
-        business_data = business_collection.get(include=['metadatas'])
-        orders_data = orders_collection.get(include=['metadatas'])
-        revenue_data = revenue_collection.get(include=['metadatas'])
+        # Lấy tất cả dữ liệu từ collections (limit lớn để đảm bảo lấy hết)
+        business_data = business_collection.get(include=['metadatas'], limit=10000)
+        orders_data = orders_collection.get(include=['metadatas'], limit=10000)
+        revenue_data = revenue_collection.get(include=['metadatas'], limit=10000)
         
         # Parse metadata từ business_collection theo data_type
         all_business_metadatas = business_data.get('metadatas', [])
@@ -455,33 +455,54 @@ def calculate_statistics(data):
         total_sold = product.get('totalSold', 0)
         product['available_stock'] = max(0, initial_quantity - total_sold)
     
-    # Phân tích tồn kho chi tiết
+    # Phân tích tồn kho chi tiết theo yêu cầu: ≥30, 10-29, 1-9, 0
     total_inventory_value = sum([p.get('price', 0) * p.get('available_stock', 0) for p in enriched_products])
-    out_of_stock_products = len([p for p in enriched_products if p.get('available_stock', 0) == 0])
+    
+    # Categorize products
+    stock_good = [p for p in enriched_products if p.get('available_stock', 0) >= 30]
+    stock_avg = [p for p in enriched_products if 10 <= p.get('available_stock', 0) < 30]
+    stock_low = [p for p in enriched_products if 1 <= p.get('available_stock', 0) < 10]
+    stock_out = [p for p in enriched_products if p.get('available_stock', 0) == 0]
+    
+    total_products_count = len(enriched_products) if enriched_products else 1  # Avoid division by zero
+    
+    inventory_table_data = {
+        'good': {
+            'count': len(stock_good),
+            'value': sum([p.get('price', 0) * p.get('available_stock', 0) for p in stock_good]),
+            'percent': (len(stock_good) / total_products_count) * 100
+        },
+        'average': {
+            'count': len(stock_avg),
+            'value': sum([p.get('price', 0) * p.get('available_stock', 0) for p in stock_avg]),
+            'percent': (len(stock_avg) / total_products_count) * 100
+        },
+        'low': {
+            'count': len(stock_low),
+            'value': sum([p.get('price', 0) * p.get('available_stock', 0) for p in stock_low]),
+            'percent': (len(stock_low) / total_products_count) * 100
+        },
+        'out': {
+            'count': len(stock_out),
+            'value': 0,
+            'percent': (len(stock_out) / total_products_count) * 100
+        }
+    }
+    
     inventory_turnover_ratio = total_revenue / total_inventory_value if total_inventory_value > 0 else 0
+    out_of_stock_products = len(stock_out)
     
     inventory_analysis = {
-        'critical_stock_products': [p for p in enriched_products if p.get('available_stock', 0) <= 5],  # Tất cả sản phẩm cần nhập gấp
-        'warning_stock_products': [p for p in enriched_products if 5 < p.get('available_stock', 0) <= 15],   # Tất cả sản phẩm cảnh báo
-        'out_of_stock_products': [p for p in enriched_products if p.get('available_stock', 0) == 0],  # Tất cả sản phẩm hết hàng
+        'critical_stock_products': stock_low,  # Tồn kho thấp (1-9)
+        'warning_stock_products': stock_avg,   # Tồn kho trung bình (10-29)
+        'out_of_stock_products': stock_out,    # Hết hàng (0)
         'stock_distribution': {
-            'well_stocked': {
-                'count': len([p for p in enriched_products if p.get('available_stock', 0) >= 30]),
-                'value': sum([p.get('price', 0) * p.get('available_stock', 0) for p in enriched_products if p.get('available_stock', 0) >= 30])
-            },
-            'medium_stock': {
-                'count': len([p for p in enriched_products if 10 <= p.get('available_stock', 0) < 30]),
-                'value': sum([p.get('price', 0) * p.get('available_stock', 0) for p in enriched_products if 10 <= p.get('available_stock', 0) < 30])
-            },
-            'low_stock': {
-                'count': len([p for p in enriched_products if 1 <= p.get('available_stock', 0) < 10]),
-                'value': sum([p.get('price', 0) * p.get('available_stock', 0) for p in enriched_products if 1 <= p.get('available_stock', 0) < 10])
-            },
-            'out_of_stock': {
-                'count': len([p for p in enriched_products if p.get('available_stock', 0) == 0]),
-                'value': 0
-            }
-        }
+            'well_stocked': {'count': len(stock_good), 'value': inventory_table_data['good']['value']},
+            'medium_stock': {'count': len(stock_avg), 'value': inventory_table_data['average']['value']},
+            'low_stock': {'count': len(stock_low), 'value': inventory_table_data['low']['value']},
+            'out_of_stock': {'count': len(stock_out), 'value': 0}
+        },
+        'table_data': inventory_table_data
     }
     
     return {
@@ -501,7 +522,7 @@ def calculate_statistics(data):
         'revenue_by_status': revenue_by_status_array,
         'orders_by_status': orders_by_status_array,
         'top_products': top_products,
-        'low_stock_products': low_stock_products,
+        'low_stock_products': sorted(stock_low, key=lambda x: x.get('available_stock', 0)),
         'category_stats': category_stats,
         'inventory_analysis': inventory_analysis,
         'revenue_by_day': revenue_by_day,
@@ -638,6 +659,20 @@ def create_analysis_prompt(analysis_type, statistics, business_data, document_co
     low_stock_products = statistics.get('low_stock_products', [])
     top_products = statistics.get('top_products', [])
     
+    # Lấy dữ liệu bảng phân tích tồn kho pre-calculated
+    inventory_analysis = statistics.get('inventory_analysis', {})
+    inv_table = inventory_analysis.get('table_data', {})
+    
+    # Create Markdown Table string explicitly
+    inventory_table_md = f"""
+| Loại | Số lượng SP | Giá trị (VNĐ) | Tỷ lệ % |
+| :--- | :---: | :---: | :---: |
+| 🟢 Tốt (≥30 SP) | {inv_table.get('good', {}).get('count', 0)} | {inv_table.get('good', {}).get('value', 0):,.0f} | {inv_table.get('good', {}).get('percent', 0):.1f}% |
+| 🟡 Trung bình (10-29 SP) | {inv_table.get('average', {}).get('count', 0)} | {inv_table.get('average', {}).get('value', 0):,.0f} | {inv_table.get('average', {}).get('percent', 0):.1f}% |
+| 🔴 Thấp (1-9 SP) | {inv_table.get('low', {}).get('count', 0)} | {inv_table.get('low', {}).get('value', 0):,.0f} | {inv_table.get('low', {}).get('percent', 0):.1f}% |
+| ⚫ Hết hàng (0) | {inv_table.get('out', {}).get('count', 0)} | {inv_table.get('out', {}).get('value', 0):,.0f} | {inv_table.get('out', {}).get('percent', 0):.1f}% |
+"""
+
     # Lấy thêm dữ liệu chi tiết
     products = business_data.get('products', [])
     orders = business_data.get('orders', [])
@@ -653,8 +688,13 @@ def create_analysis_prompt(analysis_type, statistics, business_data, document_co
     
     base_context = f"""
 🎯 BẠN LÀ CHUYÊN GIA PHÂN TÍCH KINH DOANH & CHIẾN LƯỢC CAO CẤP
+Nhiệm vụ: Phân tích dữ liệu được cung cấp và đưa ra Insights chính xác.
+QUAN TRỌNG: TUYỆT ĐỐI KHÔNG TỰ TÍNH TOÁN LẠI SỐ LIỆU. HÃY SỬ DỤNG BẢNG SỐ LIỆU ĐÃ ĐƯỢC CUNG CẤP DƯỚI ĐÂY.
 
-📊 DỮ LIỆU KINH DOANH TỔNG QUAN:
+📊 1️⃣ ĐÁNH GIÁ TÌNH TRẠNG TỒN KHO HIỆN TẠI (DỮ LIỆU CHÍNH XÁC):
+{inventory_table_md}
+
+📊 DỮ LIỆU KINH DOANH TỔNG QUAN KHÁC:
 ═══════════════════════════════════════
 📦 Sản phẩm:
    • Tổng số: {overview.get('total_products', 0)} sản phẩm
@@ -734,53 +774,226 @@ def create_analysis_prompt(analysis_type, statistics, business_data, document_co
     if analysis_type == 'general':
         prompt = base_context + """
 
-🎯 NHIỆM VỤ: PHÂN TÍCH TỔNG QUAN TOÀN DIỆN & ĐỀ XUẤT CHIẾN LƯỢC KINH DOANH
+🎯 NHIỆM VỤ: BÁO CÁO PHÂN TÍCH KINH DOANH CHUYÊN NGHIỆP & CHIẾN LƯỢC TĂNG TRƯỞNG
 
-📝 YÊU CẦU PHÂN TÍCH:
+═══════════════════════════════════════════════════════════════════════════════
 
-## 1️⃣ TÌNH HÌNH KINH DOANH HIỆN TẠI
-- Đánh giá tổng quan về doanh thu, đơn hàng, sản phẩm
-- Phân tích xu hướng tăng/giảm (nếu có dữ liệu theo thời gian)
-- So sánh với các chỉ số trung bình ngành (nếu áp dụng)
+📋 CẤU TRÚC BÁO CÁO YÊU CẦU:
 
-## 2️⃣ ĐIỂM MẠNH & LỢI THẾ CẠNH TRANH
-- Những điểm nổi bật trong hoạt động kinh doanh
-- Sản phẩm/danh mục có hiệu suất tốt
-- Cơ hội để khai thác và phát triển
+## 📊 EXECUTIVE SUMMARY (Tóm tắt điều hành)
+> Viết 1 đoạn ngắn gọn (3-4 câu) tóm tắt tình hình kinh doanh hiện tại, highlight 2-3 insights quan trọng nhất và 1-2 hành động ưu tiên cao nhất.
 
-## 3️⃣ THÁCH THỨC & VẤN ĐỀ CẦN GIẢI QUYẾT
-- Điểm yếu trong vận hành hiện tại
-- Rủi ro tiềm ẩn cần lưu ý
-- Những rào cản cần vượt qua
+---
 
-## 4️⃣ ĐỀ XUẤT CHIẾN LƯỢC CỤ THỂ (7-10 HÀNH ĐỘNG)
-### 📈 Tăng trưởng doanh thu:
-- [Đề xuất 2-3 hành động cụ thể với số liệu]
+## 📈 DASHBOARD CHÍNH - CHỈ SỐ QUAN TRỌNG
 
-### 💰 Tối ưu lợi nhuận:
-- [Đề xuất 2-3 hành động cụ thể với số liệu]
+Tạo bảng KPIs với đánh giá và xu hướng:
 
-### 📦 Quản lý tồn kho:
-- [Đề xuất 2-3 hành động cụ thể với số liệu]
+| Chỉ số | Giá trị hiện tại | Đánh giá | Xu hướng | Hành động |
+|--------|------------------|----------|----------|-----------|
+| 💰 Tổng doanh thu | [X] VNĐ | 🟢/🟡/🔴 | ↗️/↘️/→ | [Gợi ý ngắn] |
+| 🛒 Tổng đơn hàng | [X] đơn | 🟢/🟡/🔴 | ↗️/↘️/→ | [Gợi ý ngắn] |
+| 💵 Giá trị TB/đơn (AOV) | [X] VNĐ | 🟢/🟡/🔴 | ↗️/↘️/→ | [Gợi ý ngắn] |
+| 📦 Tỷ lệ hàng tồn khỏe | [X]% | 🟢/🟡/🔴 | ↗️/↘️/→ | [Gợi ý ngắn] |
+| ⚠️ Sản phẩm cần nhập | [X] SP | 🟢/🟡/🔴 | ↗️/↘️/→ | [Gợi ý ngắn] |
+| 🔄 Tỷ lệ quay vòng hàng | [X] lần | 🟢/🟡/🔴 | ↗️/↘️/→ | [Gợi ý ngắn] |
 
-### 🎯 Marketing & Khách hàng:
-- [Đề xuất 2-3 hành động cụ thể với số liệu]
+**Chú thích:** 🟢 Tốt | 🟡 Cần cải thiện | 🔴 Cảnh báo | ↗️ Tăng | ↘️ Giảm | → Ổn định
 
-## 5️⃣ DỰ BÁO & KẾ HOẠCH PHÁT TRIỂN
-- Xu hướng thị trường sắp tới
-- Cơ hội mở rộng kinh doanh
-- Roadmap ngắn hạn (1-3 tháng) và dài hạn (6-12 tháng)
+---
 
-## 6️⃣ CHỈ SỐ KPI ĐỀ XUẤT THEO DÕI
-- [Liệt kê 5-7 KPIs quan trọng cần monitor hàng tuần/tháng]
+## 🎯 PHÂN TÍCH SWOT CHUYÊN SÂU
 
-⚡ FORMAT YÊU CẦU:
-- Sử dụng emoji phù hợp để làm nổi bật các phần
-- Dùng bảng markdown, bullet points, headings rõ ràng
-- Số liệu cụ thể với đơn vị VNĐ, % rõ ràng
-- Viết tiếng Việt chuyên nghiệp, dễ hiểu
-- Độ dài: 800-1200 từ
-- Chia sections rõ ràng với headings H2, H3
+### 💪 ĐIỂM MẠNH (Strengths)
+1. **[Điểm mạnh 1]**: [Mô tả chi tiết với số liệu cụ thể]
+   - Tác động: [Định lượng impact]
+   - Cách tận dụng: [Gợi ý cụ thể]
+
+2. **[Điểm mạnh 2]**: [Mô tả chi tiết với số liệu cụ thể]
+   - Tác động: [Định lượng impact]
+   - Cách tận dụng: [Gợi ý cụ thể]
+
+[Liệt kê 3-5 điểm mạnh]
+
+### ⚠️ ĐIỂM YẾU (Weaknesses)
+1. **[Điểm yếu 1]**: [Mô tả chi tiết với số liệu cụ thể]
+   - Rủi ro: [Định lượng risk]
+   - Giải pháp: [Hành động cụ thể]
+
+2. **[Điểm yếu 2]**: [Mô tả chi tiết với số liệu cụ thể]
+   - Rủi ro: [Định lượng risk]
+   - Giải pháp: [Hành động cụ thể]
+
+[Liệt kê 3-5 điểm yếu]
+
+### 🚀 CƠ HỘI (Opportunities)
+1. **[Cơ hội 1]**: [Mô tả cơ hội thị trường/nội bộ]
+   - Tiềm năng: [Doanh thu/lợi nhuận dự kiến]
+   - Cách khai thác: [Chiến thuật cụ thể]
+
+[Liệt kê 3-4 cơ hội]
+
+### 🛡️ THÁCH THỨC (Threats)
+1. **[Thách thức 1]**: [Mô tả rủi ro/thách thức]
+   - Mức độ: Cao/Trung bình/Thấp
+   - Phòng ngừa: [Biện pháp cụ thể]
+
+[Liệt kê 2-3 thách thức]
+
+---
+
+## 🎯 CHIẾN LƯỢC HÀNH ĐỘNG ƯU TIÊN (Action Plan)
+
+### Ma trận ưu tiên (Priority Matrix):
+
+| Hành động | Tác động | Độ khó | Ưu tiên | Timeline | Chi phí | ROI dự kiến |
+|-----------|----------|--------|---------|----------|---------|-------------|
+| [Hành động 1] | Cao/TB/Thấp | Dễ/TB/Khó | 🔴 P0 | [X tuần] | [Y] VNĐ | [Z]% |
+| [Hành động 2] | Cao/TB/Thấp | Dễ/TB/Khó | 🟡 P1 | [X tuần] | [Y] VNĐ | [Z]% |
+| [Hành động 3] | Cao/TB/Thấp | Dễ/TB/Khó | 🟢 P2 | [X tuần] | [Y] VNĐ | [Z]% |
+
+**Chú thích:** 🔴 P0 = Khẩn cấp (làm ngay) | 🟡 P1 = Quan trọng (1-2 tuần) | 🟢 P2 = Cần thiết (1 tháng)
+
+### 📋 Chi tiết từng hành động:
+
+#### 🔴 HÀNH ĐỘNG ƯU TIÊN CAO (P0) - Thực hiện ngay
+
+**1. [Tên hành động cụ thể]**
+- **Mục tiêu**: [Mục tiêu SMART cụ thể]
+- **Lý do**: [Tại sao cần làm ngay]
+- **Các bước thực hiện**:
+  1. [Bước 1 cụ thể]
+  2. [Bước 2 cụ thể]
+  3. [Bước 3 cụ thể]
+- **Nguồn lực cần**: [Con người, ngân sách, công cụ]
+- **KPI đo lường**: [Chỉ số cụ thể để đo thành công]
+- **Kết quả kỳ vọng**: [Số liệu cụ thể]
+
+[Liệt kê 2-3 hành động P0]
+
+#### 🟡 HÀNH ĐỘNG QUAN TRỌNG (P1) - Thực hiện trong 1-2 tuần
+
+**1. [Tên hành động]**
+- **Mục tiêu**: [SMART goal]
+- **Các bước**: [Liệt kê ngắn gọn]
+- **KPI**: [Chỉ số đo lường]
+- **Kết quả kỳ vọng**: [Số liệu]
+
+[Liệt kê 2-3 hành động P1]
+
+#### 🟢 HÀNH ĐỘNG CẦN THIẾT (P2) - Lên kế hoạch trong tháng
+
+**1. [Tên hành động]**
+- **Mục tiêu**: [SMART goal]
+- **Kết quả kỳ vọng**: [Số liệu]
+
+[Liệt kê 2-3 hành động P2]
+
+---
+
+## 📊 PHÂN TÍCH THEO LĨNH VỰC
+
+### 💰 DOANH THU & LỢI NHUẬN
+- **Phân tích hiện trạng**: [Đánh giá chi tiết]
+- **Danh mục đóng góp nhiều nhất**: [Top 3 với % đóng góp]
+- **Cơ hội tăng trưởng**: [Gợi ý cụ thể với số liệu]
+- **Hành động đề xuất**: [2-3 hành động]
+
+### 📦 TỒN KHO & LOGISTICS
+- **Tình trạng tồn kho**: [Đánh giá dựa trên bảng phân loại đã cung cấp]
+- **Vấn đề cấp bách**: [Sản phẩm hết hàng, tồn kho thấp]
+- **Tối ưu hóa**: [Đề xuất cụ thể]
+- **Hành động đề xuất**: [2-3 hành động]
+
+### 🎯 MARKETING & BÁN HÀNG
+- **Hiệu quả hiện tại**: [Đánh giá conversion, AOV]
+- **Sản phẩm tiềm năng**: [Top products cần đẩy mạnh]
+- **Chiến dịch đề xuất**: [2-3 chiến dịch cụ thể]
+- **Hành động đề xuất**: [2-3 hành động]
+
+### 👥 KHÁCH HÀNG & TRẢI NGHIỆM
+- **Phân tích hành vi**: [Insights từ dữ liệu đơn hàng]
+- **Cơ hội tăng retention**: [Gợi ý cụ thể]
+- **Hành động đề xuất**: [2-3 hành động]
+
+---
+
+## 🗓️ ROADMAP TRIỂN KHAI (Implementation Timeline)
+
+### 🚀 TUẦN 1-2 (Quick Wins)
+- [ ] [Hành động 1 - P0]
+- [ ] [Hành động 2 - P0]
+- [ ] [Hành động 3 - P0]
+- **Mục tiêu**: [Kết quả cụ thể kỳ vọng]
+
+### 📈 THÁNG 1 (Foundation)
+- [ ] [Hành động 1 - P1]
+- [ ] [Hành động 2 - P1]
+- [ ] [Hành động 3 - P1]
+- **Mục tiêu**: [Kết quả cụ thể kỳ vọng]
+
+### 🎯 THÁNG 2-3 (Growth)
+- [ ] [Hành động 1 - P2]
+- [ ] [Hành động 2 - P2]
+- **Mục tiêu**: [Kết quả cụ thể kỳ vọng]
+
+### 🚀 QUÝ 2-4 (Scale)
+- [ ] [Chiến lược dài hạn 1]
+- [ ] [Chiến lược dài hạn 2]
+- **Mục tiêu**: [Kết quả cụ thể kỳ vọng]
+
+---
+
+## 📊 KPI DASHBOARD ĐỀ XUẤT THEO DÕI
+
+### 📅 Theo dõi HÀNG TUẦN:
+1. **Doanh thu tuần**: Target [X] VNĐ
+2. **Số đơn hàng**: Target [Y] đơn
+3. **AOV (Giá trị TB/đơn)**: Target [Z] VNĐ
+4. **Tỷ lệ chuyển đổi**: Target [W]%
+5. **Sản phẩm hết hàng**: Alert nếu > [N] sản phẩm
+
+### 📅 Theo dõi HÀNG THÁNG:
+1. **Tăng trưởng doanh thu MoM**: Target +[X]%
+2. **Tỷ lệ quay vòng hàng tồn**: Target [Y] lần/tháng
+3. **Tỷ lệ hàng tồn khỏe mạnh**: Target > [Z]%
+4. **Customer Retention Rate**: Target [W]%
+5. **Gross Margin**: Target [V]%
+
+### 🎯 Mục tiêu QUARTERLY:
+- **Tăng trưởng doanh thu**: +[X]% so với quý trước
+- **Tối ưu chi phí vận hành**: Giảm [Y]%
+- **Mở rộng danh mục**: Thêm [Z] sản phẩm mới
+- **Tăng customer base**: +[W] khách hàng mới
+
+---
+
+## 💡 KẾT LUẬN & KHUYẾN NGHỊ CHIẾN LƯỢC
+
+### 🎯 3 Ưu tiên hàng đầu:
+1. **[Ưu tiên 1]**: [Mô tả ngắn gọn tại sao quan trọng]
+2. **[Ưu tiên 2]**: [Mô tả ngắn gọn tại sao quan trọng]
+3. **[Ưu tiên 3]**: [Mô tả ngắn gọn tại sao quan trọng]
+
+### 📈 Dự báo tăng trưởng (nếu thực hiện đầy đủ):
+- **Doanh thu**: Tăng [X]% trong 3 tháng tới
+- **Lợi nhuận**: Tăng [Y]% 
+- **Hiệu quả vận hành**: Cải thiện [Z]%
+- **Sức khỏe tồn kho**: Đạt [W]% hàng tồn khỏe mạnh
+
+### ⚠️ Rủi ro cần lưu ý:
+1. [Rủi ro 1] - Biện pháp phòng ngừa: [...]
+2. [Rủi ro 2] - Biện pháp phòng ngừa: [...]
+
+---
+
+⚡ **YÊU CẦU FORMAT:**
+- Sử dụng emoji phù hợp, bảng markdown chuyên nghiệp
+- Số liệu CỤ THỂ với đơn vị VNĐ, %, thời gian rõ ràng
+- Mỗi đề xuất phải có: Mục tiêu + Cách làm + KPI đo lường + Timeline
+- Viết tiếng Việt chuyên nghiệp, súc tích, dễ hiểu
+- Độ dài: 1200-1800 từ
+- Ưu tiên ACTIONABLE insights hơn là mô tả chung chung
 """
 
     elif analysis_type == 'pricing':
@@ -942,146 +1155,451 @@ Tính toán và đánh giá:
     elif analysis_type == 'sales':
         prompt = base_context + """
 
-🚀 NHIỆM VỤ: PHÂN TÍCH DOANH SỐ & CHIẾN LƯỢC TĂNG TRƯỞNG
+🚀 NHIỆM VỤ: CHIẾN LƯỢC TĂNG TRƯỞNG BÁN HÀNG & REVENUE OPTIMIZATION
 
-📝 YÊU CẦU PHÂN TÍCH:
+═══════════════════════════════════════════════════════════════════════════════
 
-## 1️⃣ PHÂN TÍCH HIỆU SUẤT BÁN HÀNG
-### 📈 Doanh số theo danh mục:
-Tạo bảng markdown:
-| Danh mục | Doanh thu | Số đơn | AOV | % Tổng DT | Xu hướng |
-|----------|-----------|--------|-----|-----------|----------|
+📋 CẤU TRÚC BÁO CÁO YÊU CẦU:
 
-### ⭐ Top 5 Performers:
-1. **[Sản phẩm 1]**: [...] VNĐ
-   - Lý do thành công: [...]
-   - Insight: [...]
-   
-[Tiếp tục cho 4 sản phẩm khác]
+## 📊 EXECUTIVE SUMMARY - TÌNH HÌNH BÁN HÀNG
+> Tóm tắt 3-4 câu về hiện trạng doanh số, highlight 2-3 insights quan trọng nhất và cơ hội tăng trưởng lớn nhất.
 
-### ⚠️ Bottom 5 - Cần cải thiện:
-- [Danh sách sản phẩm bán kém với phân tích lý do]
+---
 
-## 2️⃣ PHÂN TÍCH KHÁCH HÀNG 👥
-### Hành vi mua hàng:
-- **Average Order Value**: [...] VNĐ
-- **Purchase Frequency**: [...] lần/khách/tháng
-- **Customer Retention Rate**: [...]%
-- **Repeat Customer Rate**: [...]%
+## 📈 SALES PERFORMANCE DASHBOARD
 
-### Phân khúc khách hàng:
-Tạo bảng markdown:
-| Phân khúc | % KH | Doanh thu | AOV | Đặc điểm & Hành vi |
-|-----------|------|-----------|-----|---------------------|
+### Bảng chỉ số bán hàng chính:
 
-## 3️⃣ CHIẾN LƯỢC MARKETING TÍCH HỢP 📢
-### A. Content Marketing:
-1. **Blog/SEO Content**:
-   - [3-5 chủ đề hot có potential traffic cao]
-   - Target keywords: [...]
-   
-2. **Video Marketing**:
-   - Product reviews
-   - How-to guides
-   - Behind the scenes
-   
-3. **Social Media Strategy**:
-   - Platform: Facebook, Instagram, TikTok
-   - Content calendar: [Mix content types]
+| Chỉ số | Giá trị hiện tại | Benchmark | Gap | Cơ hội tăng trưởng |
+|--------|------------------|-----------|-----|---------------------|
+| 💰 Doanh thu/tháng | [X] VNĐ | [Y] VNĐ | [Z]% | +[W]% nếu đạt benchmark |
+| 🛒 Số đơn hàng | [X] đơn | [Y] đơn | [Z]% | +[W] đơn/tháng |
+| 💵 AOV (Giá trị TB/đơn) | [X] VNĐ | [Y] VNĐ | [Z]% | +[W] VNĐ/đơn |
+| 📊 Conversion Rate | [X]% | [Y]% | [Z]% | +[W]% conversion |
+| 🔄 Repeat Purchase Rate | [X]% | [Y]% | [Z]% | +[W]% retention |
+| 👥 Customer Lifetime Value | [X] VNĐ | [Y] VNĐ | [Z]% | +[W] VNĐ/khách |
 
-### B. Paid Advertising Campaign:
-Tạo bảng markdown:
-| Kênh | Budget/tháng | Target Audience | Objective | ROAS dự kiến |
-|------|--------------|-----------------|-----------|--------------|
+**Tổng tiềm năng tăng trưởng**: +[X]% doanh thu nếu đạt tất cả benchmarks
 
-### C. Email Marketing Flows:
-1. **Welcome Series** (3-5 emails):
-   - Day 0: Welcome + 10% discount
-   - Day 3: Product education
-   - Day 7: Testimonials + urgency
-   
-2. **Cart Abandonment**:
-   - 1h: Reminder
-   - 24h: 5% discount
-   - 48h: Free shipping
-   
-3. **Post-Purchase**:
-   - Thank you + tracking
-   - Review request
-   - Cross-sell recommendations
+---
 
-### D. Chương trình Khuyến mãi:
-1. **Flash Sales**: [Timing + Products + Discount]
-2. **Loyalty Program**: [Points system design]
-3. **Referral Program**: [Incentive structure]
+## 🎯 PHÂN TÍCH SALES FUNNEL CHI TIẾT
 
-## 4️⃣ CẢI THIỆN TRẢI NGHIỆM KHÁCH HÀNG 🌟
-### A. Pre-Purchase:
-- [ ] Tối ưu product pages (images, description, specs)
-- [ ] Live chat/chatbot 24/7
-- [ ] Customer reviews prominent
-- [ ] Product comparison tool
-- [ ] AR/Virtual try-on (if applicable)
+### Conversion Funnel Analysis:
 
-### B. Purchase Process:
-- [ ] One-page checkout (giảm friction)
-- [ ] Multiple payment options
-- [ ] Guest checkout
-- [ ] Real-time shipping calculator
-- [ ] Mobile-optimized
+```
+👁️ Traffic (100%)
+    ↓ [-X]% drop
+🛍️ Product View ([Y]%)
+    ↓ [-X]% drop  ← ĐIỂM YẾU 1: Cải thiện product pages
+🛒 Add to Cart ([Y]%)
+    ↓ [-X]% drop  ← ĐIỂM YẾU 2: Cart abandonment cao
+💳 Checkout ([Y]%)
+    ↓ [-X]% drop  ← ĐIỂM YẾU 3: Friction trong thanh toán
+✅ Purchase ([Y]%)
+```
 
-### C. Post-Purchase:
-- [ ] Order confirmation + tracking link
-- [ ] Proactive customer service
-- [ ] Easy returns/exchanges
-- [ ] Review incentives
-- [ ] Loyalty rewards
+### Bảng phân tích từng giai đoạn:
 
-## 5️⃣ ROADMAP TĂNG TRƯỞNG 30% 🎯
-### Phase 1: Tháng 1-2 (Foundation) - Mục tiêu +10%
-**Quick Wins:**
-- [3-5 hành động với impact cao, effort thấp]
-- Budget: [...] VNĐ
-- Expected ROI: [...]X
+| Giai đoạn | Conversion | Benchmark | Vấn đề | Giải pháp | Impact dự kiến |
+|-----------|------------|-----------|--------|-----------|----------------|
+| View → Cart | [X]% | [Y]% | [...] | [...] | +[Z]% orders |
+| Cart → Checkout | [X]% | [Y]% | [...] | [...] | +[Z]% orders |
+| Checkout → Purchase | [X]% | [Y]% | [...] | [...] | +[Z]% orders |
 
-**KPIs theo dõi:**
-- Traffic: +[X]%
-- Conversion rate: +[Y]%
-- AOV: +[Z]%
+---
 
-### Phase 2: Tháng 3-4 (Acceleration) - Mục tiêu +10%
-**Growth Initiatives:**
-- [3-5 chiến lược tăng trưởng mạnh]
-- Budget: [...] VNĐ
-- Expected ROI: [...]X
+## 👥 PHÂN KHÚC KHÁCH HÀNG & CHIẾN LƯỢC
 
-### Phase 3: Tháng 5-6 (Scale) - Mục tiêu +10%
-**Scale & Optimize:**
-- [3-5 hành động scale và tối ưu]
-- Budget: [...] VNĐ
-- Expected ROI: [...]X
+### Customer Segmentation Matrix:
 
-## 6️⃣ DASHBOARD KPIs CẦN THEO DÕI 📊
-### Sales Metrics:
-- **Revenue Growth**: [...]%/tháng (Target: 30%/6 tháng)
-- **Conversion Rate**: [...]% (Target: +20%)
-- **Average Order Value**: [...] VNĐ (Target: +15%)
-- **Customer Acquisition Cost**: [...] VNĐ (Target: giảm 10%)
-- **Customer Lifetime Value**: [...] VNĐ (Target: tăng 25%)
+| Phân khúc | % Khách hàng | % Doanh thu | AOV | Frequency | Đặc điểm | Chiến lược |
+|-----------|--------------|-------------|-----|-----------|----------|------------|
+| 💎 VIP (High Value) | [X]% | [Y]% | [Z] VNĐ | [W] lần/tháng | [...] | [...] |
+| ⭐ Loyal (Regular) | [X]% | [Y]% | [Z] VNĐ | [W] lần/tháng | [...] | [...] |
+| 🌱 New (First-time) | [X]% | [Y]% | [Z] VNĐ | [W] lần | [...] | [...] |
+| 😴 At-Risk (Churning) | [X]% | [Y]% | [Z] VNĐ | [W] lần | [...] | [...] |
+| 💔 Lost (Inactive) | [X]% | [Y]% | [Z] VNĐ | 0 | [...] | [...] |
 
-### Marketing Metrics:
-- **Website Traffic**: [...]/tháng (Target: +50%)
-- **Engagement Rate**: [...]% (Target: >5%)
-- **ROAS**: [...]X (Target: >3X)
-- **Email Open Rate**: [...]% (Target: >20%)
-- **Social Media Followers**: [...] (Target: +100%)
+### Chiến lược cho từng phân khúc:
 
-### Operational Metrics:
-- **Order Fulfillment Time**: [...] giờ (Target: <24h)
-- **Customer Satisfaction**: [...]% (Target: >90%)
-- **Return Rate**: [...]% (Target: <5%)
+#### 💎 VIP Customers (Protect & Grow)
+1. **VIP Loyalty Program**:
+   - Exclusive perks: Early access, special pricing
+   - Personal account manager
+   - Birthday/anniversary gifts
+   - **Target**: Tăng AOV +20%, Frequency +30%
 
-⚡ Phân tích thực tế, chiến lược chi tiết, roadmap rõ ràng, dễ triển khai ngay!
+2. **Upsell/Cross-sell Premium**:
+   - Premium product recommendations
+   - Bundle deals exclusive for VIP
+   - **Expected**: +[X] VNĐ/khách/tháng
+
+#### ⭐ Loyal Customers (Maximize Value)
+1. **Referral Program**: Thưởng [X] VNĐ cho mỗi giới thiệu thành công
+2. **Subscription Model**: Giảm [Y]% cho đăng ký định kỳ
+3. **Target**: Chuyển [Z]% lên VIP tier
+
+#### 🌱 New Customers (Convert & Retain)
+1. **Welcome Journey** (7 ngày):
+   - Day 0: Welcome email + 10% off next purchase
+   - Day 2: Product education + use cases
+   - Day 5: Social proof + reviews
+   - Day 7: Urgency + limited offer
+2. **First Purchase Incentive**: Free shipping + gift
+3. **Target**: [X]% repeat purchase trong 30 ngày
+
+#### 😴 At-Risk Customers (Win-back)
+1. **Re-engagement Campaign**:
+   - "We miss you" email với 15% discount
+   - Survey: Tại sao không mua nữa?
+   - Personalized offers dựa trên lịch sử
+2. **Target**: Win-back [X]% trong 60 ngày
+
+#### 💔 Lost Customers (Reactivation)
+1. **Win-back Campaign**: 20-30% discount + free shipping
+2. **New product announcement**: "Look what's new"
+3. **Target**: Reactivate [X]% trong 90 ngày
+
+---
+
+## 🎯 CHIẾN LƯỢC TĂNG AOV (Average Order Value)
+
+### Mục tiêu: Tăng AOV từ [X] VNĐ lên [Y] VNĐ (+[Z]%)
+
+#### A. Product Bundling Strategy
+
+| Bundle Name | Products | Giá lẻ | Giá bundle | Tiết kiệm | Target Sales |
+|-------------|----------|--------|------------|-----------|--------------|
+| [Bundle 1] | [A + B + C] | [X] VNĐ | [Y] VNĐ | [Z]% | [W] bundles/tháng |
+| [Bundle 2] | [A + B] | [X] VNĐ | [Y] VNĐ | [Z]% | [W] bundles/tháng |
+
+**Đề xuất 5-7 bundles cụ thể dựa trên:**
+- Sản phẩm thường mua cùng nhau
+- Complementary products
+- Seasonal bundles
+- Gift sets
+
+#### B. Upselling Tactics
+1. **Product Page Upsells**:
+   - "Customers also bought" section
+   - "Upgrade to premium version" với so sánh rõ ràng
+   - Limited-time upgrade offers
+
+2. **Cart Upsells**:
+   - "Add [Product X] for only [Y] VNĐ more"
+   - Free shipping threshold: "Thêm [X] VNĐ để được free ship"
+   - Volume discounts: "Mua 2 giảm 10%, mua 3 giảm 15%"
+
+#### C. Cross-selling Strategy
+1. **Intelligent Recommendations**:
+   - AI-powered "You may also like"
+   - "Complete the look/set"
+   - Accessories & add-ons
+
+2. **Post-purchase Cross-sell**:
+   - Thank you page offers
+   - Follow-up emails với related products
+
+**Expected Impact**: Tăng AOV +[X]% = +[Y] VNĐ doanh thu/tháng
+
+---
+
+## 📢 MULTI-CHANNEL MARKETING PLAYBOOK
+
+### A. PAID ADVERTISING STRATEGY
+
+#### 1. Facebook & Instagram Ads
+
+| Campaign Type | Budget/tháng | Target Audience | Objective | Expected ROAS |
+|---------------|--------------|-----------------|-----------|---------------|
+| Prospecting | [X] VNĐ | Lookalike 1-3% | Acquisition | 3-4X |
+| Retargeting - Cart | [X] VNĐ | Cart abandoners | Conversion | 5-7X |
+| Retargeting - View | [X] VNĐ | Product viewers | Conversion | 4-5X |
+| Engagement | [X] VNĐ | Page engagers | Awareness | 2-3X |
+
+**Creative Strategy**:
+- Video ads: Product demos, testimonials
+- Carousel ads: Showcase bundles
+- Collection ads: Category browsing
+- Stories ads: Limited-time offers
+
+#### 2. Google Ads Strategy
+
+| Campaign Type | Budget/tháng | Keywords | Expected CTR | Expected ROAS |
+|---------------|--------------|----------|--------------|---------------|
+| Search - Brand | [X] VNĐ | Brand terms | [Y]% | 8-10X |
+| Search - Generic | [X] VNĐ | Product terms | [Y]% | 4-5X |
+| Shopping | [X] VNĐ | Product feed | [Y]% | 5-6X |
+| Display Remarketing | [X] VNĐ | Site visitors | [Y]% | 3-4X |
+
+#### 3. TikTok Ads (if applicable)
+- Spark Ads với UGC content
+- In-Feed Ads với trending sounds
+- Budget: [X] VNĐ/tháng
+- Target ROAS: 3-5X
+
+**Total Marketing Budget**: [X] VNĐ/tháng
+**Expected Revenue**: [Y] VNĐ/tháng
+**Overall ROAS Target**: 4-5X
+
+### B. ORGANIC MARKETING STRATEGY
+
+#### 1. Content Marketing Calendar
+
+| Week | Content Type | Topic | Platform | Goal |
+|------|--------------|-------|----------|------|
+| 1 | Blog post | [Topic] | Website | SEO traffic |
+| 1 | Video | Product review | YouTube | Education |
+| 1 | Infographic | [Topic] | Social | Engagement |
+| 2 | ... | ... | ... | ... |
+
+#### 2. Social Media Strategy
+- **Facebook**: 5-7 posts/tuần (mix: 40% educational, 30% promotional, 30% engagement)
+- **Instagram**: Daily posts + 3-5 Stories/ngày
+- **TikTok**: 3-5 videos/tuần (trending challenges, product demos)
+- **Target**: Tăng followers +50%, engagement rate >5%
+
+#### 3. Email Marketing Automation
+
+**Flows cần setup:**
+
+1. **Welcome Series** (5 emails, 10 ngày):
+   - Email 1 (Day 0): Welcome + 10% discount code
+   - Email 2 (Day 2): Brand story + bestsellers
+   - Email 3 (Day 5): Educational content + use cases
+   - Email 4 (Day 7): Social proof + reviews
+   - Email 5 (Day 10): Last chance + urgency
+
+2. **Abandoned Cart Recovery** (3 emails):
+   - Email 1 (1 giờ): Gentle reminder
+   - Email 2 (24 giờ): 5% discount incentive
+   - Email 3 (48 giờ): 10% discount + free shipping
+
+3. **Post-Purchase** (4 emails):
+   - Email 1 (Ngay sau): Thank you + tracking
+   - Email 2 (3 ngày): How to use + tips
+   - Email 3 (7 ngày): Review request + incentive
+   - Email 4 (14 ngày): Cross-sell recommendations
+
+4. **Win-back Campaign** (Inactive 60+ ngày):
+   - Email 1: "We miss you" + 15% off
+   - Email 2: New arrivals showcase
+   - Email 3: Last chance + 20% off
+
+**Expected Email Performance**:
+- Open rate: 25-30%
+- Click rate: 3-5%
+- Conversion rate: 2-3%
+- Revenue from email: [X]% of total
+
+---
+
+## 🎁 PROMOTIONAL CALENDAR & CAMPAIGNS
+
+### Quarterly Promotion Strategy:
+
+| Tháng | Campaign | Discount | Duration | Products | Budget | Expected Revenue |
+|-------|----------|----------|----------|----------|--------|------------------|
+| 1 | New Year Sale | 20-30% | 7 ngày | All | [X] VNĐ | [Y] VNĐ |
+| 1 | Flash Sale Friday | 40% | 24h | Selected | [X] VNĐ | [Y] VNĐ |
+| 2 | Valentine's Day | 15% + Gift | 3 ngày | Bundles | [X] VNĐ | [Y] VNĐ |
+| 2 | Mid-month Madness | BOGO 50% | 48h | Slow movers | [X] VNĐ | [Y] VNĐ |
+| 3 | Spring Collection | 10% | 14 ngày | New arrivals | [X] VNĐ | [Y] VNĐ |
+| 3 | Clearance Sale | 50-70% | 7 ngày | Old stock | [X] VNĐ | [Y] VNĐ |
+
+### Loyalty & Referral Programs:
+
+**Loyalty Program Design**:
+- Earn 1 point per 1,000 VNĐ spent
+- Tiers: Bronze (0-999), Silver (1000-4999), Gold (5000+)
+- Benefits per tier: [Liệt kê cụ thể]
+- Expected participation: [X]% customers
+
+**Referral Program**:
+- Referrer gets: [X] VNĐ credit
+- Referee gets: [Y]% off first order
+- Target: [Z] referrals/tháng
+
+---
+
+## 🚀 CONVERSION RATE OPTIMIZATION (CRO)
+
+### A. Website Optimization Checklist
+
+#### Homepage:
+- [ ] Clear value proposition above the fold
+- [ ] Featured products/bestsellers prominently displayed
+- [ ] Trust signals: Reviews, ratings, badges
+- [ ] Mobile-optimized (>50% traffic là mobile)
+- [ ] Page load time <3 seconds
+
+#### Product Pages:
+- [ ] High-quality images (5-7 photos + video)
+- [ ] Detailed descriptions with benefits (not just features)
+- [ ] Customer reviews & ratings visible
+- [ ] Clear CTA button (contrasting color)
+- [ ] Stock urgency ("Only X left!")
+- [ ] Social proof ("Y people viewing this")
+- [ ] Size guide/comparison chart
+- [ ] Related products section
+
+#### Cart & Checkout:
+- [ ] Progress indicator (4 steps → 1 page checkout)
+- [ ] Guest checkout option
+- [ ] Multiple payment methods (COD, card, e-wallet)
+- [ ] Trust badges (SSL, secure payment)
+- [ ] Free shipping threshold visible
+- [ ] Exit-intent popup (cart abandonment)
+- [ ] Save cart for later
+- [ ] Mobile-optimized checkout
+
+### B. A/B Testing Roadmap
+
+| Test | Variant A | Variant B | Metric | Expected Lift |
+|------|-----------|-----------|--------|---------------|
+| CTA Button | "Mua ngay" | "Thêm vào giỏ" | CTR | +5-10% |
+| Product Image | Lifestyle | White background | Conversion | +3-5% |
+| Pricing Display | 999,000đ | 999.000đ | Conversion | +2-3% |
+| Checkout Flow | Multi-step | One-page | Completion | +10-15% |
+
+---
+
+## 📊 GROWTH ROADMAP - TĂNG TRƯỞNG 50% TRONG 6 THÁNG
+
+### 🎯 Phase 1: THÁNG 1-2 (Foundation) - Target: +15% Revenue
+
+#### Quick Wins (Tuần 1-2):
+1. **Setup Email Automation** (Impact: +5% revenue)
+   - Abandoned cart recovery
+   - Welcome series
+   - Post-purchase flow
+   - **Budget**: 0 VNĐ (sử dụng tools có sẵn)
+   - **Timeline**: 1 tuần
+
+2. **Optimize Top 10 Product Pages** (Impact: +3% conversion)
+   - Add more images & videos
+   - Improve descriptions
+   - Add reviews
+   - **Budget**: [X] VNĐ (photography)
+   - **Timeline**: 1 tuần
+
+3. **Launch First Bundle Offers** (Impact: +10% AOV)
+   - Create 3-5 bundles
+   - Promote on homepage
+   - **Budget**: 0 VNĐ
+   - **Timeline**: 3 ngày
+
+#### Growth Initiatives (Tuần 3-8):
+4. **Facebook Ads Campaign** (Impact: +20% traffic)
+   - Prospecting + Retargeting
+   - **Budget**: [X] VNĐ/tháng
+   - **Expected ROAS**: 4X
+   - **Timeline**: Ongoing
+
+5. **Loyalty Program Launch** (Impact: +8% repeat rate)
+   - Design tier structure
+   - Integrate with website
+   - **Budget**: [Y] VNĐ (setup)
+   - **Timeline**: 2 tuần
+
+**Phase 1 KPIs**:
+- Revenue: +15% ([X] VNĐ → [Y] VNĐ)
+- Orders: +12%
+- AOV: +10%
+- Conversion: +3%
+
+### 🚀 Phase 2: THÁNG 3-4 (Acceleration) - Target: +20% Revenue
+
+#### Initiatives:
+6. **Google Ads Expansion** (Impact: +15% traffic)
+7. **Referral Program Launch** (Impact: +10% new customers)
+8. **Content Marketing** (Impact: +20% organic traffic)
+9. **Influencer Partnerships** (Impact: +25% brand awareness)
+10. **One-page Checkout** (Impact: +12% checkout conversion)
+
+**Phase 2 KPIs**:
+- Revenue: +20% cumulative
+- New customers: +30%
+- Organic traffic: +40%
+
+### 🎯 Phase 3: THÁNG 5-6 (Scale & Optimize) - Target: +15% Revenue
+
+#### Initiatives:
+11. **TikTok Ads** (Impact: +20% younger audience)
+12. **Advanced Segmentation** (Impact: +15% email revenue)
+13. **Subscription Model** (Impact: +25% predictable revenue)
+14. **Mobile App** (Impact: +30% retention)
+15. **Marketplace Expansion** (Shopee, Lazada, Tiki)
+
+**Phase 3 KPIs**:
+- Revenue: +50% cumulative (vs tháng 0)
+- Customer base: +60%
+- Repeat rate: +40%
+
+---
+
+## 📊 KPI DASHBOARD & TRACKING
+
+### Weekly Tracking:
+1. **Revenue**: [X] VNĐ (Target: [Y] VNĐ)
+2. **Orders**: [X] đơn (Target: [Y] đơn)
+3. **AOV**: [X] VNĐ (Target: [Y] VNĐ)
+4. **Conversion Rate**: [X]% (Target: [Y]%)
+5. **Traffic**: [X] visitors (Target: [Y] visitors)
+
+### Monthly Tracking:
+1. **Revenue Growth MoM**: [X]% (Target: +8-10%/tháng)
+2. **Customer Acquisition**: [X] khách mới (Target: [Y])
+3. **CAC (Customer Acquisition Cost)**: [X] VNĐ (Target: <[Y] VNĐ)
+4. **LTV (Lifetime Value)**: [X] VNĐ (Target: >[Y] VNĐ)
+5. **LTV:CAC Ratio**: [X]:1 (Target: >3:1)
+6. **Repeat Purchase Rate**: [X]% (Target: [Y]%)
+7. **Email Revenue %**: [X]% (Target: 20-30%)
+8. **Paid Ads ROAS**: [X]X (Target: >4X)
+
+### Quarterly Goals:
+- **Revenue**: +[X]% vs quý trước
+- **Profit Margin**: [Y]% (Target: [Z]%)
+- **Market Share**: [X]% (Target: +[Y]%)
+- **Customer Satisfaction**: [X]% (Target: >90%)
+
+---
+
+## 💡 KẾT LUẬN & HÀNH ĐỘNG ƯU TIÊN
+
+### 🎯 Top 5 Priorities (Làm ngay tuần này):
+1. **[Action 1]**: [Mô tả + Expected impact]
+2. **[Action 2]**: [Mô tả + Expected impact]
+3. **[Action 3]**: [Mô tả + Expected impact]
+4. **[Action 4]**: [Mô tả + Expected impact]
+5. **[Action 5]**: [Mô tả + Expected impact]
+
+### 📈 Revenue Forecast (6 tháng):
+- **Tháng 1-2**: [X] VNĐ (+15%)
+- **Tháng 3-4**: [Y] VNĐ (+35% cumulative)
+- **Tháng 5-6**: [Z] VNĐ (+50% cumulative)
+- **Total Additional Revenue**: +[W] VNĐ
+
+### 💰 Investment Required:
+- Marketing: [X] VNĐ
+- Technology: [Y] VNĐ
+- Content: [Z] VNĐ
+- **Total**: [W] VNĐ
+- **Expected ROI**: [V]X
+
+### ⚠️ Risk Mitigation:
+1. **Risk**: [Mô tả] → **Mitigation**: [Giải pháp]
+2. **Risk**: [Mô tả] → **Mitigation**: [Giải pháp]
+
+---
+
+⚡ **YÊU CẦU FORMAT:**
+- Số liệu CỤ THỂ với đơn vị VNĐ, %, timeline rõ ràng
+- Mỗi chiến lược có: Mục tiêu + Cách làm + Budget + Timeline + KPI + Expected ROI
+- Ưu tiên ACTIONABLE tactics có thể triển khai ngay
+- Độ dài: 1500-2000 từ
+- Viết tiếng Việt chuyên nghiệp, dễ hiểu, có cấu trúc
 """
 
     else:

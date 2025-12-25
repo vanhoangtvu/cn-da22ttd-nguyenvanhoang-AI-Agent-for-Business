@@ -116,7 +116,7 @@ export default function DiscountsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.code || !formData.name || formData.discountValue <= 0) {
       alert('Vui lòng điền đầy đủ thông tin bắt buộc!');
       return;
@@ -138,7 +138,7 @@ export default function DiscountsPage() {
         await apiClient.createDiscount(submitData);
         alert('Tạo mã giảm giá thành công!');
       }
-      
+
       setShowModal(false);
       loadDiscounts();
     } catch (error: any) {
@@ -162,7 +162,7 @@ export default function DiscountsPage() {
 
   const handleStatusChange = async (id: number, currentStatus: string) => {
     const newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-    
+
     try {
       await apiClient.updateDiscountStatus(id, newStatus);
       alert('Cập nhật trạng thái thành công!');
@@ -201,7 +201,7 @@ export default function DiscountsPage() {
 
   const filteredDiscounts = discounts.filter(discount => {
     const matchesSearch = discount.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         discount.code.toLowerCase().includes(searchTerm.toLowerCase());
+      discount.code.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'ALL' || discount.status === filterStatus;
     const matchesType = filterType === 'ALL' || discount.discountType === filterType;
     return matchesSearch && matchesStatus && matchesType;
@@ -253,15 +253,7 @@ export default function DiscountsPage() {
               </select>
             </div>
             <div className="flex gap-3">
-              <Link
-                href="/admin/discounts/analytics"
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:shadow-lg transition-all font-semibold flex items-center gap-2 whitespace-nowrap"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                Thống kê
-              </Link>
+
               <button
                 onClick={openCreateModal}
                 className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg transition-all font-semibold flex items-center gap-2 whitespace-nowrap"
@@ -306,13 +298,12 @@ export default function DiscountsPage() {
                     </td>
                     <td className="px-6 py-4">
                       <div>
-                        <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                          discount.discountType === 'PERCENTAGE' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
-                          discount.discountType === 'FIXED_AMOUNT' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
-                          'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
-                        }`}>
+                        <span className={`px-3 py-1 rounded-full text-sm font-semibold ${discount.discountType === 'PERCENTAGE' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
+                            discount.discountType === 'FIXED_AMOUNT' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
+                              'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
+                          }`}>
                           {discount.discountType === 'PERCENTAGE' ? 'Phần trăm' :
-                           discount.discountType === 'FIXED_AMOUNT' ? 'Cố định' : 'Miễn phí ship'}
+                            discount.discountType === 'FIXED_AMOUNT' ? 'Cố định' : 'Miễn phí ship'}
                         </span>
                         <p className="font-bold text-gray-800 dark:text-white mt-2">{formatDiscountValue(discount)}</p>
                         {discount.minOrderValue && (
@@ -330,10 +321,9 @@ export default function DiscountsPage() {
                         {discount.usagePercentage !== undefined && (
                           <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mt-2">
                             <div
-                              className={`h-2 rounded-full ${
-                                discount.usagePercentage >= 90 ? 'bg-red-500' :
-                                discount.usagePercentage >= 70 ? 'bg-yellow-500' : 'bg-green-500'
-                              }`}
+                              className={`h-2 rounded-full ${discount.usagePercentage >= 90 ? 'bg-red-500' :
+                                  discount.usagePercentage >= 70 ? 'bg-yellow-500' : 'bg-green-500'
+                                }`}
                               style={{ width: `${Math.min(discount.usagePercentage, 100)}%` }}
                             ></div>
                           </div>
@@ -406,7 +396,7 @@ export default function DiscountsPage() {
                 {editingDiscount ? 'Chỉnh sửa mã giảm giá' : 'Tạo mã giảm giá mới'}
               </h2>
             </div>
-            
+
             <form onSubmit={handleSubmit} className="p-6 space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Basic Info */}
@@ -486,8 +476,8 @@ export default function DiscountsPage() {
                       required
                     />
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {formData.discountType === 'PERCENTAGE' ? 'Phần trăm (0-100)' : 
-                       formData.discountType === 'FIXED_AMOUNT' ? 'Số tiền (VNĐ)' : 'Để 0 cho miễn phí ship'}
+                      {formData.discountType === 'PERCENTAGE' ? 'Phần trăm (0-100)' :
+                        formData.discountType === 'FIXED_AMOUNT' ? 'Số tiền (VNĐ)' : 'Để 0 cho miễn phí ship'}
                     </p>
                   </div>
 

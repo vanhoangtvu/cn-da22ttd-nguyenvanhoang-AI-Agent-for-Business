@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/AdminLayout';
-import { Trash2, RefreshCw, MessageSquare, Users, MessageCircle, Database } from 'lucide-react';
+import { Trash2, RefreshCw, MessageSquare, Users, MessageCircle, Database, FileText, Layers, Settings, Plus, Search, Eye, AlertCircle } from 'lucide-react';
 import { useToast } from '@/components/Toast';
 
 interface ChatSession {
@@ -58,9 +58,9 @@ export default function AIAgentChatManagementPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [userData, setUserData] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'redis' | 'chroma' | 'modal-config' | 'rag'>('redis');
+  const [activeTab, setActiveTab] = useState<'redis' | 'chroma' | 'modal-config'>('redis');
   const [chromaCollections, setChromaCollections] = useState<ChromaCollection[]>([]);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<{type: 'session' | 'user' | 'all', userId?: string, sessionId?: string} | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<{ type: 'session' | 'user' | 'all', userId?: string, sessionId?: string } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
   const [collectionDocuments, setCollectionDocuments] = useState<CollectionDocument[]>([]);
@@ -70,40 +70,31 @@ export default function AIAgentChatManagementPage() {
   const [showModalConfigForm, setShowModalConfigForm] = useState(false);
   const [selectedModalConfig, setSelectedModalConfig] = useState<ModalConfig | null>(null);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
-  const [ragStats, setRagStats] = useState<any>(null);
-  const [syncingRagData, setSyncingRagData] = useState(false);
-
   const { addToast } = useToast();
-
-  useEffect(() => {
-    if (activeTab === 'rag') {
-      loadRagStats();
-    }
-  }, [activeTab]);
-    const checkAuth = async () => {
-      try {
-        const userDataStr = typeof window !== 'undefined' ? localStorage.getItem('userData') : null;
-        if (!userDataStr) {
-          router.push('/login');
-          return;
-        }
-        const user = JSON.parse(userDataStr);
-        setUserData(user);
-        if (user.role !== 'ADMIN') {
-          router.push('/');
-          return;
-        }
-        setIsAuthorized(true);
-        loadChatStats();
-        loadAllUsers();
-        loadChromaCollections();
-        loadModalConfigs();
-        loadAvailableModels();
-      } catch (error) {
-        console.error('Error checking auth:', error);
+  const checkAuth = async () => {
+    try {
+      const userDataStr = typeof window !== 'undefined' ? localStorage.getItem('userData') : null;
+      if (!userDataStr) {
         router.push('/login');
+        return;
       }
-    };
+      const user = JSON.parse(userDataStr);
+      setUserData(user);
+      if (user.role !== 'ADMIN') {
+        router.push('/');
+        return;
+      }
+      setIsAuthorized(true);
+      loadChatStats();
+      loadAllUsers();
+      loadChromaCollections();
+      loadModalConfigs();
+      loadAvailableModels();
+    } catch (error) {
+      console.error('Error checking auth:', error);
+      router.push('/login');
+    }
+  };
 
   useEffect(() => {
     checkAuth();
@@ -149,16 +140,16 @@ export default function AIAgentChatManagementPage() {
       const response = await fetch(`${AI_SERVICE_URL}/api/admin/user/${userId}/session/${sessionId}`, {
         method: 'DELETE'
       });
-      
+
       if (response.ok) {
-        setUsers(prev => prev.map(u => 
-          u.user_id === userId 
-            ? { 
-                ...u, 
-                sessions: u.sessions.filter(s => s.session_id !== sessionId),
-                total_sessions: u.total_sessions - 1,
-                total_messages: u.total_messages - (u.sessions.find(s => s.session_id === sessionId)?.message_count || 0)
-              }
+        setUsers(prev => prev.map(u =>
+          u.user_id === userId
+            ? {
+              ...u,
+              sessions: u.sessions.filter(s => s.session_id !== sessionId),
+              total_sessions: u.total_sessions - 1,
+              total_messages: u.total_messages - (u.sessions.find(s => s.session_id === sessionId)?.message_count || 0)
+            }
             : u
         ));
         setShowDeleteConfirm(null);
@@ -174,7 +165,7 @@ export default function AIAgentChatManagementPage() {
       const response = await fetch(`${AI_SERVICE_URL}/api/admin/user/${userId}/sessions`, {
         method: 'DELETE'
       });
-      
+
       if (response.ok) {
         setUsers(prev => prev.filter(u => u.user_id !== userId));
         setShowDeleteConfirm(null);
@@ -257,62 +248,14 @@ export default function AIAgentChatManagementPage() {
     }
   };
 
-  const loadRagStats = async () => {
-    try {
-      const response = await fetch(`${AI_SERVICE_URL}/api/admin/rag-stats`);
-      if (response.ok) {
-        const data = await response.json();
-        setRagStats(data.data || {});
-      }
-    } catch (error) {
-      console.error('Error loading RAG stats:', error);
-    }
-  };
 
-  const syncUserDataToRag = async () => {
-    if (!confirm('Bạn có chắc muốn sync toàn bộ user data vào RAG system? Quá trình này có thể mất thời gian.')) return;
-
-    setSyncingRagData(true);
-    try {
-      const response = await fetch(`${AI_SERVICE_URL}/api/admin/user-data/sync`, {
-        method: 'POST'
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        addToast({
-          type: 'success',
-          title: 'Sync thành công!',
-          message: data.message,
-          duration: 8000
-        });
-        loadRagStats(); // Refresh stats
-      } else {
-        const error = await response.json();
-        addToast({
-          type: 'error',
-          title: 'Lỗi sync',
-          message: error.message || 'Không thể sync user data'
-        });
-      }
-    } catch (error) {
-      console.error('Error syncing user data:', error);
-      addToast({
-        type: 'error',
-        title: 'Lỗi kết nối',
-        message: 'Không thể kết nối đến server'
-      });
-    } finally {
-      setSyncingRagData(false);
-    }
-  };
 
   const handleClearChromaCollection = async (collectionName: string) => {
     try {
       const response = await fetch(`${AI_SERVICE_URL}/api/admin/chroma/collection/${collectionName}`, {
         method: 'DELETE'
       });
-      
+
       if (response.ok) {
         loadChromaCollections();
         if (selectedCollection === collectionName) {
@@ -329,9 +272,9 @@ export default function AIAgentChatManagementPage() {
     try {
       setLoadingDocuments(true);
       setSelectedCollection(collectionName);
-      
+
       const response = await fetch(`${AI_SERVICE_URL}/api/admin/chroma/collection/${collectionName}/details?limit=100`);
-      
+
       if (response.ok) {
         const data = await response.json();
         setCollectionDocuments(data.documents || []);
@@ -352,7 +295,7 @@ export default function AIAgentChatManagementPage() {
       const response = await fetch(`${AI_SERVICE_URL}/api/admin/test-data/populate`, {
         method: 'POST'
       });
-      
+
       if (response.ok) {
         loadAllUsers();
         loadChatStats();
@@ -367,7 +310,7 @@ export default function AIAgentChatManagementPage() {
       const response = await fetch(`${AI_SERVICE_URL}/api/admin/test-data/populate-chroma`, {
         method: 'POST'
       });
-      
+
       if (response.ok) {
         loadChromaCollections();
       }
@@ -379,7 +322,7 @@ export default function AIAgentChatManagementPage() {
   const handleSyncSystemData = async () => {
     try {
       setRefreshing(true);
-      
+
       // Lấy token từ localStorage (key là 'authToken' không phải 'token')
       const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
       if (!token) {
@@ -391,14 +334,14 @@ export default function AIAgentChatManagementPage() {
         router.push('/login');
         return;
       }
-      
+
       const response = await fetch(`${AI_SERVICE_URL}/api/admin/sync-system-data?authorization=${encodeURIComponent(token)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (response.ok) {
         const result = await response.json();
         addToast({
@@ -470,42 +413,85 @@ export default function AIAgentChatManagementPage() {
           </button>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-blue-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 dark:text-gray-400 text-sm font-medium mb-2">Tổng người dùng</p>
-                <p className="text-3xl font-bold text-gray-800 dark:text-white">{stats?.total_users || 0}</p>
+        {/* Stats Cards - Enhanced */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* Total Users Card */}
+          <div className="group relative bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden">
+            <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-10 transition-opacity"></div>
+            <div className="relative p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+                  <Users size={24} className="text-white" />
+                </div>
+                <div className="text-white/80 text-sm font-medium">+12%</div>
               </div>
-              <Users size={32} className="text-blue-500 opacity-20" />
+              <div>
+                <p className="text-white/90 text-sm font-medium mb-1">Tổng người dùng</p>
+                <p className="text-4xl font-bold text-white">{stats?.total_users || 0}</p>
+              </div>
+            </div>
+            <div className="absolute bottom-0 right-0 opacity-10">
+              <Users size={120} className="text-white" />
             </div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-purple-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 dark:text-gray-400 text-sm font-medium mb-2">Tổng phiên làm việc</p>
-                <p className="text-3xl font-bold text-gray-800 dark:text-white">{stats?.total_sessions || 0}</p>
+
+          {/* Total Sessions Card */}
+          <div className="group relative bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden">
+            <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-10 transition-opacity"></div>
+            <div className="relative p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+                  <MessageCircle size={24} className="text-white" />
+                </div>
+                <div className="text-white/80 text-sm font-medium">+8%</div>
               </div>
-              <MessageCircle size={32} className="text-purple-500 opacity-20" />
+              <div>
+                <p className="text-white/90 text-sm font-medium mb-1">Tổng phiên làm việc</p>
+                <p className="text-4xl font-bold text-white">{stats?.total_sessions || 0}</p>
+              </div>
+            </div>
+            <div className="absolute bottom-0 right-0 opacity-10">
+              <MessageCircle size={120} className="text-white" />
             </div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-green-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 dark:text-gray-400 text-sm font-medium mb-2">Tổng tin nhắn</p>
-                <p className="text-3xl font-bold text-gray-800 dark:text-white">{stats?.total_messages || 0}</p>
+
+          {/* Total Messages Card */}
+          <div className="group relative bg-gradient-to-br from-green-500 to-green-600 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden">
+            <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-10 transition-opacity"></div>
+            <div className="relative p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+                  <MessageSquare size={24} className="text-white" />
+                </div>
+                <div className="text-white/80 text-sm font-medium">+24%</div>
               </div>
-              <MessageSquare size={32} className="text-green-500 opacity-20" />
+              <div>
+                <p className="text-white/90 text-sm font-medium mb-1">Tổng tin nhắn</p>
+                <p className="text-4xl font-bold text-white">{stats?.total_messages || 0}</p>
+              </div>
+            </div>
+            <div className="absolute bottom-0 right-0 opacity-10">
+              <MessageSquare size={120} className="text-white" />
             </div>
           </div>
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-orange-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-600 dark:text-gray-400 text-sm font-medium mb-2">Phiên hoạt động</p>
-                <p className="text-3xl font-bold text-gray-800 dark:text-white">{stats?.active_sessions || 0}</p>
+
+          {/* Active Sessions Card */}
+          <div className="group relative bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden">
+            <div className="absolute inset-0 bg-black opacity-0 group-hover:opacity-10 transition-opacity"></div>
+            <div className="relative p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl">
+                  <Database size={24} className="text-white" />
+                </div>
+                <div className="text-white/80 text-sm font-medium">Live</div>
               </div>
-              <Database size={32} className="text-orange-500 opacity-20" />
+              <div>
+                <p className="text-white/90 text-sm font-medium mb-1">Phiên hoạt động</p>
+                <p className="text-4xl font-bold text-white">{stats?.active_sessions || 0}</p>
+              </div>
+            </div>
+            <div className="absolute bottom-0 right-0 opacity-10">
+              <Database size={120} className="text-white" />
             </div>
           </div>
         </div>
@@ -515,43 +501,33 @@ export default function AIAgentChatManagementPage() {
           <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
             <button
               onClick={() => setActiveTab('redis')}
-              className={`px-6 py-3 font-semibold text-sm transition-colors border-b-2 ${
-                activeTab === 'redis'
-                  ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300'
-              }`}
+              className={`px-6 py-3 font-semibold text-sm transition-colors border-b-2 ${activeTab === 'redis'
+                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300'
+                }`}
             >
-              📝 Lịch Sử Chat (Redis)
+              <MessageCircle size={18} className="inline-block mr-2" />
+              Lịch Sử Chat (Redis)
             </button>
             <button
               onClick={() => setActiveTab('chroma')}
-              className={`px-6 py-3 font-semibold text-sm transition-colors border-b-2 ${
-                activeTab === 'chroma'
-                  ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300'
-              }`}
+              className={`px-6 py-3 font-semibold text-sm transition-colors border-b-2 ${activeTab === 'chroma'
+                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300'
+                }`}
             >
-              🗂️ Chroma Collections
+              <Layers size={18} className="inline-block mr-2" />
+              Chroma Collections
             </button>
             <button
               onClick={() => setActiveTab('modal-config')}
-              className={`px-6 py-3 font-semibold text-sm transition-colors border-b-2 ${
-                activeTab === 'modal-config'
-                  ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300'
-              }`}
+              className={`px-6 py-3 font-semibold text-sm transition-colors border-b-2 ${activeTab === 'modal-config'
+                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300'
+                }`}
             >
-              🤖 Cấu Hình Modal AI
-            </button>
-            <button
-              onClick={() => setActiveTab('rag')}
-              className={`px-6 py-3 font-semibold text-sm transition-colors border-b-2 ${
-                activeTab === 'rag'
-                  ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                  : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300'
-              }`}
-            >
-              🧠 RAG System
+              <Settings size={18} className="inline-block mr-2" />
+              Cấu Hình Modal AI
             </button>
           </div>
         </div>
@@ -575,13 +551,15 @@ export default function AIAgentChatManagementPage() {
                   onClick={handlePopulateTestData}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
                 >
-                  📝 Tạo dữ liệu test
+                  <Plus size={18} className="mr-2" />
+                  Tạo dữ liệu test
                 </button>
                 <button
-                  onClick={() => setShowDeleteConfirm({type: 'all'})}
+                  onClick={() => setShowDeleteConfirm({ type: 'all' })}
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
                 >
-                  🗑️ Xóa tất cả
+                  <Trash2 size={18} className="mr-2" />
+                  Xóa tất cả
                 </button>
               </div>
               <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
@@ -615,10 +593,11 @@ export default function AIAgentChatManagementPage() {
                             {selectedUser === user.user_id ? '▼' : '▶'} Chi tiết
                           </button>
                           <button
-                            onClick={() => setShowDeleteConfirm({type: 'user', userId: user.user_id})}
+                            onClick={() => setShowDeleteConfirm({ type: 'user', userId: user.user_id })}
                             className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-medium"
                           >
-                            🗑️ Xóa
+                            <Trash2 size={16} className="inline-block mr-1" />
+                            Xóa
                           </button>
                         </td>
                       </tr>
@@ -628,8 +607,27 @@ export default function AIAgentChatManagementPage() {
               </div>
 
               {filteredUsers.length === 0 && (
-                <div className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-                  Không có dữ liệu. Hãy tạo dữ liệu test để kiểm tra.
+                <div className="px-6 py-16 text-center">
+                  <div className="max-w-md mx-auto">
+                    <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 rounded-full flex items-center justify-center">
+                      <MessageSquare size={40} className="text-gray-400 dark:text-gray-500" />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                      Chưa có dữ liệu chat
+                    </h3>
+                    <p className="text-gray-500 dark:text-gray-400 mb-6">
+                      Hệ thống chưa có lịch sử chat nào. Hãy tạo dữ liệu test để bắt đầu khám phá tính năng quản lý chat.
+                    </p>
+                    <button
+                      onClick={handlePopulateTestData}
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-green-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Tạo dữ liệu test ngay
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -649,7 +647,7 @@ export default function AIAgentChatManagementPage() {
                           <p className="text-sm text-gray-600 dark:text-gray-400">{session.message_count} tin nhắn</p>
                         </div>
                         <button
-                          onClick={() => setShowDeleteConfirm({type: 'session', userId: selectedUser, sessionId: session.session_id})}
+                          onClick={() => setShowDeleteConfirm({ type: 'session', userId: selectedUser, sessionId: session.session_id })}
                           className="text-red-600 hover:text-red-800"
                         >
                           <Trash2 size={18} />
@@ -673,20 +671,23 @@ export default function AIAgentChatManagementPage() {
                   onClick={() => loadChromaCollections()}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
                 >
-                  🔄 Làm mới
+                  <RefreshCw size={16} className="mr-2" />
+                  Làm mới
                 </button>
                 <button
                   onClick={handleSyncSystemData}
                   disabled={refreshing}
                   className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  🔄 Đồng bộ dữ liệu hệ thống
+                  <RefreshCw size={16} className="mr-2" />
+                  Đồng bộ dữ liệu hệ thống
                 </button>
                 <button
                   onClick={handlePopulateChromaTestData}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
                 >
-                  📝 Thêm dữ liệu test
+                  <Plus size={16} className="mr-2" />
+                  Thêm dữ liệu test
                 </button>
               </div>
               <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
@@ -721,13 +722,15 @@ export default function AIAgentChatManagementPage() {
                             onClick={() => handleViewCollectionDetails(collection.collection_name)}
                             className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium mr-4"
                           >
-                            👁️ Xem
+                            <Eye size={16} className="inline-block mr-1" />
+                            Xem
                           </button>
                           <button
                             onClick={() => handleClearChromaCollection(collection.collection_name)}
                             className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-medium"
                           >
-                            🗑️ Xóa
+                            <Trash2 size={16} className="inline-block mr-1" />
+                            Xóa
                           </button>
                         </td>
                       </tr>
@@ -737,8 +740,39 @@ export default function AIAgentChatManagementPage() {
               </div>
 
               {chromaCollections.length === 0 && (
-                <div className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
-                  Không có collections nào
+                <div className="px-6 py-16 text-center">
+                  <div className="max-w-md mx-auto">
+                    <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-900/30 dark:to-purple-800/30 rounded-full flex items-center justify-center">
+                      <Database size={40} className="text-purple-500 dark:text-purple-400" />
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                      Chưa có Chroma Collections
+                    </h3>
+                    <p className="text-gray-500 dark:text-gray-400 mb-6">
+                      Vector database chưa có collections nào. Đồng bộ dữ liệu từ hệ thống để tạo collections cho AI Agent.
+                    </p>
+                    <button
+                      onClick={handleSyncSystemData}
+                      disabled={refreshing}
+                      className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-medium rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {refreshing ? (
+                        <>
+                          <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          Đang đồng bộ...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                          </svg>
+                          Đồng bộ dữ liệu ngay
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -864,15 +898,15 @@ export default function AIAgentChatManagementPage() {
                       </div>
                       <div className="mt-3 space-y-2">
                         <div className="text-sm">
-                          <span className="font-medium text-gray-600 dark:text-gray-400">Model:</span> 
+                          <span className="font-medium text-gray-600 dark:text-gray-400">Model:</span>
                           <span className="ml-2 text-gray-800 dark:text-white">{config.model || 'N/A'}</span>
                         </div>
                         <div className="text-sm">
-                          <span className="font-medium text-gray-600 dark:text-gray-400">Temperature:</span> 
+                          <span className="font-medium text-gray-600 dark:text-gray-400">Temperature:</span>
                           <span className="ml-2 text-gray-800 dark:text-white">{config.temperature || 'N/A'}</span>
                         </div>
                         <div className="text-sm">
-                          <span className="font-medium text-gray-600 dark:text-gray-400">Max Tokens:</span> 
+                          <span className="font-medium text-gray-600 dark:text-gray-400">Max Tokens:</span>
                           <span className="ml-2 text-gray-800 dark:text-white">{config.max_tokens || 'N/A'}</span>
                         </div>
                         <div className="text-sm">
@@ -895,92 +929,7 @@ export default function AIAgentChatManagementPage() {
           </div>
         )}
 
-        {/* RAG System Tab */}
-        {activeTab === 'rag' && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-semibold text-gray-800 dark:text-white">🧠 RAG System Management</h2>
-              <div className="flex gap-3">
-                <button
-                  onClick={loadRagStats}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
-                >
-                  <RefreshCw size={16} />
-                  Refresh Stats
-                </button>
-                <button
-                  onClick={syncUserDataToRag}
-                  disabled={syncingRagData}
-                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 text-sm"
-                >
-                  {syncingRagData ? <RefreshCw size={16} className="animate-spin" /> : '🔄'}
-                  {syncingRagData ? 'Syncing...' : 'Sync User Data'}
-                </button>
-              </div>
-            </div>
 
-            {/* RAG Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-6 text-white">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-blue-100 text-sm font-medium">Products</p>
-                    <p className="text-2xl font-bold">{ragStats?.products || 0}</p>
-                  </div>
-                  <div className="text-blue-200 text-3xl">📦</div>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-6 text-white">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-purple-100 text-sm font-medium">User Orders</p>
-                    <p className="text-2xl font-bold">{ragStats?.user_orders || 0}</p>
-                  </div>
-                  <div className="text-purple-200 text-3xl">🛒</div>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-6 text-white">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-green-100 text-sm font-medium">User Data</p>
-                    <p className="text-2xl font-bold">{ragStats?.user_data || 0}</p>
-                  </div>
-                  <div className="text-green-200 text-3xl">👤</div>
-                </div>
-              </div>
-            </div>
-
-            {/* RAG Info */}
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">ℹ️ Thông tin RAG System</h3>
-              <div className="space-y-3 text-sm text-gray-600 dark:text-gray-300">
-                <p>
-                  <strong>RAG (Retrieval-Augmented Generation)</strong> giúp AI tư vấn khách hàng bằng cách sử dụng dữ liệu cá nhân hóa từ ChromaDB.
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                  <div>
-                    <h4 className="font-medium text-gray-800 dark:text-white mb-2">🔒 Bảo mật dữ liệu:</h4>
-                    <ul className="list-disc list-inside space-y-1 text-xs">
-                      <li>Mỗi user chỉ truy cập dữ liệu của chính mình</li>
-                      <li>Đơn hàng và thông tin cá nhân được mã hóa</li>
-                      <li>Không chia sẻ dữ liệu giữa các user</li>
-                    </ul>
-                  </div>
-                  <div>
-                    <h4 className="font-medium text-gray-800 dark:text-white mb-2">🎯 Tính năng:</h4>
-                    <ul className="list-disc list-inside space-y-1 text-xs">
-                      <li>Tư vấn sản phẩm dựa trên lịch sử mua hàng</li>
-                      <li>Gợi ý sản phẩm phù hợp với sở thích</li>
-                      <li>Hỗ trợ chăm sóc khách hàng cá nhân hóa</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Modal Config Form */}
         {showModalConfigForm && (
@@ -989,7 +938,7 @@ export default function AIAgentChatManagementPage() {
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">
                 {selectedModalConfig ? 'Chỉnh sửa Modal Config' : 'Thêm Modal Config'}
               </h3>
-              
+
               <ModalConfigForm
                 initialData={selectedModalConfig}
                 availableModels={availableModels}
@@ -1050,7 +999,12 @@ export default function AIAgentChatManagementPage() {
                 {showDeleteConfirm.type === 'session' && `Xóa phiên ${showDeleteConfirm.sessionId}?`}
               </h3>
               <p className="text-gray-600 dark:text-gray-400 mb-6">
-                {showDeleteConfirm.type === 'all' && '⚠️ Hành động này không thể hoàn tác. Tất cả dữ liệu chat sẽ bị xóa vĩnh viễn.'}
+                {showDeleteConfirm.type === 'all' && (
+                  <div className="flex items-start gap-2">
+                    <AlertCircle size={20} className="text-red-600 flex-shrink-0 mt-0.5" />
+                    <span>Hành động này không thể hoàn tác. Tất cả dữ liệu chat sẽ bị xóa vĩnh viễn.</span>
+                  </div>
+                )}
                 {showDeleteConfirm.type === 'user' && 'Tất cả tin nhắn và phiên của người dùng này sẽ bị xóa.'}
                 {showDeleteConfirm.type === 'session' && 'Tất cả tin nhắn trong phiên này sẽ bị xóa.'}
               </p>
@@ -1097,7 +1051,7 @@ function ModalConfigForm({ initialData, availableModels, onSave, onCancel }: Mod
   const [temperature, setTemperature] = useState(initialData?.temperature || 0.7);
   const [maxTokens, setMaxTokens] = useState(initialData?.max_tokens || 1000);
   const [systemPrompt, setSystemPrompt] = useState(
-    initialData?.system_prompt || 
+    initialData?.system_prompt ||
     "Bạn là trợ lý AI hữu ích cho một trang web thương mại điện tử. Hãy trả lời một cách thân thiện, chuyên nghiệp và hữu ích."
   );
   const [isActive, setIsActive] = useState(initialData?.is_active || false);
@@ -1110,7 +1064,7 @@ function ModalConfigForm({ initialData, availableModels, onSave, onCancel }: Mod
       system_prompt: systemPrompt,
       is_active: isActive
     };
-    
+
     onSave({
       modal_name: modalName,
       modal_config: config

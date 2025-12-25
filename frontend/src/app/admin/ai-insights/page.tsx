@@ -98,7 +98,7 @@ export default function AIInsightsPage() {
     const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
     const userData = typeof window !== 'undefined' ? localStorage.getItem('userData') : null;
     setUserStr(userData);
-    
+
     if (!token) {
       router.push('/login');
       return;
@@ -126,7 +126,7 @@ export default function AIInsightsPage() {
       console.log('[Effect] chromaStats.total_documents:', chromaStats.total_documents);
       const needSync = chromaStats.total_documents === 0;
       console.log('[Effect] needSync:', needSync);
-      
+
       // If ChromaDB has data but systemData is not loaded, load it for display
       if (chromaHasData() && !systemData) {
         console.log('[Effect] ChromaDB has data but systemData not loaded - loading systemData for display');
@@ -166,7 +166,7 @@ export default function AIInsightsPage() {
 
       const data = await springResponse.json();
       console.log(`[LoadSystemDataForDisplay] Received data with ${data.products?.length || 0} products`);
-      
+
       // Set system data for display only
       setSystemData(data);
       setStatistics(data);
@@ -215,7 +215,7 @@ export default function AIInsightsPage() {
 
       const data = await springResponse.json();
       console.log(`[Sync] Step 1 completed: Received data with ${data.products?.length || 0} products`);
-      
+
       // Set system data for display
       setSystemData(data);
       setStatistics(data);
@@ -238,13 +238,13 @@ export default function AIInsightsPage() {
       if (syncResponse.ok) {
         const syncResult = await syncResponse.json();
         console.log('[Sync] Step 2 completed:', syncResult);
-        
+
         // Hiển thị kết quả đồng bộ
         const summary = syncResult.summary;
         alert(`Đồng bộ thành công!\n\nSản phẩm: ${syncResult.products.success}/${syncResult.products.total} (${syncResult.products.with_details} có details)\nĐơn hàng: ${syncResult.orders.success}/${syncResult.orders.total}\nDanh mục: ${syncResult.categories.success}/${syncResult.categories.total}\n\nTổng: ${summary.total_success} thành công, ${summary.total_errors} lỗi`);
-        
+
         console.log('[Sync] Completed successfully, reloading ChromaDB stats...');
-        
+
         // Reload ChromaDB stats from server
         console.log('[Sync] Calling loadChromaStats to refresh...');
         await loadChromaStats();
@@ -252,7 +252,7 @@ export default function AIInsightsPage() {
       } else {
         console.error('[Sync] Step 2 failed:', syncResponse.status);
         let errorMessage = 'Cảnh báo: Dữ liệu đã được tải nhưng không thể đồng bộ vào ChromaDB. Vui lòng thử lại.';
-        
+
         try {
           const errorData = await syncResponse.json();
           if (errorData.detail) {
@@ -264,7 +264,7 @@ export default function AIInsightsPage() {
             errorMessage += `\n\nChi tiết lỗi: ${errorText}`;
           }
         }
-        
+
         alert(errorMessage);
       }
 
@@ -296,12 +296,12 @@ export default function AIInsightsPage() {
       if (response.ok) {
         const result = await response.json();
         console.log('[Delete] Deletion completed:', result);
-        
+
         alert(`Xóa dữ liệu thành công!\n\nĐã xóa ${result.total_cleared} collections.\n${result.total_errors > 0 ? `Có ${result.total_errors} lỗi.` : ''}`);
-        
+
         // Reload ChromaDB stats
         await loadChromaStats();
-        
+
         // Clear insights and system data
         setInsights('');
         setSystemData(null);
@@ -341,7 +341,7 @@ export default function AIInsightsPage() {
         console.log('[LoadChromaStats] Stats received:', data);
         console.log('[LoadChromaStats] Total documents:', data.total_documents);
         console.log('[LoadChromaStats] Collections:', Object.keys(data.collections_stats || {}));
-        
+
         console.log('[LoadChromaStats] Setting chromaStats state...');
         setChromaStats(data);
         console.log('[LoadChromaStats] chromaStats state set. Will re-render.');
@@ -363,12 +363,12 @@ export default function AIInsightsPage() {
       return false;
     }
     console.log('[chromaHasData] total_documents:', chromaStats.total_documents, 'type:', typeof chromaStats.total_documents);
-    
+
     // Handle both number and string cases
-    const totalDocs = typeof chromaStats.total_documents === 'string' 
-      ? parseInt(chromaStats.total_documents, 10) 
+    const totalDocs = typeof chromaStats.total_documents === 'string'
+      ? parseInt(chromaStats.total_documents, 10)
       : chromaStats.total_documents;
-    
+
     console.log('[chromaHasData] parsed totalDocs:', totalDocs);
     const hasData = totalDocs > 0;
     console.log('[chromaHasData] hasData:', hasData, '(totalDocs > 0)');
@@ -425,7 +425,7 @@ export default function AIInsightsPage() {
 
       const data = await response.json();
       console.log('[AI Insights] Response:', data);
-      
+
       // Set insights from response
       setInsights(data.insights || '');
       setStatistics(data.statistics || null);
@@ -459,384 +459,400 @@ export default function AIInsightsPage() {
           {/* Control Panel */}
           <div className="lg:col-span-1 max-h-[calc(100vh-120px)] overflow-y-auto">
             <div className="space-y-6">
-            {/* Analysis Type */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Loại phân tích</h3>
-              <div className="space-y-2">
-                <button
-                  onClick={() => setAnalysisType('general')}
-                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
-                    analysisType === 'general'
+              {/* Analysis Type */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Loại phân tích</h3>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setAnalysisType('general')}
+                    className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${analysisType === 'general'
                       ? 'bg-purple-600 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  <div className="font-semibold flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                    </svg>
-                    Tổng quan
-                  </div>
-                  <div className="text-xs opacity-80">Phân tích toàn diện và đề xuất chung</div>
-                </button>
-                <button
-                  onClick={() => setAnalysisType('pricing')}
-                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
-                    analysisType === 'pricing'
+                      }`}
+                  >
+                    <div className="font-semibold flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                      Tổng quan
+                    </div>
+                    <div className="text-xs opacity-80">Phân tích toàn diện và đề xuất chung</div>
+                  </button>
+                  <button
+                    onClick={() => setAnalysisType('pricing')}
+                    className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${analysisType === 'pricing'
                       ? 'bg-purple-600 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  <div className="font-semibold flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                    </svg>
-                    Chiến lược giá
-                  </div>
-                  <div className="text-xs opacity-80">Tối ưu hóa giá bán và khuyến mãi</div>
-                </button>
-                <button
-                  onClick={() => setAnalysisType('inventory')}
-                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
-                    analysisType === 'inventory'
+                      }`}
+                  >
+                    <div className="font-semibold flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                      </svg>
+                      Chiến lược giá
+                    </div>
+                    <div className="text-xs opacity-80">Tối ưu hóa giá bán và khuyến mãi</div>
+                  </button>
+                  <button
+                    onClick={() => setAnalysisType('inventory')}
+                    className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${analysisType === 'inventory'
                       ? 'bg-purple-600 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  <div className="font-semibold flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                    </svg>
-                    Quản lý kho
-                  </div>
-                  <div className="text-xs opacity-80">Tối ưu tồn kho và nhập hàng</div>
-                </button>
-                <button
-                  onClick={() => setAnalysisType('sales')}
-                  className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${
-                    analysisType === 'sales'
+                      }`}
+                  >
+                    <div className="font-semibold flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                      </svg>
+                      Quản lý kho
+                    </div>
+                    <div className="text-xs opacity-80">Tối ưu tồn kho và nhập hàng</div>
+                  </button>
+                  <button
+                    onClick={() => setAnalysisType('sales')}
+                    className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${analysisType === 'sales'
                       ? 'bg-purple-600 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  <div className="font-semibold flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                    </svg>
-                    Tăng trưởng bán hàng
-                  </div>
-                  <div className="text-xs opacity-80">Marketing và tăng doanh số</div>
-                </button>
+                      }`}
+                  >
+                    <div className="font-semibold flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                      </svg>
+                      Tăng trưởng bán hàng
+                    </div>
+                    <div className="text-xs opacity-80">Marketing và tăng doanh số</div>
+                  </button>
+                </div>
               </div>
-            </div>
 
-            {/* AI Model Selection */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Chọn AI Model</h3>
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center justify-between"
-              >
-                <div className="flex items-center gap-3">
+              {/* AI Model Selection */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Chọn AI Model</h3>
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors flex items-center justify-between"
+                >
+                  <div className="flex items-center gap-3">
+                    {models.find(m => m.id === selectedModel)?.provider === 'Groq' && (
+                      <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                      </svg>
+                    )}
+                    {models.find(m => m.id === selectedModel)?.provider === 'Google' && (
+                      <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0 9c-1.657 0-3-4.03-3-9s1.343-9 3-9m0 18c1.657 0 3-4.03 3-9s-1.343-9-3-9" />
+                      </svg>
+                    )}
+                    <div className="text-left">
+                      <div className="font-medium">{models.find(m => m.id === selectedModel)?.name}</div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        {models.find(m => m.id === selectedModel)?.provider}
+                      </div>
+                    </div>
+                  </div>
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                   {models.find(m => m.id === selectedModel)?.provider === 'Groq' && (
-                    <svg className="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                    </svg>
+                    <span className="flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                      </svg>
+                      Groq - Siêu nhanh
+                    </span>
                   )}
                   {models.find(m => m.id === selectedModel)?.provider === 'Google' && (
-                    <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0 9c-1.657 0-3-4.03-3-9s1.343-9 3-9m0 18c1.657 0 3-4.03 3-9s-1.343-9-3-9" />
-                    </svg>
+                    <span className="flex items-center gap-1">
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0 9c-1.657 0-3-4.03-3-9s1.343-9 3-9m0 18c1.657 0 3-4.03 3-9s-1.343-9-3-9" />
+                      </svg>
+                      Google Gemini - Thông minh
+                    </span>
                   )}
-                  <div className="text-left">
-                    <div className="font-medium">{models.find(m => m.id === selectedModel)?.name}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      {models.find(m => m.id === selectedModel)?.provider}
-                    </div>
+                </p>
+              </div>
+
+              {/* Generate Button */}
+              <button
+                onClick={generateInsights}
+                disabled={loading || syncLoading || deleteLoading || !chromaHasData()}
+                className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-bold rounded-lg shadow-lg transition-all transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                    <span>Đang phân tích...</span>
                   </div>
-                </div>
-                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                {models.find(m => m.id === selectedModel)?.provider === 'Groq' && (
-                  <span className="flex items-center gap-1">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                ) : !chromaHasData() ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <span>{chromaStats ? 'ChromaDB trống - Cần đồng bộ' : 'Đang tải dữ liệu...'}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                     </svg>
-                    Groq - Siêu nhanh
-                  </span>
+                    <span>Tạo phân tích AI</span>
+                  </div>
                 )}
-                {models.find(m => m.id === selectedModel)?.provider === 'Google' && (
-                  <span className="flex items-center gap-1">
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0 9c-1.657 0-3-4.03-3-9s1.343-9 3-9m0 18c1.657 0 3-4.03 3-9s-1.343-9-3-9" />
-                    </svg>
-                    Google Gemini - Thông minh
-                  </span>
-                )}
-              </p>
-            </div>
+              </button>
 
-            {/* Generate Button */}
-            <button
-              onClick={generateInsights}
-              disabled={loading || syncLoading || deleteLoading || !chromaHasData()}
-              className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-gray-400 disabled:to-gray-500 text-white font-bold rounded-lg shadow-lg transition-all transform hover:scale-105 disabled:scale-100 disabled:cursor-not-allowed"
-            >
-              {loading ? (
-                <div className="flex items-center justify-center gap-2">
-                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                  <span>Đang phân tích...</span>
-                </div>
-              ) : !chromaHasData() ? (
-                <div className="flex items-center justify-center gap-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                  <span>{chromaStats ? 'ChromaDB trống - Cần đồng bộ' : 'Đang tải dữ liệu...'}</span>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center gap-2">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                  </svg>
-                  <span>Tạo phân tích AI</span>
+              {/* System Data Summary */}
+              {systemData && (
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Thống kê hệ thống</h3>
+                  </div>
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Sản phẩm:</span>
+                      <span className="font-bold text-purple-600 dark:text-purple-400">{systemData.totalProducts}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Đơn hàng:</span>
+                      <span className="font-bold text-blue-600 dark:text-blue-400">{systemData.totalOrders}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Khách hàng:</span>
+                      <span className="font-bold text-green-600 dark:text-green-400">{systemData.totalCustomers}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Người dùng:</span>
+                      <span className="font-bold text-orange-600 dark:text-orange-400">{systemData.totalUsers}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Doanh thu:</span>
+                      <span className="font-bold text-green-600 dark:text-green-400">
+                        {formatCurrency(systemData.totalRevenue || 0)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Doanh thu tháng:</span>
+                      <span className="font-bold text-blue-600 dark:text-blue-400">
+                        {formatCurrency(systemData.monthlyRevenue || 0)}
+                      </span>
+                    </div>
+                    <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        Cập nhật: {new Date().toLocaleString('vi-VN')}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
-            </button>
 
-            {/* System Data Summary */}
-            {systemData && (
+              {/* ChromaDB Data Section */}
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Thống kê hệ thống</h3>
-                </div>
-                <div className="space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Sản phẩm:</span>
-                    <span className="font-bold text-purple-600 dark:text-purple-400">{systemData.totalProducts}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Đơn hàng:</span>
-                    <span className="font-bold text-blue-600 dark:text-blue-400">{systemData.totalOrders}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Khách hàng:</span>
-                    <span className="font-bold text-green-600 dark:text-green-400">{systemData.totalCustomers}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Người dùng:</span>
-                    <span className="font-bold text-orange-600 dark:text-orange-400">{systemData.totalUsers}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Doanh thu:</span>
-                    <span className="font-bold text-green-600 dark:text-green-400">
-                      {formatCurrency(systemData.totalRevenue || 0)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Doanh thu tháng:</span>
-                    <span className="font-bold text-blue-600 dark:text-blue-400">
-                      {formatCurrency(systemData.monthlyRevenue || 0)}
-                    </span>
-                  </div>
-                  <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      Cập nhật: {new Date().toLocaleString('vi-VN')}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* ChromaDB Data Section */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                  <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
-                  </svg>
-                  ChromaDB Analytics Data
-                </h3>
-                <div className="flex gap-2">
-                  {/* Always show sync button */}
-                  <button
-                    onClick={loadSystemData}
-                    disabled={syncLoading}
-                    className="px-2 py-1 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 text-xs flex items-center gap-1"
-                    title="Đồng bộ dữ liệu từ Spring Service vào ChromaDB"
-                  >
-                    {syncLoading ? (
-                      <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                    ) : (
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                    )}
-                    Đồng bộ
-                  </button>
-                  {/* Delete data button */}
-                  <button
-                    onClick={deleteData}
-                    disabled={deleteLoading || syncLoading}
-                    className="px-2 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 text-xs flex items-center gap-1"
-                    title="Xóa tất cả dữ liệu ChromaDB"
-                  >
-                    {deleteLoading ? (
-                      <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                    ) : (
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    )}
-                    Xóa
-                  </button>
-                </div>
-              </div>
-
-              {chromaStats && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-100 dark:bg-blue-800 rounded-full">
-                        <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                        </svg>
-                      </div>
-                      <div>
-                        <div className="text-lg font-bold text-gray-900 dark:text-white">{chromaStats.total_collections}</div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400">Collections</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-green-100 dark:bg-green-800 rounded-full">
-                        <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <div className="text-lg font-bold text-gray-900 dark:text-white">{chromaStats.total_documents}</div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400">Total Documents</div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-purple-100 dark:bg-purple-800 rounded-full">
-                        <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold text-gray-900 dark:text-white">{formatDateTime(chromaStats.timestamp)}</div>
-                        <div className="text-xs text-gray-600 dark:text-gray-400">Last Updated</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-3">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
+                    </svg>
+                    ChromaDB Analytics Data
+                  </h3>
+                  <div className="flex gap-2">
+                    {/* Always show sync button */}
                     <button
-                      onClick={loadChromaData}
-                      disabled={chromaLoading}
-                      className="flex-1 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                      onClick={loadSystemData}
+                      disabled={syncLoading}
+                      className="px-2 py-1 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50 text-xs flex items-center gap-1"
+                      title="Đồng bộ dữ liệu từ Spring Service vào ChromaDB"
                     >
-                      {chromaLoading ? (
-                        <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                      {syncLoading ? (
+                        <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
                       ) : (
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                         </svg>
                       )}
-                      Xem Chi Tiết Dữ Liệu
+                      Đồng bộ
+                    </button>
+                    {/* Delete data button */}
+                    <button
+                      onClick={deleteData}
+                      disabled={deleteLoading || syncLoading}
+                      className="px-2 py-1 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 text-xs flex items-center gap-1"
+                      title="Xóa tất cả dữ liệu ChromaDB"
+                    >
+                      {deleteLoading ? (
+                        <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      ) : (
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      )}
+                      Xóa
                     </button>
                   </div>
                 </div>
-              )}
 
-              {!chromaStats && !chromaLoading && (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                  Chưa có dữ liệu ChromaDB. Nhấn Refresh để tải.
-                </div>
-              )}
-            </div>
+                {chromaStats && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-blue-100 dark:bg-blue-800 rounded-full">
+                          <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                          </svg>
+                        </div>
+                        <div>
+                          <div className="text-lg font-bold text-gray-900 dark:text-white">{chromaStats.total_collections}</div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400">Collections</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-green-100 dark:bg-green-800 rounded-full">
+                          <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <div className="text-lg font-bold text-gray-900 dark:text-white">{chromaStats.total_documents}</div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400">Total Documents</div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-purple-100 dark:bg-purple-800 rounded-full">
+                          <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold text-gray-900 dark:text-white">{formatDateTime(chromaStats.timestamp)}</div>
+                          <div className="text-xs text-gray-600 dark:text-gray-400">Last Updated</div>
+                        </div>
+                      </div>
+                    </div>
 
-            {/* System Data Summary */}
-            {systemData && (
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">Thống kê hệ thống</h3>
-                </div>
-                <div className="space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Sản phẩm:</span>
-                    <span className="font-bold text-purple-600 dark:text-purple-400">{systemData.totalProducts}</span>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={loadChromaData}
+                        disabled={chromaLoading}
+                        className="flex-1 bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {chromaLoading ? (
+                          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                        ) : (
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        )}
+                        Xem Chi Tiết Dữ Liệu
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Đơn hàng:</span>
-                    <span className="font-bold text-blue-600 dark:text-blue-400">{systemData.totalOrders}</span>
+                )}
+
+                {!chromaStats && !chromaLoading && (
+                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                    Chưa có dữ liệu ChromaDB. Nhấn Refresh để tải.
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Khách hàng:</span>
-                    <span className="font-bold text-green-600 dark:text-green-400">{systemData.totalCustomers}</span>
+                )}
+              </div>
+
+              {/* System Data Summary */}
+              {systemData && (
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-bold text-gray-900 dark:text-white">Thống kê hệ thống</h3>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Người dùng:</span>
-                    <span className="font-bold text-orange-600 dark:text-orange-400">{systemData.totalUsers}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Doanh thu:</span>
-                    <span className="font-bold text-green-600 dark:text-green-400">
-                      {formatCurrency(systemData.totalRevenue || 0)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Doanh thu tháng:</span>
-                    <span className="font-bold text-blue-600 dark:text-blue-400">
-                      {formatCurrency(systemData.monthlyRevenue || 0)}
-                    </span>
-                  </div>
-                  <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      Cập nhật: {new Date().toLocaleString('vi-VN')}
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Sản phẩm:</span>
+                      <span className="font-bold text-purple-600 dark:text-purple-400">{systemData.totalProducts}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Đơn hàng:</span>
+                      <span className="font-bold text-blue-600 dark:text-blue-400">{systemData.totalOrders}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Khách hàng:</span>
+                      <span className="font-bold text-green-600 dark:text-green-400">{systemData.totalCustomers}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Người dùng:</span>
+                      <span className="font-bold text-orange-600 dark:text-orange-400">{systemData.totalUsers}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Doanh thu:</span>
+                      <span className="font-bold text-green-600 dark:text-green-400">
+                        {formatCurrency(systemData.totalRevenue || 0)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Doanh thu tháng:</span>
+                      <span className="font-bold text-blue-600 dark:text-blue-400">
+                        {formatCurrency(systemData.monthlyRevenue || 0)}
+                      </span>
+                    </div>
+                    <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                        Cập nhật: {new Date().toLocaleString('vi-VN')}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
           </div>
 
           {/* Insights Display */}
           <div className="lg:col-span-2 max-h-[calc(100vh-120px)] overflow-y-auto">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 min-h-[600px] relative">
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-2xl p-6 min-h-[600px] relative border border-white/20 dark:border-gray-700/30">
               {syncLoading && (
-                <div className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 flex items-center justify-center z-10 rounded-xl">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-200 dark:border-blue-900 border-t-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600 dark:text-gray-400">Synchronizing data from system...</p>
-                    <p className="text-gray-500 dark:text-gray-500 text-sm mt-2">Please wait a moment</p>
+                <div className="absolute inset-0 bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-20 rounded-2xl">
+                  <div className="text-center bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700">
+                    <div className="relative">
+                      <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full blur-lg opacity-30 animate-pulse"></div>
+                      <div className="relative animate-spin rounded-full h-16 w-16 border-4 border-transparent border-t-blue-500 border-b-purple-500 mx-auto mb-4"></div>
+                    </div>
+                    <p className="text-lg font-bold text-gray-900 dark:text-white bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">Đang đồng bộ dữ liệu...</p>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">Đang vector hóa dữ liệu vào ChromaDB</p>
                   </div>
                 </div>
               )}
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-                </svg>
-                AI RAG Insights
-              </h3>
+
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-100 dark:border-gray-700">
+                <h3 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-violet-600 to-fuchsia-600 dark:from-violet-400 dark:to-fuchsia-400 flex items-center gap-3">
+                  <div className="p-2 bg-gradient-to-br from-violet-100 to-fuchsia-100 dark:from-violet-900/30 dark:to-fuchsia-900/30 rounded-lg shadow-sm">
+                    <svg className="w-6 h-6 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                    </svg>
+                  </div>
+                  AI RAG Strategic Insights
+                </h3>
+
+                {insights && (
+                  <button
+                    onClick={generateInsights}
+                    className="text-sm px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-gray-600 dark:text-gray-300 font-medium transition-colors flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Phân tích lại
+                  </button>
+                )}
+              </div>
 
               {!insights && !loading && (
                 <div className="flex flex-col items-center justify-center h-[500px] text-center px-6">
-                  {systemData && systemData && (systemData.totalProducts > 0 || systemData.totalOrders > 0) ? (
+                  {chromaHasData() ? (
                     // Có dữ liệu - hiển thị thông báo sẵn sàng phân tích
                     <>
                       <div className="mb-4 relative">
@@ -911,7 +927,7 @@ export default function AIInsightsPage() {
                         </div>
                       </div>                      <div className="text-center">
                         <p className="text-xs text-gray-500 dark:text-gray-500 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/10 dark:to-pink-900/10 px-3 py-2 rounded-lg border border-purple-100 dark:border-purple-800">
-                           RAG + LLM + Vector Database - Công nghệ AI tiên tiến nhất
+                          RAG + LLM + Vector Database - Công nghệ AI tiên tiến nhất
                         </p>
                       </div>
                     </>
@@ -967,73 +983,93 @@ export default function AIInsightsPage() {
 
               {loading && (
                 <div className="flex flex-col items-center justify-center h-[500px]">
-                  <div className="animate-spin rounded-full h-16 w-16 border-4 border-purple-200 dark:border-purple-900 border-t-purple-600 mb-4"></div>
-                  <p className="text-gray-600 dark:text-gray-400">AI đang phân tích dữ liệu...</p>
-                  <p className="text-gray-500 dark:text-gray-500 text-sm mt-2">Vui lòng đợi trong giây lát</p>
+                  <div className="relative w-24 h-24 mb-6">
+                    <div className="absolute inset-0 border-4 border-gray-200 dark:border-gray-700 rounded-full"></div>
+                    <div className="absolute inset-0 border-4 border-violet-500 rounded-full border-t-transparent animate-spin"></div>
+                    <div className="absolute inset-4 bg-white dark:bg-gray-800 rounded-full shadow-inner flex items-center justify-center">
+                      <svg className="w-8 h-8 text-violet-500 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    </div>
+                  </div>
+                  <div className="text-center space-y-2">
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">AI Đang Suy Luận...</h3>
+                    <p className="text-gray-500 dark:text-gray-400">Đang truy xuất ngữ cảnh từ ChromaDB & phân tích số liệu</p>
+                  </div>
                 </div>
               )}
 
               {insights && !loading && (
-                <div className="markdown-content max-w-none">
+                <div className="animate-fade-in-up">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     rehypePlugins={[rehypeRaw]}
                     components={{
                       h1: ({ children }) => (
-                        <h1 className="text-3xl font-bold text-purple-600 dark:text-purple-400 border-b-4 border-purple-600 pb-3 mb-6 mt-8">
-                          {children}
-                        </h1>
+                        <div className="bg-gradient-to-r from-violet-600 to-fuchsia-600 p-6 rounded-xl shadow-lg mb-8 text-white transform -rotate-1">
+                          <h1 className="text-3xl font-extrabold tracking-tight">
+                            {children}
+                          </h1>
+                        </div>
                       ),
                       h2: ({ children }) => (
-                        <h2 className="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-4 mt-8 flex items-center gap-2">
-                          <span className="text-purple-500">●</span>
-                          {children}
-                        </h2>
+                        <div className="flex items-center gap-3 mt-10 mb-6 pb-2 border-b border-gray-200 dark:border-gray-700">
+                          <div className="w-10 h-10 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 dark:text-violet-400">
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                            </svg>
+                          </div>
+                          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
+                            {children}
+                          </h2>
+                        </div>
                       ),
                       h3: ({ children }) => (
-                        <h3 className="text-xl font-semibold text-indigo-600 dark:text-indigo-400 mb-3 mt-6">
+                        <h3 className="text-xl font-semibold text-fuchsia-600 dark:text-fuchsia-400 mb-4 mt-6 flex items-center gap-2">
+                          <span className="w-2 h-6 bg-fuchsia-500 rounded-full inline-block"></span>
                           {children}
                         </h3>
                       ),
                       p: ({ children }) => (
-                        <p className="mb-4 text-gray-700 dark:text-gray-300 leading-relaxed">
+                        <p className="mb-4 text-gray-700 dark:text-gray-300 leading-relaxed text-base">
                           {children}
                         </p>
                       ),
                       ul: ({ children }) => (
-                        <ul className="list-disc list-inside mb-4 space-y-2 text-gray-700 dark:text-gray-300">
+                        <ul className="mb-6 space-y-3">
                           {children}
                         </ul>
                       ),
                       ol: ({ children }) => (
-                        <ol className="list-decimal list-inside mb-4 space-y-2 text-gray-700 dark:text-gray-300">
+                        <ol className="list-decimal list-inside mb-6 space-y-3 text-gray-700 dark:text-gray-300">
                           {children}
                         </ol>
                       ),
                       li: ({ children }) => (
-                        <li className="ml-4 pl-2">
-                          {children}
+                        <li className="flex items-start gap-3 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg border border-gray-100 dark:border-gray-700/50 hover:border-violet-200 dark:hover:border-violet-700 transition-colors">
+                          <span className="mt-1 text-violet-500 flex-shrink-0">●</span>
+                          <span className="text-gray-700 dark:text-gray-300">{children}</span>
                         </li>
                       ),
                       strong: ({ children }) => (
-                        <strong className="font-bold text-purple-700 dark:text-purple-300">
+                        <strong className="font-bold text-violet-700 dark:text-violet-300">
                           {children}
                         </strong>
                       ),
                       table: ({ children }) => (
-                        <div className="overflow-x-auto my-6 rounded-lg shadow-lg">
+                        <div className="overflow-x-auto my-8 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
                           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                             {children}
                           </table>
                         </div>
                       ),
                       thead: ({ children }) => (
-                        <thead className="bg-purple-600 dark:bg-purple-700">
+                        <thead className="bg-gradient-to-r from-violet-600 to-fuchsia-600">
                           {children}
                         </thead>
                       ),
                       th: ({ children }) => (
-                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                        <th className="px-6 py-4 text-left text-sm font-bold text-white uppercase tracking-wider">
                           {children}
                         </th>
                       ),
@@ -1042,30 +1078,28 @@ export default function AIInsightsPage() {
                           {children}
                         </tbody>
                       ),
+                      tr: ({ children, className }) => (
+                        <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                          {children}
+                        </tr>
+                      ),
                       td: ({ children }) => (
-                        <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
+                        <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
                           {children}
                         </td>
                       ),
-                      code: ({ children, className }) => {
-                        const isInline = !className;
-                        return isInline ? (
-                          <code className="bg-gray-100 dark:bg-gray-700 text-red-600 dark:text-red-400 px-2 py-1 rounded text-sm font-mono">
-                            {children}
-                          </code>
-                        ) : (
-                          <code className={`${className} block bg-gray-900 dark:bg-gray-950 text-gray-100 p-4 rounded-lg overflow-x-auto`}>
-                            {children}
-                          </code>
-                        );
-                      },
                       blockquote: ({ children }) => (
-                        <blockquote className="border-l-4 border-purple-600 pl-4 my-4 italic text-gray-600 dark:text-gray-400">
-                          {children}
-                        </blockquote>
+                        <div className="relative p-6 my-8 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl border-l-4 border-indigo-500 shadow-sm">
+                          <svg className="absolute top-4 left-4 w-6 h-6 text-indigo-200 dark:text-indigo-800 transform -scale-x-100" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M14.017 21L14.017 18C14.017 16.8954 13.1216 16 12.017 16H9C9.00001 15 9.00001 15 9.00001 15C9.00001 10.5817 12.5817 7 17 7V5C11.4772 5 7 9.47715 7 15C7 15 7 15 7 15C7 18.3137 9.68629 21 13 21H14.017ZM21 21L21 18C21 16.8954 20.1046 16 19 16H15.9829C15.9829 15 15.9829 15 15.9829 15C15.9829 10.5817 19.5646 7 23.9829 7V5C18.4601 5 13.9829 9.47715 13.9829 15C13.9829 15 13.9829 15 13.9829 15C13.9829 18.3137 16.6692 21 19.9829 21H21Z" />
+                          </svg>
+                          <div className="relative z-10 pl-6 italic text-gray-700 dark:text-gray-300">
+                            {children}
+                          </div>
+                        </div>
                       ),
                       hr: () => (
-                        <hr className="my-8 border-t-2 border-gray-200 dark:border-gray-700" />
+                        <hr className="my-10 border-t-2 border-gray-100 dark:border-gray-700/50" />
                       ),
                     }}
                   >
@@ -1101,11 +1135,10 @@ export default function AIInsightsPage() {
               <div className="flex space-x-1 mb-6 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
                 <button
                   onClick={() => setSelectedProvider('Groq')}
-                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                    selectedProvider === 'Groq'
-                      ? 'bg-white dark:bg-gray-600 text-orange-600 dark:text-orange-400 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
-                  }`}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${selectedProvider === 'Groq'
+                    ? 'bg-white dark:bg-gray-600 text-orange-600 dark:text-orange-400 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                    }`}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -1114,11 +1147,10 @@ export default function AIInsightsPage() {
                 </button>
                 <button
                   onClick={() => setSelectedProvider('Google')}
-                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${
-                    selectedProvider === 'Google'
-                      ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                      : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
-                  }`}
+                  className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 ${selectedProvider === 'Google'
+                    ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                    : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white'
+                    }`}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
@@ -1138,11 +1170,10 @@ export default function AIInsightsPage() {
                         setSelectedModel(model.id);
                         setIsModalOpen(false);
                       }}
-                      className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
-                        selectedModel === model.id
-                          ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
-                          : 'border-gray-200 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-600 hover:bg-gray-50 dark:hover:bg-gray-700'
-                      }`}
+                      className={`w-full p-4 rounded-xl border-2 transition-all text-left ${selectedModel === model.id
+                        ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
+                        : 'border-gray-200 dark:border-gray-600 hover:border-purple-300 dark:hover:border-purple-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
