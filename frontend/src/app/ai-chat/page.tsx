@@ -7,6 +7,11 @@ import { API_CONFIG, getGroqChatUrl } from '@/config/api.config';
 import { useToast } from '@/components/Toast';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Inter, Poppins } from 'next/font/google';
+
+// Google Fonts
+const inter = Inter({ subsets: ['latin'] });
+const poppins = Poppins({ weight: ['400', '600', '700'], subsets: ['latin'] });
 
 interface Message {
   role: 'user' | 'assistant';
@@ -81,17 +86,19 @@ interface ProductCardProps {
 }
 
 const ProductCard = ({ product, onAddToCart, onViewDetail }: ProductCardProps) => (
-  <div className="bg-slate-700/60 border border-slate-600/50 rounded-xl p-3 flex items-center gap-3 hover:bg-slate-700/80 transition-all">
+  <div className="bg-slate-700/60 backdrop-blur-sm border border-slate-600/50 rounded-xl p-3 flex items-center gap-3 hover:bg-slate-700/80 hover:border-slate-500/60 hover:scale-[1.02] transition-all duration-300 hover:shadow-xl group">
     {product.img_url && (
-      <img
-        src={product.img_url}
-        alt={product.name}
-        className="w-14 h-14 rounded-lg object-cover border border-slate-500/50"
-        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-      />
+      <div className="overflow-hidden rounded-lg">
+        <img
+          src={product.img_url}
+          alt={product.name}
+          className="w-14 h-14 rounded-lg object-cover border border-slate-500/50 group-hover:scale-110 transition-transform duration-300"
+          onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+        />
+      </div>
     )}
     <div className="flex-1 min-w-0">
-      <p className="font-semibold text-white text-sm truncate">{product.name}</p>
+      <p className={`font-semibold text-white text-sm truncate ${poppins.className}`}>{product.name}</p>
       <div className="flex items-center gap-2 mt-0.5">
         <span className="text-green-400 font-bold text-sm">{product.price?.toLocaleString('vi-VN')}đ</span>
         {product.stock !== undefined && product.stock > 0 && (
@@ -102,13 +109,13 @@ const ProductCard = ({ product, onAddToCart, onViewDetail }: ProductCardProps) =
     <div className="flex gap-2 shrink-0">
       <button
         onClick={() => onAddToCart(product.id, product.name)}
-        className="px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-medium rounded-lg transition-all flex items-center gap-1"
+        className="px-3 py-1.5 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white text-xs font-medium rounded-lg transition-all duration-300 flex items-center gap-1 hover:shadow-lg hover:scale-105 active:scale-95"
       >
         🛒 Thêm
       </button>
       <button
         onClick={() => onViewDetail(product.id)}
-        className="px-3 py-1.5 bg-slate-600 hover:bg-slate-500 text-white text-xs font-medium rounded-lg transition-all flex items-center gap-1"
+        className="px-3 py-1.5 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-500 hover:to-slate-600 text-white text-xs font-medium rounded-lg transition-all duration-300 flex items-center gap-1 hover:shadow-lg hover:scale-105 active:scale-95"
       >
         👁️ Chi tiết
       </button>
@@ -1025,10 +1032,10 @@ export default function AIChatPage() {
                   className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} chat-message-enter`}
                 >
                   <div
-                    className={`max-w-4xl rounded-2xl p-4 shadow-lg transition-all duration-300 hover:shadow-xl chat-message ${msg.role === 'user'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-br-none hover:from-blue-500 hover:to-blue-600'
-                      : 'bg-gradient-to-r from-slate-700 to-slate-800 text-slate-100 rounded-bl-none border border-slate-600/50 hover:from-slate-600 hover:to-slate-700'
-                      }`}
+                    className={`max-w-4xl rounded-2xl p-4 shadow-lg transition-all duration-300 hover:shadow-2xl chat-message ${msg.role === 'user'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-br-none hover:from-blue-500 hover:to-blue-600 hover:scale-[1.01]'
+                      : 'bg-gradient-to-r from-slate-700/80 to-slate-800/80 backdrop-blur-md text-slate-100 rounded-bl-none border border-slate-600/50 hover:from-slate-600/80 hover:to-slate-700/80 hover:border-slate-500/50 hover:scale-[1.01]'
+                      } ${poppins.className}`}
                   >
                     <div className="text-xs font-semibold mb-2 opacity-75 uppercase tracking-wide flex items-center gap-1.5">
                       {msg.role === 'user' ? <><User className="w-3.5 h-3.5" /> Bạn</> : <><Bot className="w-3.5 h-3.5" /> Agent</>}
