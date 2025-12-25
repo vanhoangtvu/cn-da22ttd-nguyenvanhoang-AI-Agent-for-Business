@@ -1077,12 +1077,36 @@ class ChatAIRAGChromaService:
             
             if orders_results and orders_results["documents"] and len(orders_results["documents"]) > 0:
                 context_text += "=== LỊCH SỬ ĐƠN HÀNG CỦA BẠN ===\n"
+                
+                orders_list = []
                 for i, doc in enumerate(orders_results["documents"][0]):
                     metadata_order = orders_results["metadatas"][0][i] if orders_results["metadatas"] else {}
                     
                     order_id = metadata_order.get('order_id', f'Order {i+1}')
                     status = metadata_order.get('status', 'Unknown')
                     total_amount = metadata_order.get('total_amount', 'N/A')
+                    created_at = metadata_order.get('created_at', '1970-01-01T00:00:00Z') # Default for sorting
+                    
+                    orders_list.append({
+                        'order_id': order_id,
+                        'status': status,
+                        'total_amount': total_amount,
+                        'created_at': created_at,
+                        'doc': doc,
+                        'metadata': metadata_order
+                    })
+                
+                # Sort orders by created_at in descending order
+                orders_list.sort(key=lambda x: x.get('created_at', '1970-01-01T00:00:00Z'), reverse=True)
+                
+                for i, order in enumerate(orders_list):
+                    metadata = order['metadata']
+                    doc = order['doc']
+                    
+                    order_id = order['order_id']
+                    status = order['status']
+                    total_amount = order['total_amount']
+                    created_at = order['created_at']
                     
                     context_text += f"Đơn hàng {order_id}:\n"
                     context_text += f"- Trạng thái: {status}\n"
@@ -1471,6 +1495,200 @@ class ChatAIRAGChromaService:
         except Exception as e:
             print(f"[ChatAIRAGChromaService] Error getting user cart context: {e}")
             return ""
+    
+    def get_user_orders(self, user_id: str, max_orders: int = 10) -> str:
+        """
+        Lấy order history của user từ ChromaDB để đưa vào AI chat
+        
+        Args:
+            user_id: ID của user (dạng 'user_5' hoặc '5')
+            max_orders: Số đơn hàng tối đa trả về
+            
+        Returns:
+            Formatted orders context string
+        """
+        try:
+            # Normalize user_id to numeric
+            if user_id.startswith("user_"):
+                numeric_id = user_id.replace("user_", "")
+            else:
+                numeric_id = user_id
+            
+            # Get orders collection
+            orders_collection = self.client.get_or_create_collection(
+                name="chat_ai_orders",
+                metadata={"description": "Order data for AI Chat RAG"}
+            )
+            
+            # Query orders by customer_id
+            orders_results = orders_collection.query(
+                query_texts=["order history"],
+                where={"customer_id": numeric_id},
+                n_results=max_orders
+            )
+            
+            if not orders_results or not orders_results.get("documents") or len(orders_results["documents"][0]) == 0:
+                return "\n\n=== ĐƠN HÀNG ===\nKhách hàng chưa có đơn hàng nào."
+            
+            # Combine documents with metadata for sorting
+            orders_list = []
+            if orders_results.get("documents") and orders_results["documents"][0]:
+                for i, doc in enumerate(orders_results["documents"][0]):
+                    metadata = orders_results["metadatas"][0][i] if orders_results.get("metadatas") and orders_results["metadatas"][0] and len(orders_results["metadatas"][0]) > i else {}
+                    orders_list.append({
+                        'doc': doc,
+                        'metadata': metadata,
+                        'order_id': metadata.get('order_id', f'Order {i+1}'),
+                        'status': metadata.get('status', 'Unknown'),
+                        'total_amount': metadata.get('total_amount', 'N/A'),
+                        'created_at': metadata.get('created_at', 'N/A')
+                    })
+            
+            # Sort orders: Priority by status (pending/shipping first), then by date (newest first)
+            def order_priority(order):
+                status = order['status']
+                # Priority: PENDING > PROCESSING > CONFIRMED > SHIPPING > DELIVERED > CANCELLED
+                status_priority = {
+                    'PENDING': 1,
+                    'PROCESSING': 2,
+                    'CONFIRMED': 3,
+                    'SHIPPING': 4,
+                    'DELIVERED': 5,
+                    'CANCELLED': 6
+                }.get(status, 99)
+                
+                # Try to parse date for secondary sort (newest first)
+                created_at = order['created_at']
+                date_sort_key = ""
+                try:
+                    # Assume ISO format or similar for string dates
+                    if isinstance(created_at, str):
+                        date_sort_key = created_at
+                    # If it's a datetime object, convert to ISO string
+                    elif isinstance(created_at, datetime):
+                        date_sort_key = created_at.isoformat()
+                except:
+                    pass # Keep as empty string if parsing fails
+                
+                # Return tuple: (status_priority, -date) for sorting
+                # Negative date to sort DESC (newest first)
+                # For string dates, sorting in reverse will achieve newest first for ISO format
+                return (status_priority, date_sort_key)
+            
+            # Sort orders
+            # Sort by status priority first, then by date descending
+            orders_list.sort(key=order_priority)
+            orders_list.reverse()  # Reverse to get newest dates first
+            
+            # Format orders for AI
+            orders_text = f"\n\n=== LỊCH SỬ ĐƠN HÀNG CỦA KHÁCH ({len(orders_list)} đơn) ===\n"
+            orders_text += "🔴 ƯU TIÊN HIỂN THỊ: Đơn hàng chưa giao (PENDING, SHIPPING) được hiển thị trước\n"
+            
+            for i, order in enumerate(orders_list):
+                metadata = order['metadata']
+                doc = order['doc']
+                
+                order_id = order['order_id']
+                status = order['status']
+                total_amount = order['total_amount']
+                created_at = order['created_at']
+                
+                # Format status in Vietnamese
+                status_vn = {
+                    'PENDING': 'Đang chờ xử lý',
+                    'PROCESSING': 'Đang xử lý',
+                    'CONFIRMED': 'Đã xác nhận',
+                    'SHIPPING': 'Đang giao',
+                    'DELIVERED': 'Đã giao',
+                    'CANCELLED': 'Đã hủy'
+                }.get(status, status)
+                
+                orders_text += f"\n📦 Đơn hàng #{order_id}:\n"
+                orders_text += f"- Trạng thái: {status_vn}\n"
+                orders_text += f"- Tổng tiền: {total_amount:,} VNĐ\n" if isinstance(total_amount, (int, float)) else f"- Tổng tiền: {total_amount}\n"
+                orders_text += f"- Ngày đặt: {created_at}\n"
+                
+                # Add order details if available
+                if doc and len(doc) > 0:
+                    details = doc[:150] + "..." if len(doc) > 150 else doc
+                    orders_text += f"- Chi tiết: {details}\n"
+            
+            orders_text += "\n📌 LƯU Ý CHO AI: Đây là lịch sử đơn hàng thực tế từ database. Hãy cung cấp thông tin chính xác cho khách."
+            
+            print(f"[ChatAIRAGChromaService] Found {len(orders_results['documents'][0])} orders for user {user_id}")
+            return orders_text
+            
+        except Exception as e:
+            print(f"[ChatAIRAGChromaService] Error getting orders: {e}")
+            return "\n\n=== ĐƠN HÀNG ===\nKhông thể lấy thông tin đơn hàng lúc này."
+    
+    def get_user_orders_list(self, user_id: str, max_orders: int = 10) -> List[Dict]:
+        """
+        Get user orders as structured list for frontend display
+        
+        Args:
+            user_id: ID của user (dạng 'user_5' hoặc '5')
+            max_orders: Số đơn hàng tối đa trả về
+            
+        Returns:
+            List of order dictionaries
+        """
+        try:
+            # Normalize user_id
+            if user_id.startswith("user_"):
+                numeric_id = user_id.replace("user_", "")
+            else:
+                numeric_id = user_id
+            
+            # Get orders collection
+            orders_collection = self.client.get_or_create_collection(
+                name="chat_ai_orders",
+                metadata={"description": "Order data for AI Chat RAG"}
+            )
+            
+            # Query orders
+            orders_results = orders_collection.query(
+                query_texts=["order history"],
+                where={"customer_id": numeric_id},
+                n_results=max_orders
+            )
+            
+            if not orders_results or not orders_results.get("documents") or len(orders_results["documents"][0]) == 0:
+                return []
+            
+            # Build orders list
+            orders_list = []
+            for i, doc in enumerate(orders_results["documents"][0]):
+                metadata = orders_results["metadatas"][0][i] if orders_results.get("metadatas") else {}
+                
+                total_amount = metadata.get('total_amount', 0)
+                # Heuristic fix for incorrect data (missing 3 zeros)
+                # If amount < 1,000,000 and looks like truncated millions
+                if total_amount < 1000000 and total_amount > 1000:
+                    total_amount *= 1000
+                
+                orders_list.append({
+                    'id': metadata.get('order_id', f'Order {i+1}'),
+                    'status': metadata.get('status', 'Unknown'),
+                    'totalAmount': total_amount,
+                    'createdAt': metadata.get('created_at', 'N/A')
+                })
+            
+            # Sort by status priority + date
+            def order_priority(order):
+                status_priority = {
+                    'PENDING': 1, 'PROCESSING': 2, 'CONFIRMED': 3,
+                    'SHIPPING': 4, 'DELIVERED': 5, 'CANCELLED': 6
+                }.get(order['status'], 99)
+                return (status_priority, order['createdAt'])
+            
+            orders_list.sort(key=order_priority, reverse=True)
+            
+            return orders_list
+            
+        except Exception as e:
+            print(f"[ChatAIRAGChromaService] Error getting orders list: {e}")
+            return []
     
     def clear_carts(self):
         """Xóa tất cả cart data trong ChromaDB"""

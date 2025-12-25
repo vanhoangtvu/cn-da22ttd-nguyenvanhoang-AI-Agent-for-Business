@@ -8,6 +8,7 @@ import { useToast } from '@/components/Toast';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Inter, Poppins } from 'next/font/google';
+import OrderDetailPanel from '@/components/OrderDetailPanel';
 
 // Google Fonts
 const inter = Inter({ subsets: ['latin'] });
@@ -27,7 +28,14 @@ interface Message {
     stock?: number;
     category?: string;
   }>;
+  orders?: Array<{
+    id: number;
+    status: string;
+    totalAmount: number;
+    createdAt: string;
+  }>;
 }
+
 
 interface Session {
   session_id: string;
@@ -123,8 +131,56 @@ const ProductCard = ({ product, onAddToCart, onViewDetail }: ProductCardProps) =
   </div>
 );
 
+// OrderCard Component for displaying orders with view detail button
+interface OrderCardProps {
+  order: { id: number; status: string; totalAmount: number; createdAt: string };
+  onViewDetail: (orderId: number) => void;
+}
+
+const OrderCard = ({ order, onViewDetail }: OrderCardProps) => {
+  const statusColors: Record<string, string> = {
+    'PENDING': 'bg-yellow-500/20 text-yellow-300 border-yellow-500/50',
+    'PROCESSING': 'bg-blue-500/20 text-blue-300 border-blue-500/50',
+    'CONFIRMED': 'bg-green-500/20 text-green-300 border-green-500/50',
+    'SHIPPING': 'bg-purple-500/20 text-purple-300 border-purple-500/50',
+    'DELIVERED': 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50',
+    'CANCELLED': 'bg-red-500/20 text-red-300 border-red-500/50'
+  };
+
+  const statusTexts: Record<string, string> = {
+    'PENDING': 'Đang chờ xử lý', 'PROCESSING': 'Đang xử lý', 'CONFIRMED': 'Đã xác nhận',
+    'SHIPPING': 'Đang giao', 'DELIVERED': 'Đã giao', 'CANCELLED': 'Đã hủy'
+  };
+
+  return (
+    <div className="bg-slate-700/60 backdrop-blur-sm border border-slate-600/50 rounded-xl p-4 hover:bg-slate-700/80 hover:scale-[1.01] transition-all duration-300 hover:shadow-xl group">
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex-1">
+          <div className="flex items-center gap-3 mb-2">
+            <span className={`text-lg font-bold ${poppins.className}`}>Đơn #{order.id}</span>
+            <span className={`px-3 py-1 rounded-lg border text-xs font-semibold ${statusColors[order.status] || 'bg-gray-500/20 text-gray-300'}`}>
+              {statusTexts[order.status] || order.status}
+            </span>
+          </div>
+          <div className="text-sm text-slate-300">
+            <span className="text-green-400 font-bold text-lg">{order.totalAmount.toLocaleString('vi-VN')} đ</span>
+            <div className="text-xs text-slate-400 mt-1">{new Date(order.createdAt).toLocaleString('vi-VN')}</div>
+          </div>
+        </div>
+        <button
+          onClick={() => onViewDetail(order.id)}
+          className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white text-sm font-semibold rounded-lg transition-all duration-300 flex items-center gap-2 hover:shadow-lg hover:scale-105 active:scale-95"
+        >
+          👁️ Xem chi tiết
+        </button>
+      </div>
+    </div>
+  );
+};
+
 export default function AIChatPage() {
   const router = useRouter();
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
   const [userId, setUserId] = useState<string>('');
   const [sessionId, setSessionId] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -467,6 +523,7 @@ export default function AIChatPage() {
         timestamp: data.timestamp,
         user_id: userId,
         products: data.products || undefined,
+        orders: data.orders || undefined, // Add orders mapping
       };
       setMessages((prev) => [...prev, aiMessage]);
 
@@ -954,23 +1011,31 @@ export default function AIChatPage() {
           </button>
 
           {/* Sessions List */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          <div className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-transparent">
             {userHistory?.sessions.map((session) => (
               <button
                 key={session.session_id}
                 onClick={() => loadSessionMessages(session.session_id)}
-                className={`w-full text-left p-3 rounded-lg transition-all duration-300 truncate group ${sessionId === session.session_id
-                  ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg scale-105'
-                  : 'bg-slate-700/40 hover:bg-slate-600/40 text-slate-200 hover:text-white hover:scale-105 border border-slate-600/30'
+                className={`w-full text-left p-3 rounded-xl transition-all duration-300 truncate group relative overflow-hidden ${sessionId === session.session_id
+                  ? 'bg-gradient-to-r from-blue-600/90 to-purple-600/90 backdrop-blur-md text-white shadow-xl scale-105 border border-blue-400/30'
+                  : 'bg-slate-700/40 backdrop-blur-sm hover:bg-slate-600/50 text-slate-200 hover:text-white hover:scale-[1.02] border border-slate-600/30 hover:border-slate-500/50 hover:shadow-lg'
                   }`}
               >
-                <div className="text-xs font-bold mb-1 opacity-75">SESSION</div>
-                <div className="text-sm font-semibold truncate group-hover:translate-x-1 transition-transform">
-                  {session.messages.length > 0
-                    ? session.messages[session.messages.length - 1].content.substring(0, 30) + '...'
-                    : 'Trống'}
+                {/* Gradient overlay on hover */}
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 to-purple-500/0 group-hover:from-blue-500/10 group-hover:to-purple-500/10 transition-all duration-300" />
+
+                <div className="relative z-10">
+                  <div className="flex items-center gap-2 mb-1">
+                    <MessageSquare className="w-3 h-3 opacity-75" />
+                    <div className="text-xs font-bold opacity-75 uppercase tracking-wide">Session</div>
+                  </div>
+                  <div className={`text-sm font-semibold truncate group-hover:translate-x-1 transition-transform ${poppins.className}`}>
+                    {session.messages.length > 0
+                      ? session.messages[session.messages.length - 1].content.substring(0, 30) + '...'
+                      : 'Trống'}
+                  </div>
+                  <div className="text-xs text-slate-400 mt-1">{session.message_count} tin nhắn</div>
                 </div>
-                <div className="text-xs text-slate-400 mt-1">{session.message_count} tin nhắn</div>
               </button>
             ))}
           </div>
@@ -1177,6 +1242,23 @@ export default function AIChatPage() {
                             ))}
                           </div>
                         )}
+
+                        {/* Orders Display */}
+                        {msg.orders && msg.orders.length > 0 && (
+                          <div className="mt-4 space-y-2">
+                            <p className="text-xs text-blue-400 font-semibold uppercase tracking-wide">📦 Đơn hàng của bạn:</p>
+                            {msg.orders.map((order) => (
+                              <OrderCard
+                                key={order.id}
+                                order={order}
+                                onViewDetail={(orderId) => {
+                                  setSelectedOrderId(orderId);
+                                }}
+                              />
+                            ))}
+                          </div>
+                        )}
+
                       </div>
                     ) : (
                       <p className="text-base leading-relaxed whitespace-pre-wrap">{msg.content}</p>
@@ -1234,33 +1316,46 @@ export default function AIChatPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input Area */}
+          {/* Input Area - Floating Design */}
           <div className="bg-gradient-to-t from-slate-900 to-slate-800/50 backdrop-blur-md border-t border-slate-700/50 p-6 shadow-2xl">
-            <form onSubmit={handleSendMessage} className="flex gap-4">
-              <input
-                type="text"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                placeholder="Nhập tin nhắn của bạn..."
-                disabled={loading}
-                className="flex-1 px-6 py-4 bg-slate-700/50 border border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 disabled:opacity-50 backdrop-blur-sm transition-all duration-300 font-medium"
-              />
+            <form onSubmit={handleSendMessage} className="flex gap-4 relative">
+              {/* Floating gradient background */}
+              <div className="absolute -inset-1 bg-gradient-to-r from-blue-600/20 to-purple-600/20 rounded-2xl blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity duration-500" />
+
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  placeholder="Nhập tin nhắn của bạn..."
+                  disabled={loading}
+                  className={`w-full px-6 py-4 bg-slate-700/50 border-2 border-slate-600/50 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/30 disabled:opacity-50 backdrop-blur-sm transition-all duration-300 font-medium hover:border-slate-500/70 ${inter.className}`}
+                />
+              </div>
+
               <button
                 type="submit"
                 disabled={loading || !inputValue.trim()}
-                className="px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-slate-600 disabled:to-slate-600 disabled:opacity-50 rounded-xl font-bold transition-all duration-300 hover:shadow-lg active:scale-95 disabled:cursor-not-allowed shadow-lg hover:scale-105 flex items-center justify-center gap-2 min-w-32"
+                className={`px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-slate-600 disabled:to-slate-600 disabled:opacity-50 rounded-xl font-bold transition-all duration-300 hover:shadow-xl hover:shadow-blue-500/25 active:scale-95 disabled:cursor-not-allowed shadow-lg hover:scale-105 flex items-center justify-center gap-2 min-w-32 relative overflow-hidden group ${poppins.className}`}
               >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Đang gửi...
-                  </>
-                ) : (
-                  <>
-                    Gửi
-                    <Send className="w-4 h-4" />
-                  </>
+                {/* Pulse animation overlay */}
+                {!loading && inputValue.trim() && (
+                  <div className="absolute inset-0 bg-white/20 rounded-xl animate-pulse" />
                 )}
+
+                <span className="relative z-10 flex items-center gap-2">
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Đang gửi...
+                    </>
+                  ) : (
+                    <>
+                      Gửi
+                      <Send className="w-4 h-4 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform" />
+                    </>
+                  )}
+                </span>
               </button>
 
               {/* Cart Icon - bên phải nút gửi */}
@@ -1375,6 +1470,25 @@ export default function AIChatPage() {
           </div>
         )}
       </div>
+
+      {/* Order Detail Panel - Slide in from right */}
+      {selectedOrderId && (
+        <>
+          {/* Overlay */}
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] transition-opacity duration-500"
+            onClick={() => setSelectedOrderId(null)}
+          />
+
+          {/* Detail Panel */}
+          <div className="fixed top-0 right-0 h-full w-full md:w-2/3 lg:w-1/2 shadow-2xl z-[70] animate-slide-in-right bg-white dark:bg-gray-900 overflow-hidden">
+            <OrderDetailPanel
+              orderId={selectedOrderId}
+              onClose={() => setSelectedOrderId(null)}
+            />
+          </div>
+        </>
+      )}
     </>
   );
 }

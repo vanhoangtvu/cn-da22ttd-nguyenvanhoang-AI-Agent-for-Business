@@ -73,9 +73,8 @@ interface Category {
 
 // Modern Skeleton Loading Component
 const ProductSkeleton = ({ viewMode }: { viewMode: 'grid' | 'list' }) => (
-  <div className={`group relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-2xl rounded-2xl shadow-lg overflow-hidden border border-white/30 dark:border-gray-700/30 animate-pulse ${
-    viewMode === 'list' ? 'flex' : ''
-  }`}>
+  <div className={`group relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-2xl rounded-2xl shadow-lg overflow-hidden border border-white/30 dark:border-gray-700/30 animate-pulse ${viewMode === 'list' ? 'flex' : ''
+    }`}>
     {/* Image Skeleton */}
     <div className={`relative overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 ${viewMode === 'list' ? 'w-48' : 'aspect-[4/3]'}`}>
       <div className="absolute inset-0 bg-gradient-to-br from-gray-200/50 to-gray-300/50 dark:from-gray-600/50 dark:to-gray-700/50 animate-shimmer"></div>
@@ -114,9 +113,8 @@ const ProductSkeleton = ({ viewMode }: { viewMode: 'grid' | 'list' }) => (
           <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-lg mb-1 animate-shimmer"></div>
           <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3 animate-shimmer"></div>
         </div>
-        <div className={`h-10 bg-gradient-to-r from-blue-200 to-indigo-200 dark:from-blue-800 dark:to-indigo-800 rounded-xl animate-shimmer ${
-          viewMode === 'list' ? 'w-32' : 'w-full'
-        }`}></div>
+        <div className={`h-10 bg-gradient-to-r from-blue-200 to-indigo-200 dark:from-blue-800 dark:to-indigo-800 rounded-xl animate-shimmer ${viewMode === 'list' ? 'w-32' : 'w-full'
+          }`}></div>
       </div>
     </div>
   </div>
@@ -137,6 +135,18 @@ export default function ShopPage() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [hoveredProduct, setHoveredProduct] = useState<number | null>(null);
+  // Floating particles state for hydration fix
+  const [particles, setParticles] = useState<Array<{ left: string, top: string, delay: string, duration: string }>>([]);
+
+  useEffect(() => {
+    setParticles([...Array(20)].map(() => ({
+      left: `${Math.random() * 100}%`,
+      top: `${Math.random() * 100}%`,
+      delay: `${Math.random() * 5}s`,
+      duration: `${3 + Math.random() * 4}s`
+    })));
+  }, []);
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Scroll to top button
@@ -201,7 +211,7 @@ export default function ShopPage() {
       ]);
       setProducts(productsData as Product[]);
       setCategories((categoriesData as Category[]).filter((cat: Category) => cat.status === 'ACTIVE'));
-      
+
       // Load cart count if authenticated
       if (apiClient.isAuthenticated()) {
         await loadCartCount();
@@ -429,15 +439,15 @@ export default function ShopPage() {
 
           {/* Floating Particles */}
           <div className="absolute inset-0">
-            {[...Array(20)].map((_, i) => (
+            {particles.map((p, i) => (
               <div
                 key={i}
                 className="absolute w-1 h-1 bg-white/20 rounded-full animate-float"
                 style={{
-                  left: `${Math.random() * 100}%`,
-                  top: `${Math.random() * 100}%`,
-                  animationDelay: `${Math.random() * 5}s`,
-                  animationDuration: `${3 + Math.random() * 4}s`
+                  left: p.left,
+                  top: p.top,
+                  animationDelay: p.delay,
+                  animationDuration: p.duration
                 }}
               ></div>
             ))}
@@ -495,7 +505,7 @@ export default function ShopPage() {
               <div className="text-center">
                 <div className="flex justify-center mb-1">
                   <svg className="w-6 h-6" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M11.572 0c-.176 0-.31.001-.358.007a19.76 19.76 0 0 1-.364.033C7.443.346 4.25 2.185 2.228 5.012a11.875 11.875 0 0 0-2.119 5.243c-.096.659-.108.854-.108 1.747s.012 1.089.108 1.748c.652 4.506 3.86 8.292 8.209 9.695.779.25 1.6.422 2.534.525.363.04 1.935.04 2.299 0 1.611-.178 2.977-.577 4.323-1.264.207-.106.247-.134.219-.158-.02-.013-.9-1.193-1.955-2.62l-1.919-2.592-2.404-3.558a338.739 338.739 0 0 0-2.422-3.556c-.009-.002-.018 1.579-.023 3.51-.007 3.38-.01 3.515-.052 3.595a.426.426 0 0 1-.206.214c-.075.037-.14.044-.495.044H7.81l-.108-.068a.438.438 0 0 1-.157-.171l-.05-.106.006-4.703.007-4.705.072-.092a.645.645 0 0 1 .174-.143c.096-.047.134-.051.54-.051.478 0 .558.018.682.154.035.038 1.337 1.999 2.895 4.361a10760.433 10760.433 0 0 0 4.735 7.17l1.9 2.879.096-.063a12.317 12.317 0 0 0 2.466-2.163 11.944 11.944 0 0 0 2.824-6.134c.096-.66.108-.854.108-1.748 0-.893-.012-1.088-.108-1.747-.652-4.506-3.859-8.292-8.208-9.695a12.597 12.597 0 0 0-2.499-.523A33.119 33.119 0 0 0 11.573 0zm4.069 7.217c.347 0 .408.005.486.047a.473.473 0 0 1 .237.277c.018.06.023 1.365.018 4.304l-.006 4.218-.744-1.14-.746-1.14v-3.066c0-1.982.01-3.097.023-3.15a.478.478 0 0 1 .233-.296c.096-.05.13-.054.5-.054z"/>
+                    <path d="M11.572 0c-.176 0-.31.001-.358.007a19.76 19.76 0 0 1-.364.033C7.443.346 4.25 2.185 2.228 5.012a11.875 11.875 0 0 0-2.119 5.243c-.096.659-.108.854-.108 1.747s.012 1.089.108 1.748c.652 4.506 3.86 8.292 8.209 9.695.779.25 1.6.422 2.534.525.363.04 1.935.04 2.299 0 1.611-.178 2.977-.577 4.323-1.264.207-.106.247-.134.219-.158-.02-.013-.9-1.193-1.955-2.62l-1.919-2.592-2.404-3.558a338.739 338.739 0 0 0-2.422-3.556c-.009-.002-.018 1.579-.023 3.51-.007 3.38-.01 3.515-.052 3.595a.426.426 0 0 1-.206.214c-.075.037-.14.044-.495.044H7.81l-.108-.068a.438.438 0 0 1-.157-.171l-.05-.106.006-4.703.007-4.705.072-.092a.645.645 0 0 1 .174-.143c.096-.047.134-.051.54-.051.478 0 .558.018.682.154.035.038 1.337 1.999 2.895 4.361a10760.433 10760.433 0 0 0 4.735 7.17l1.9 2.879.096-.063a12.317 12.317 0 0 0 2.466-2.163 11.944 11.944 0 0 0 2.824-6.134c.096-.66.108-.854.108-1.748 0-.893-.012-1.088-.108-1.747-.652-4.506-3.859-8.292-8.208-9.695a12.597 12.597 0 0 0-2.499-.523A33.119 33.119 0 0 0 11.573 0zm4.069 7.217c.347 0 .408.005.486.047a.473.473 0 0 1 .237.277c.018.06.023 1.365.018 4.304l-.006 4.218-.744-1.14-.746-1.14v-3.066c0-1.982.01-3.097.023-3.15a.478.478 0 0 1 .233-.296c.096-.05.13-.054.5-.054z" />
                   </svg>
                 </div>
                 <div className="text-sm font-semibold text-white mb-0.5">Next.js</div>
@@ -504,7 +514,7 @@ export default function ShopPage() {
               <div className="text-center">
                 <div className="flex justify-center mb-1">
                   <svg className="w-6 h-6 text-green-400" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M20.205 16.392c-2.469 3.289-7.741 2.179-11.122 2.338 0 0-.599.034-1.201.133 0 0 .228-.097.519-.198 2.374-.821 3.496-.986 4.939-1.727 2.71-1.388 5.408-4.413 5.957-7.555-1.032 3.022-4.17 5.623-7.027 6.679-1.955.722-5.492 1.424-5.493 1.424a5.28 5.28 0 0 1-.143-.076c-2.405-1.17-2.475-6.38 1.894-8.059 1.916-.736 3.747-.332 5.818-.825 2.208-.525 4.766-2.18 5.805-4.344 1.165 3.458 2.565 8.866.054 12.21zm.042-13.28a9.212 9.212 0 0 1-1.065 1.89 9.982 9.982 0 0 0-7.167-3.031C6.492 1.971 2 6.463 2 11.985a9.983 9.983 0 0 0 3.205 7.334l.22.194a.856.856 0 1 1 .001.001l.149.132A9.96 9.96 0 0 0 12.015 22c5.278 0 9.613-4.108 9.984-9.292.274-2.539-.476-5.763-1.752-9.596"/>
+                    <path d="M20.205 16.392c-2.469 3.289-7.741 2.179-11.122 2.338 0 0-.599.034-1.201.133 0 0 .228-.097.519-.198 2.374-.821 3.496-.986 4.939-1.727 2.71-1.388 5.408-4.413 5.957-7.555-1.032 3.022-4.17 5.623-7.027 6.679-1.955.722-5.492 1.424-5.493 1.424a5.28 5.28 0 0 1-.143-.076c-2.405-1.17-2.475-6.38 1.894-8.059 1.916-.736 3.747-.332 5.818-.825 2.208-.525 4.766-2.18 5.805-4.344 1.165 3.458 2.565 8.866.054 12.21zm.042-13.28a9.212 9.212 0 0 1-1.065 1.89 9.982 9.982 0 0 0-7.167-3.031C6.492 1.971 2 6.463 2 11.985a9.983 9.983 0 0 0 3.205 7.334l.22.194a.856.856 0 1 1 .001.001l.149.132A9.96 9.96 0 0 0 12.015 22c5.278 0 9.613-4.108 9.984-9.292.274-2.539-.476-5.763-1.752-9.596" />
                   </svg>
                 </div>
                 <div className="text-sm font-semibold text-white mb-0.5">Spring Boot</div>
@@ -513,7 +523,7 @@ export default function ShopPage() {
               <div className="text-center">
                 <div className="flex justify-center mb-1">
                   <svg className="w-6 h-6 text-blue-400" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M14.25.18l.9.2.73.26.59.3.45.32.34.34.25.34.16.33.1.3.04.26.02.2-.01.13V8.5l-.05.63-.13.55-.21.46-.26.38-.3.31-.33.25-.35.19-.35.14-.33.1-.3.07-.26.04-.21.02H8.77l-.69.05-.59.14-.5.22-.41.27-.33.32-.27.35-.2.36-.15.37-.1.35-.07.32-.04.27-.02.21v3.06H3.17l-.21-.03-.28-.07-.32-.12-.35-.18-.36-.26-.36-.36-.35-.46-.32-.59-.28-.73-.21-.88-.14-1.05-.05-1.23.06-1.22.16-1.04.24-.87.32-.71.36-.57.4-.44.42-.33.42-.24.4-.16.36-.1.32-.05.24-.01h.16l.06.01h8.16v-.83H6.18l-.01-2.75-.02-.37.05-.34.11-.31.17-.28.25-.26.31-.23.38-.2.44-.18.51-.15.58-.12.64-.1.71-.06.77-.04.84-.02 1.27.05zm-6.3 1.98l-.23.33-.08.41.08.41.23.34.33.22.41.09.41-.09.33-.22.23-.34.08-.41-.08-.41-.23-.33-.33-.22-.41-.09-.41.09zm13.09 3.95l.28.06.32.12.35.18.36.27.36.35.35.47.32.59.28.73.21.88.14 1.04.05 1.23-.06 1.23-.16 1.04-.24.86-.32.71-.36.57-.4.45-.42.33-.42.24-.4.16-.36.09-.32.05-.24.02-.16-.01h-8.22v.82h5.84l.01 2.76.02.36-.05.34-.11.31-.17.29-.25.25-.31.24-.38.2-.44.17-.51.15-.58.13-.64.09-.71.07-.77.04-.84.01-1.27-.04-1.07-.14-.9-.2-.73-.25-.59-.3-.45-.33-.34-.34-.25-.34-.16-.33-.1-.3-.04-.25-.02-.2.01-.13v-5.34l.05-.64.13-.54.21-.46.26-.38.3-.32.33-.24.35-.2.35-.14.33-.1.3-.06.26-.04.21-.02.13-.01h5.84l.69-.05.59-.14.5-.21.41-.28.33-.32.27-.35.2-.36.15-.36.1-.35.07-.32.04-.28.02-.21V6.07h2.09l.14.01zm-6.47 14.25l-.23.33-.08.41.08.41.23.33.33.23.41.08.41-.08.33-.23.23-.33.08-.41-.08-.41-.23-.33-.33-.23-.41-.08-.41.08z"/>
+                    <path d="M14.25.18l.9.2.73.26.59.3.45.32.34.34.25.34.16.33.1.3.04.26.02.2-.01.13V8.5l-.05.63-.13.55-.21.46-.26.38-.3.31-.33.25-.35.19-.35.14-.33.1-.3.07-.26.04-.21.02H8.77l-.69.05-.59.14-.5.22-.41.27-.33.32-.27.35-.2.36-.15.37-.1.35-.07.32-.04.27-.02.21v3.06H3.17l-.21-.03-.28-.07-.32-.12-.35-.18-.36-.26-.36-.36-.35-.46-.32-.59-.28-.73-.21-.88-.14-1.05-.05-1.23.06-1.22.16-1.04.24-.87.32-.71.36-.57.4-.44.42-.33.42-.24.4-.16.36-.1.32-.05.24-.01h.16l.06.01h8.16v-.83H6.18l-.01-2.75-.02-.37.05-.34.11-.31.17-.28.25-.26.31-.23.38-.2.44-.18.51-.15.58-.12.64-.1.71-.06.77-.04.84-.02 1.27.05zm-6.3 1.98l-.23.33-.08.41.08.41.23.34.33.22.41.09.41-.09.33-.22.23-.34.08-.41-.08-.41-.23-.33-.33-.22-.41-.09-.41.09zm13.09 3.95l.28.06.32.12.35.18.36.27.36.35.35.47.32.59.28.73.21.88.14 1.04.05 1.23-.06 1.23-.16 1.04-.24.86-.32.71-.36.57-.4.45-.42.33-.42.24-.4.16-.36.09-.32.05-.24.02-.16-.01h-8.22v.82h5.84l.01 2.76.02.36-.05.34-.11.31-.17.29-.25.25-.31.24-.38.2-.44.17-.51.15-.58.13-.64.09-.71.07-.77.04-.84.01-1.27-.04-1.07-.14-.9-.2-.73-.25-.59-.3-.45-.33-.34-.34-.25-.34-.16-.33-.1-.3-.04-.25-.02-.2.01-.13v-5.34l.05-.64.13-.54.21-.46.26-.38.3-.32.33-.24.35-.2.35-.14.33-.1.3-.06.26-.04.21-.02.13-.01h5.84l.69-.05.59-.14.5-.21.41-.28.33-.32.27-.35.2-.36.15-.36.1-.35.07-.32.04-.28.02-.21V6.07h2.09l.14.01zm-6.47 14.25l-.23.33-.08.41.08.41.23.33.33.23.41.08.41-.08.33-.23.23-.33.08-.41-.08-.41-.23-.33-.33-.23-.41-.08-.41.08z" />
                   </svg>
                 </div>
                 <div className="text-sm font-semibold text-white mb-0.5">Python</div>
@@ -522,10 +532,10 @@ export default function ShopPage() {
               <div className="text-center">
                 <div className="flex justify-center mb-1">
                   <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <ellipse cx="12" cy="5" rx="9" ry="3"/>
-                    <path d="m21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
-                    <path d="m3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
-                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                    <ellipse cx="12" cy="5" rx="9" ry="3" />
+                    <path d="m21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+                    <path d="m3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
                   </svg>
                 </div>
                 <div className="text-sm font-semibold text-white mb-0.5">MySQL</div>
@@ -644,11 +654,10 @@ export default function ShopPage() {
                 <div className="space-y-3">
                   <button
                     onClick={() => setSelectedCategory(null)}
-                    className={`w-full p-3 rounded-xl transition-all hover:shadow-md ${
-                      selectedCategory === null
-                        ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg'
-                        : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
-                    }`}
+                    className={`w-full p-3 rounded-xl transition-all hover:shadow-md ${selectedCategory === null
+                      ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg'
+                      : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
                   >
                     <div className="flex items-center gap-3">
                       <div className={`p-2 rounded-lg ${selectedCategory === null ? 'bg-white/20' : 'bg-white dark:bg-gray-600'}`}>
@@ -661,11 +670,10 @@ export default function ShopPage() {
                     <button
                       key={category.id}
                       onClick={() => setSelectedCategory(category.id)}
-                      className={`w-full p-3 rounded-xl transition-all hover:shadow-md ${
-                        selectedCategory === category.id
-                          ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg'
-                          : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
-                      }`}
+                      className={`w-full p-3 rounded-xl transition-all hover:shadow-md ${selectedCategory === category.id
+                        ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg'
+                        : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 flex items-center justify-center flex-shrink-0">
@@ -715,44 +723,40 @@ export default function ShopPage() {
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => setSortBy('price-asc')}
-                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                        sortBy === 'price-asc'
-                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                          : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
-                      }`}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${sortBy === 'price-asc'
+                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                        : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        }`}
                     >
                       <TrendingUp className="w-4 h-4 inline mr-1" />
                       Giá thấp
                     </button>
                     <button
                       onClick={() => setSortBy('price-desc')}
-                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                        sortBy === 'price-desc'
-                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                          : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
-                      }`}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${sortBy === 'price-desc'
+                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                        : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        }`}
                     >
                       <TrendingUp className="w-4 h-4 inline mr-1 rotate-180" />
                       Giá cao
                     </button>
                     <button
                       onClick={() => setViewMode('grid')}
-                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                        viewMode === 'grid'
-                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                          : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
-                      }`}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === 'grid'
+                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                        : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        }`}
                     >
                       <Grid3X3 className="w-4 h-4 inline mr-1" />
                       Lưới
                     </button>
                     <button
                       onClick={() => setViewMode('list')}
-                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                        viewMode === 'list'
-                          ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                          : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
-                      }`}
+                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-all ${viewMode === 'list'
+                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                        : 'bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        }`}
                     >
                       <List className="w-4 h-4 inline mr-1" />
                       Danh sách
@@ -803,21 +807,19 @@ export default function ShopPage() {
                   <div className="flex gap-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
                     <button
                       onClick={() => setViewMode('grid')}
-                      className={`p-2 rounded-md transition-all ${
-                        viewMode === 'grid'
-                          ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                          : 'text-gray-600 dark:text-gray-400'
-                      }`}
+                      className={`p-2 rounded-md transition-all ${viewMode === 'grid'
+                        ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400'
+                        }`}
                     >
                       <Grid3X3 className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => setViewMode('list')}
-                      className={`p-2 rounded-md transition-all ${
-                        viewMode === 'list'
-                          ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                          : 'text-gray-600 dark:text-gray-400'
-                      }`}
+                      className={`p-2 rounded-md transition-all ${viewMode === 'list'
+                        ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                        : 'text-gray-600 dark:text-gray-400'
+                        }`}
                     >
                       <List className="w-4 h-4" />
                     </button>
@@ -873,22 +875,20 @@ export default function ShopPage() {
                   <div className="flex gap-2 bg-white/80 dark:bg-gray-700/80 backdrop-blur-xl p-1.5 rounded-2xl shadow-lg border border-gray-200/50 dark:border-gray-600/50">
                     <button
                       onClick={() => setViewMode('grid')}
-                      className={`group p-3 rounded-xl transition-all duration-300 ${
-                        viewMode === 'grid'
-                          ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg scale-105'
-                          : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-600/50 hover:scale-105'
-                      }`}
+                      className={`group p-3 rounded-xl transition-all duration-300 ${viewMode === 'grid'
+                        ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg scale-105'
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-600/50 hover:scale-105'
+                        }`}
                       title="Chế độ lưới"
                     >
                       <Grid3X3 className={`w-5 h-5 ${viewMode === 'grid' ? 'animate-pulse' : 'group-hover:rotate-12 transition-transform'}`} />
                     </button>
                     <button
                       onClick={() => setViewMode('list')}
-                      className={`group p-3 rounded-xl transition-all duration-300 ${
-                        viewMode === 'list'
-                          ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg scale-105'
-                          : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-600/50 hover:scale-105'
-                      }`}
+                      className={`group p-3 rounded-xl transition-all duration-300 ${viewMode === 'list'
+                        ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg scale-105'
+                        : 'text-gray-600 dark:text-gray-400 hover:bg-white/50 dark:hover:bg-gray-600/50 hover:scale-105'
+                        }`}
                       title="Chế độ danh sách"
                     >
                       <List className={`w-5 h-5 ${viewMode === 'list' ? 'animate-pulse' : 'group-hover:-rotate-12 transition-transform'}`} />
@@ -976,9 +976,8 @@ export default function ShopPage() {
                     onMouseEnter={() => setHoveredProduct(product.id)}
                     onMouseLeave={() => setHoveredProduct(null)}
                     onClick={() => setSelectedProductId(product.id)}
-                    className={`group relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-2xl rounded-2xl shadow-lg hover:shadow-xl hover:shadow-blue-500/10 dark:hover:shadow-blue-400/10 transition-all duration-500 overflow-hidden border border-white/30 dark:border-gray-700/30 cursor-pointer ${
-                      viewMode === 'list' ? 'flex' : ''
-                    } ${hoveredProduct === product.id ? 'scale-[1.02] -translate-y-1 shadow-2xl' : ''}`}
+                    className={`group relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-2xl rounded-2xl shadow-lg hover:shadow-xl hover:shadow-blue-500/10 dark:hover:shadow-blue-400/10 transition-all duration-500 overflow-hidden border border-white/30 dark:border-gray-700/30 cursor-pointer ${viewMode === 'list' ? 'flex' : ''
+                      } ${hoveredProduct === product.id ? 'scale-[1.02] -translate-y-1 shadow-2xl' : ''}`}
                   >
 
                     {/* Image Container */}
@@ -1001,9 +1000,8 @@ export default function ShopPage() {
                       <div className="absolute inset-0 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 opacity-0 group-hover:opacity-0 transition-opacity duration-300"></div>
 
                       {/* Enhanced Overlay */}
-                      <div className={`absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex items-end p-4 ${
-                        product.quantity === 0 ? 'opacity-100' : ''
-                      }`}>
+                      <div className={`absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex items-end p-4 ${product.quantity === 0 ? 'opacity-100' : ''
+                        }`}>
                         {product.quantity === 0 ? (
                           <div className="w-full text-center transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
                             <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-red-500/90 backdrop-blur-sm text-white font-bold text-sm rounded-xl shadow-lg">
@@ -1079,8 +1077,8 @@ export default function ShopPage() {
                             <Package className="w-3 h-3" />
                             <span className="font-medium">
                               {product.quantity === 0 ? 'Hết hàng' :
-                               product.quantity <= 5 ? 'Còn ít' :
-                               product.quantity <= 20 ? 'Còn nhiều' : 'Còn hàng'}
+                                product.quantity <= 5 ? 'Còn ít' :
+                                  product.quantity <= 20 ? 'Còn nhiều' : 'Còn hàng'}
                             </span>
                           </div>
                           <div className="flex items-center gap-1 px-2 py-1 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 rounded-lg">
@@ -1121,9 +1119,8 @@ export default function ShopPage() {
                         <button
                           onClick={() => handleAddToCart(product.id)}
                           disabled={product.quantity === 0}
-                          className={`px-4 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
-                            viewMode === 'list' ? '' : 'w-full'
-                          }`}
+                          className={`px-4 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${viewMode === 'list' ? '' : 'w-full'
+                            }`}
                         >
                           <ShoppingCart className="w-4 h-4" />
                           <span>Thêm</span>
@@ -1172,11 +1169,11 @@ export default function ShopPage() {
       {selectedProductId && (
         <>
           {/* Overlay */}
-          <div 
+          <div
             className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40 transition-opacity duration-500"
             onClick={() => setSelectedProductId(null)}
           />
-          
+
           {/* Detail Panel */}
           <div className="fixed top-0 right-0 h-full w-1/2 border-l border-gray-200 dark:border-gray-700 shadow-2xl z-50 animate-slide-in-right bg-white dark:bg-gray-900">
             <ProductDetailPanel

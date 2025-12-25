@@ -183,6 +183,7 @@ class ChatResponse(BaseModel):
     suggestions: Optional[List[str]] = None  # Quick reply suggestions
     actions: Optional[List[Dict]] = None  # Action buttons for AI Agent
     products: Optional[List[Dict]] = None  # Inline products with buttons
+    orders: Optional[List[Dict]] = None  # User orders with detail view buttons
 
 
 class HistoryMessage(BaseModel):
@@ -248,6 +249,21 @@ def detect_action_intent(message: str, products: List[Dict], discounts: List[Dic
                     "label": f"🎫 Áp mã {code}"
                 })
         return actions  # Return early - skip ADD_TO_CART logic below
+    
+    # CHECK_ORDER intent - User wants to check their orders
+    check_order_keywords = [
+        'kiểm tra đơn hàng', 'đơn hàng của tôi', 'tra cứu đơn', 
+        'xem đơn hàng', 'order của tôi', 'check order', 'my orders',
+        'đơn hàng của mình', 'có đơn hàng nào', 'đơn đặt hàng'
+    ]
+    is_checking_order = any(kw in message_lower for kw in check_order_keywords)
+    
+    if is_checking_order:
+        actions.append({
+            "type": "CHECK_ORDERS",
+            "label": "📦 Xem tất cả đơn hàng"
+        })
+        return actions  # Return early - this is the primary intent
     
     # ADD_TO_CART intent
     cart_keywords = ['thêm vào giỏ', 'mua ngay', 'đặt mua', 'add to cart', 'thêm giỏ', 'mua sản phẩm', 'cho vào giỏ', 'thêm giỏ hàng']
@@ -635,6 +651,25 @@ async def chat(
         if cart_context:
             combined_context += cart_context
         
+        # Get user orders if checking order intent
+        check_order_keywords = [
+            # Vietnamese with diacritics
+            'kiểm tra đơn hàng', 'đơn hàng của tôi', 'tra cứu đơn',
+            'xem đơn hàng', 'order của tôi', 'check order', 'my orders',
+            # Vietnamese without diacritics (common in typing)
+            'kiem tra don hang', 'don hang cua toi', 'tra cuu don',
+            'xem don hang', 'don hang cua minh', 'co don hang nao'
+        ]
+        is_checking_order = any(kw in request.message.lower() for kw in check_order_keywords)
+        
+        if is_checking_order:
+            orders_context = chroma_service.get_user_orders(user_id, max_orders=10)
+            if orders_context:
+                combined_context += orders_context
+                print(f"[CHAT] Added orders context for user {user_id}")
+            else:
+                print(f"[CHAT] No orders found for user {user_id}")
+        
         # SMART TRUNCATE: Keep discounts and user info, truncate product details if needed
         MAX_CONTEXT_CHARS = 4000  # Increased to fit more info
         if combined_context and len(combined_context) > MAX_CONTEXT_CHARS:
@@ -649,8 +684,8 @@ async def chat(
             
             for section in sections:
                 section_lower = section.lower()
-                # Always keep: discounts, user info, analysis, user name, CART
-                if any(kw in section_lower for kw in ['khuyến mãi', 'giảm giá', 'mã:', 'discount', 'thông tin người dùng', 'thông tin cá nhân', 'user', 'tên:', 'email:', 'phân tích yêu cầu', 'hướng dẫn tư vấn', 'giỏ hàng', 'cart']):
+                # Always keep: discounts, user info, analysis, user name, CART, ORDERS
+                if any(kw in section_lower for kw in ['khuyến mãi', 'giảm giá', 'mã:', 'discount', 'thông tin người dùng', 'thông tin cá nhân', 'user', 'tên:', 'email:', 'phân tích yêu cầu', 'hướng dẫn tư vấn', 'giỏ hàng', 'cart', 'đơn hàng', 'order', 'lịch sử đơn']):
                     kept_sections.append(section)
                 elif 'sản phẩm' in section_lower or 'chi tiết' in section_lower:
                     product_sections.append(section)
@@ -964,7 +999,8 @@ Bạn đang tư vấn cho khách hàng chưa có thông tin cá nhân. Hãy tậ
                         })
             
             # If discounts were shown in response, add discount buttons
-            if discounts_for_action and ('mã giảm' in response_lower or 'khuyến mãi' in response_lower or 'giảm giá' in response_lower):
+            # But SKIP if checking order history (to avoid confusion with past orders)
+            if discounts_for_action and ('mã giảm' in response_lower or 'khuyến mãi' in response_lower or 'giảm giá' in response_lower) and not is_checking_order:
                 for discount in discounts_for_action:
                     # Check if we already have this discount action
                     already_added = any(a.get('discountCode') == discount.get('code') for a in actions)
@@ -985,6 +1021,12 @@ Bạn đang tư vấn cho khách hàng chưa có thông tin cá nhân. Hãy tậ
         inline_products = extract_inline_products(products_for_action, request.message)
         print(f"[CHAT] Extracted {len(inline_products)} inline products")
         
+        # Extract orders list if checking orders
+        orders_list = []
+        if is_checking_order:
+            orders_list = chroma_service.get_user_orders_list(user_id, max_orders=10)
+            print(f"[CHAT] Extracted {len(orders_list)} orders for display")
+        
         return ChatResponse(
             message=response_message,
             model=model_to_use,
@@ -993,7 +1035,8 @@ Bạn đang tư vấn cho khách hàng chưa có thông tin cá nhân. Hãy tậ
             finish_reason=completion.choices[0].finish_reason if hasattr(completion.choices[0], 'finish_reason') else None,
             suggestions=suggestions,
             actions=actions if actions else None,
-            products=inline_products if inline_products else None
+            products=inline_products if inline_products else None,
+            orders=orders_list if orders_list else None
         )
         
     except Exception as e:
