@@ -70,6 +70,8 @@ export default function AIAgentChatManagementPage() {
   const [showModalConfigForm, setShowModalConfigForm] = useState(false);
   const [selectedModalConfig, setSelectedModalConfig] = useState<ModalConfig | null>(null);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [autoSyncCountdown, setAutoSyncCountdown] = useState<number>(0);
+  const [isAutoSyncing, setIsAutoSyncing] = useState(false);
   const { addToast } = useToast();
   const checkAuth = async () => {
     try {
@@ -235,6 +237,57 @@ export default function AIAgentChatManagementPage() {
       setLoadingModalConfigs(false);
     }
   };
+
+  // Auto Sync Toggle - Continuous sync every 30s
+  const toggleAutoSync = () => {
+    setIsAutoSyncing(!isAutoSyncing);
+    if (!isAutoSyncing) {
+      setAutoSyncCountdown(30);
+      addToast({ type: 'success', title: 'Auto Sync Bật', message: 'Tự động đồng bộ mỗi 30 giây' });
+    } else {
+      setAutoSyncCountdown(0);
+      addToast({ type: 'info', title: 'Auto Sync Tắt', message: 'Đã dừng tự động đồng bộ' });
+    }
+  };
+
+  // Continuous sync effect
+  useEffect(() => {
+    if (!isAutoSyncing) return;
+
+    const intervalId = setInterval(async () => {
+      setAutoSyncCountdown(prev => {
+        if (prev <= 1) {
+          (async () => {
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+              addToast({ type: 'error', title: 'Lỗi xác thực', message: 'Không tìm thấy token admin' });
+              setIsAutoSyncing(false);
+              return;
+            }
+
+            try {
+              const res = await fetch(`${AI_SERVICE_URL}/api/admin/sync-system-data?authorization=${encodeURIComponent(token)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+              });
+              if (res.ok) {
+                const data = await res.json();
+                addToast({ type: 'success', title: 'Đồng bộ tự động', message: `Sync thành công ${data.total_documents || 0} documents` });
+                loadChromaCollections();
+              }
+            } catch (e) {
+              console.error(e);
+            }
+          })();
+          return 30;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [isAutoSyncing]);
+
 
   const loadAvailableModels = async () => {
     try {
@@ -669,22 +722,43 @@ export default function AIAgentChatManagementPage() {
               <div className="flex flex-col lg:flex-row gap-4">
                 <button
                   onClick={() => loadChromaCollections()}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium inline-flex items-center"
                 >
                   <RefreshCw size={16} className="mr-2" />
                   Làm mới
                 </button>
                 <button
                   onClick={handleSyncSystemData}
-                  disabled={refreshing}
-                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={refreshing || isAutoSyncing}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center"
                 >
                   <RefreshCw size={16} className="mr-2" />
                   Đồng bộ dữ liệu hệ thống
                 </button>
                 <button
+                  onClick={toggleAutoSync}
+                  disabled={refreshing}
+                  className={`px-4 py-2 ${isAutoSyncing ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700' : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700'} text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center shadow-md hover:shadow-lg transition-all`}
+                >
+                  {isAutoSyncing ? (
+                    <>
+                      <svg className="w-4 h-4 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      <span className="font-mono font-bold">{autoSyncCountdown}s</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Auto Sync (30s)
+                    </>
+                  )}
+                </button>
+                <button
                   onClick={handlePopulateChromaTestData}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium inline-flex items-center"
                 >
                   <Plus size={16} className="mr-2" />
                   Thêm dữ liệu test
@@ -751,27 +825,53 @@ export default function AIAgentChatManagementPage() {
                     <p className="text-gray-500 dark:text-gray-400 mb-6">
                       Vector database chưa có collections nào. Đồng bộ dữ liệu từ hệ thống để tạo collections cho AI Agent.
                     </p>
-                    <button
-                      onClick={handleSyncSystemData}
-                      disabled={refreshing}
-                      className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-medium rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {refreshing ? (
-                        <>
-                          <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          </svg>
-                          Đang đồng bộ...
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                          </svg>
-                          Đồng bộ dữ liệu ngay
-                        </>
-                      )}
-                    </button>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleSyncSystemData}
+                        disabled={refreshing || isAutoSyncing}
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-medium rounded-lg hover:from-purple-600 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {refreshing ? (
+                          <>
+                            <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            Đang đồng bộ...
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                            Đồng bộ dữ liệu ngay
+                          </>
+                        )}
+                      </button>
+
+                      {/* Auto Sync Button with 30s countdown */}
+                      <button
+                        onClick={toggleAutoSync}
+                        disabled={isAutoSyncing || refreshing}
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-medium rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isAutoSyncing ? (
+                          <>
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <circle cx="12" cy="12" r="10" strokeWidth={2} className="opacity-25" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6l4 2" />
+                            </svg>
+                            <span className="font-mono font-bold">{autoSyncCountdown}s</span>
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Auto Sync (30s)
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}

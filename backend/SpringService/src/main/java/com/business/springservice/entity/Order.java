@@ -48,6 +48,9 @@ public class Order {
     @Column(columnDefinition = "TEXT")
     private String note;
     
+    @Column(name = "payment_method")
+    private String paymentMethod; // CASH or BANK_TRANSFER
+    
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItem> orderItems = new ArrayList<>();
     

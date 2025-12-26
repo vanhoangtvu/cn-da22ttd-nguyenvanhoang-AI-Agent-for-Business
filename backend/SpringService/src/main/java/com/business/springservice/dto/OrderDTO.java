@@ -43,6 +43,12 @@ public class OrderDTO {
     
     @Schema(description = "Order note", example = "Giao hàng buổi chiều")
     private String note;
+
+    @Schema(description = "Payment method", example = "BANK_TRANSFER")
+    private String paymentMethod;
+
+    @Schema(description = "QR code URL for payment (e.g., VietQR)", example = "https://example.com/qr/123")
+    private String qrCodeUrl; // VietQR URL for bank transfer payment
     
     @Schema(description = "List of order items")
     private List<OrderItemDTO> orderItems;

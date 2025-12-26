@@ -71,6 +71,7 @@ com/business/springservice/controller/CategoryManagementController.class
 com/business/springservice/entity/Product.class
 com/business/springservice/dto/SystemReportDTO$TopProductDTO.class
 com/business/springservice/SpringServiceApplication.class
+com/business/springservice/service/VietQRService.class
 com/business/springservice/service/AuthService.class
 com/business/springservice/service/DashboardService.class
 com/business/springservice/entity/ActivityLog$ActivityLogBuilder.class

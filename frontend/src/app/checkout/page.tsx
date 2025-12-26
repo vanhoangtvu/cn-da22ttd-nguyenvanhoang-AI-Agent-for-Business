@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
+import { useToast } from '@/components/ToastProvider';
 import AddressSelector from '@/components/AddressSelector';
 import DiscountApplier from '@/components/DiscountApplier';
 
@@ -23,6 +24,7 @@ interface Cart {
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const { showToast } = useToast();
   const [cart, setCart] = useState<Cart | null>(null);
   const [note, setNote] = useState('');
   const [shippingAddress, setShippingAddress] = useState('');
@@ -30,7 +32,10 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  
+  const [paymentMethod, setPaymentMethod] = useState('CASH'); // Default to CASH
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [createdOrder, setCreatedOrder] = useState<any>(null);
+
   // Discount state
   const [appliedDiscount, setAppliedDiscount] = useState<any>(null);
   const [finalTotal, setFinalTotal] = useState(0);
@@ -48,7 +53,7 @@ export default function CheckoutPage() {
     try {
       const data = await apiClient.getCart();
       if (!data || data.items.length === 0) {
-        alert('Giỏ hàng trống');
+        showToast('Giỏ hàng trống', 'warning');
         router.push('/cart');
         return;
       }
@@ -75,7 +80,7 @@ export default function CheckoutPage() {
 
   const handleSubmitOrder = async () => {
     if (!cart || cart.items.length === 0) {
-      alert('Giỏ hàng trống');
+      showToast('Giỏ hàng trống', 'warning');
       return;
     }
 
@@ -85,6 +90,7 @@ export default function CheckoutPage() {
     try {
       const orderData = {
         note: note.trim() || undefined,
+        paymentMethod: paymentMethod,
         discountCode: appliedDiscount?.code || undefined,
         items: cart.items.map((item) => ({
           productId: item.productId,
@@ -93,8 +99,15 @@ export default function CheckoutPage() {
       };
 
       const order = await apiClient.createOrder(orderData);
-      alert('Đặt hàng thành công!');
-      router.push(`/orders`);
+
+      // If payment method is BANK_TRANSFER, show QR modal
+      if (paymentMethod === 'BANK_TRANSFER') {
+        setCreatedOrder(order);
+        setShowSuccessModal(true);
+      } else {
+        showToast('Đặt hàng thành công!', 'success');
+        router.push(`/orders`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Đặt hàng thất bại');
     } finally {
@@ -289,6 +302,103 @@ Ví dụ: Giao hàng buổi chiều, gọi trước khi giao..."
                 className="w-full h-32 px-6 py-4 border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent dark:bg-gray-700/50 dark:text-white resize-none shadow-inner transition-all duration-200 focus:shadow-lg"
               ></textarea>
             </div>
+
+            {/* Payment Method Selection */}
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-700/50 p-8 hover:shadow-2xl transition-all duration-300">
+              <h2 className="text-2xl font-bold mb-6 flex items-center gap-3">
+                <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl shadow-lg">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  </svg>
+                </div>
+                <span className="bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">Phương thức thanh toán</span>
+              </h2>
+
+              <div className="space-y-4">
+                {/* Cash on Delivery */}
+                <label className={`flex items-center gap-4 p-6 border-2 rounded-2xl cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-lg group relative ${paymentMethod === 'CASH' ? 'ring-2 ring-emerald-500/50 shadow-xl' : ''
+                  }`} style={{
+                    borderColor: paymentMethod === 'CASH' ? 'rgb(16 185 129)' : 'rgb(209 213 219)',
+                    backgroundColor: paymentMethod === 'CASH' ? 'rgb(209 250 229)' : 'transparent'
+                  }}>
+                  <div className="flex-shrink-0">
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="CASH"
+                      checked={paymentMethod === 'CASH'}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      className="w-5 h-5 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    {paymentMethod === 'CASH' && (
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-600 rounded-full flex items-center justify-center">
+                        <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className={`font-semibold text-lg mb-1 transition-colors flex items-center gap-2 ${paymentMethod === 'CASH' ? 'text-emerald-800' : 'group-hover:text-emerald-700'
+                      }`}>
+                      💵 Tiền mặt khi nhận hàng (COD)
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Thanh toán trực tiếp cho đơn vị vận chuyển</p>
+                  </div>
+                </label>
+
+                {/* Bank Transfer */}
+                <label className={`flex items-center gap-4 p-6 border-2 rounded-2xl cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-lg group relative ${paymentMethod === 'BANK_TRANSFER' ? 'ring-2 ring-blue-500/50 shadow-xl' : ''
+                  }`} style={{
+                    borderColor: paymentMethod === 'BANK_TRANSFER' ? 'rgb(59 130 246)' : 'rgb(209 213 219)',
+                    backgroundColor: paymentMethod === 'BANK_TRANSFER' ? 'rgb(219 234 254)' : 'transparent'
+                  }}>
+                  <div className="flex-shrink-0">
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="BANK_TRANSFER"
+                      checked={paymentMethod === 'BANK_TRANSFER'}
+                      onChange={(e) => setPaymentMethod(e.target.value)}
+                      className="w-5 h-5 text-blue-600 focus:ring-blue-500"
+                    />
+                    {paymentMethod === 'BANK_TRANSFER' && (
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-600 rounded-full flex items-center justify-center">
+                        <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className={`font-semibold text-lg mb-1 transition-colors flex items-center gap-2 ${paymentMethod === 'BANK_TRANSFER' ? 'text-blue-800' : 'group-hover:text-blue-700'
+                      }`}>
+                      🏦 Chuyển khoản ngân hàng
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Quét mã VietQR để thanh toán nhanh chóng</p>
+                  </div>
+                </label>
+
+                {/* VietQR Info */}
+                {paymentMethod === 'BANK_TRANSFER' && (
+                  <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl border border-blue-200 dark:border-blue-700/50 shadow-inner">
+                    <div className="flex items-start gap-3 mb-3">
+                      <svg className="w-6 h-6 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div className="text-sm text-blue-800 dark:text-blue-200">
+                        <p className="font-semibold mb-2">📱 Sau khi đặt hàng, bạn sẽ nhận được mã QR:</p>
+                        <ul className="space-y-1 list-disc list-inside">
+                          <li>Mã VietQR tự động điền số tiền và nội dung</li>
+                          <li>Ngân hàng: <strong>MB Bank - 0889559357</strong></li>
+                          <li>Quét bằng app ngân hàng bất kỳ để thanh toán</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Order Summary */}
@@ -308,7 +418,7 @@ Ví dụ: Giao hàng buổi chiều, gọi trước khi giao..."
                   <span className="text-gray-600 dark:text-gray-400 font-medium">Tạm tính</span>
                   <span className="font-semibold text-lg">{cart.totalPrice.toLocaleString('vi-VN')}đ</span>
                 </div>
-                
+
                 {/* Discount section */}
                 <DiscountApplier
                   orderTotal={cart.totalPrice}
@@ -316,7 +426,7 @@ Ví dụ: Giao hàng buổi chiều, gọi trước khi giao..."
                   onDiscountRemoved={handleDiscountRemoved}
                   appliedDiscount={appliedDiscount}
                 />
-                
+
                 {appliedDiscount && (
                   <div className="flex justify-between items-center py-3 px-4 bg-green-50/50 dark:bg-green-900/10 rounded-xl border border-green-200 dark:border-green-800">
                     <span className="text-gray-600 dark:text-gray-400 font-medium">Giảm giá</span>
@@ -325,7 +435,7 @@ Ví dụ: Giao hàng buổi chiều, gọi trước khi giao..."
                     </span>
                   </div>
                 )}
-                
+
                 <div className="flex justify-between items-center py-3 px-4 bg-green-50/50 dark:bg-green-900/10 rounded-xl">
                   <span className="text-gray-600 dark:text-gray-400 font-medium">Phí vận chuyển</span>
                   <span className="font-semibold text-green-600 dark:text-green-400">
@@ -400,6 +510,89 @@ Ví dụ: Giao hàng buổi chiều, gọi trước khi giao..."
           </div>
         </div>
       </div>
+
+      {/* Payment QR Code Modal */}
+      {showSuccessModal && createdOrder && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full animate-slide-up">
+            <div className="p-6">
+              {/* Header */}
+              <div className="text-center mb-6">
+                <div className="w-16 h-16 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg">
+                  <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-1">Chờ thanh toán</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Đơn hàng <span className="font-bold text-blue-600">#{createdOrder.id}</span></p>
+              </div>
+
+              {/* QR Code Section */}
+              {createdOrder.qrCodeUrl && (
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 mb-4 border border-blue-200 dark:border-blue-700">
+                  <p className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-3 text-center">📱 Quét mã QR để thanh toán</p>
+
+                  <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-md mb-3">
+                    <img
+                      src={createdOrder.qrCodeUrl}
+                      alt="VietQR Code"
+                      className="w-48 h-48 mx-auto object-contain"
+                    />
+                  </div>
+
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between p-2 bg-white/50 dark:bg-gray-700/50 rounded">
+                      <span className="text-gray-600 dark:text-gray-400">Ngân hàng:</span>
+                      <span className="font-semibold text-gray-800 dark:text-white">MB Bank</span>
+                    </div>
+                    <div className="flex justify-between p-2 bg-white/50 dark:bg-gray-700/50 rounded">
+                      <span className="text-gray-600 dark:text-gray-400">STK:</span>
+                      <span className="font-semibold text-gray-800 dark:text-white">0889559357</span>
+                    </div>
+                    <div className="flex justify-between p-2 bg-white/50 dark:bg-gray-700/50 rounded">
+                      <span className="text-gray-600 dark:text-gray-400">Số tiền:</span>
+                      <span className="font-bold text-blue-600 dark:text-blue-400">
+                        {createdOrder.totalAmount?.toLocaleString('vi-VN')}đ
+                      </span>
+                    </div>
+                    <div className="flex justify-between p-2 bg-white/50 dark:bg-gray-700/50 rounded">
+                      <span className="text-gray-600 dark:text-gray-400">Nội dung:</span>
+                      <span className="font-semibold text-gray-800 dark:text-white">DH{createdOrder.id}</span>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded border border-yellow-300 dark:border-yellow-700">
+                    <p className="text-xs text-yellow-800 dark:text-yellow-200 text-center">
+                      ⚠️ Vui lòng thanh toán để hoàn tất đơn hàng
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Button */}
+              <button
+                onClick={async () => {
+                  // Auto-confirm order for testing (simulate payment)
+                  try {
+                    await apiClient.updateOrderStatus(createdOrder.id, 'CONFIRMED');
+                  } catch (error) {
+                    console.error('Failed to update order status:', error);
+                  }
+                  setShowSuccessModal(false);
+                  showToast('Đặt hàng thành công! Đơn hàng đã được xác nhận.', 'success');
+                  router.push('/orders');
+                }}
+                className="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Đã hiểu, đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

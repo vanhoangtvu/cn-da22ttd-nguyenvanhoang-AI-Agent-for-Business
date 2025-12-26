@@ -360,6 +360,10 @@ def extract_inline_products(products: List[Dict], query: str = "", max_products:
     if not products:
         return []
     
+    # DISABLED: Inline products không match với table - gây nhầm lẫn
+    print(f"[INLINE_PRODUCTS] Disabled - use table only")
+    return []
+    
     # Detect category from query
     query_lower = query.lower()
     category_keywords = {
@@ -671,7 +675,7 @@ async def chat(
                 print(f"[CHAT] No orders found for user {user_id}")
         
         # SMART TRUNCATE: Keep discounts and user info, truncate product details if needed
-        MAX_CONTEXT_CHARS = 4000  # Increased to fit more info
+        MAX_CONTEXT_CHARS = 6000  # Increased to preserve image URLs
         if combined_context and len(combined_context) > MAX_CONTEXT_CHARS:
             print(f"[CHAT] Context too long ({len(combined_context)} chars), smart truncating...")
             
@@ -684,8 +688,11 @@ async def chat(
             
             for section in sections:
                 section_lower = section.lower()
-                # Always keep: discounts, user info, analysis, user name, CART, ORDERS
+                # Always keep: discounts, user info, analysis, user name, CART, ORDERS, IMAGE URLS
                 if any(kw in section_lower for kw in ['khuyến mãi', 'giảm giá', 'mã:', 'discount', 'thông tin người dùng', 'thông tin cá nhân', 'user', 'tên:', 'email:', 'phân tích yêu cầu', 'hướng dẫn tư vấn', 'giỏ hàng', 'cart', 'đơn hàng', 'order', 'lịch sử đơn']):
+                    kept_sections.append(section)
+                elif '🖼️' in section:
+                    # ALWAYS keep image URLs
                     kept_sections.append(section)
                 elif 'sản phẩm' in section_lower or 'chi tiết' in section_lower:
                     product_sections.append(section)
@@ -747,7 +754,18 @@ Query: "điện thoại giá rẻ"
 ═══════════════════════════════════════════════════════════════════
 - CHỈ sử dụng sản phẩm có trong context, KHÔNG bịa ra sản phẩm
 - HIỂN THỊ HÌNH ẢNH sản phẩm bằng format: ![Tên](URL)
-- SO SÁNH 2-3 sản phẩm với bảng markdown
+- SO SÁNH 2-3 sản phẩm với bảng markdown, HEADER CỦA BẢNG PHẢI LÀ: "| Sản phẩm | Giá | Sẵn có | Khả năng | Ảnh |"
+- ⚠️ **BẮT BUỘC HIỂN THỊ ẢNH TRONG BẢNG**:
+  CÁCH LÀM (4 BƯỚC):
+  1. Tìm sản phẩm trong context
+  2. Tìm dòng có 🖼️ ngay bên dưới tên sản phẩm
+  3. COPY CHÍNH XÁC URL sau 🖼️
+  4. Dán vào cột Ảnh: ![](URL)
+  
+  VÍ DỤ: Context có "iPhone 15 Pro Max" và dòng "🖼️ https://storage.../iphone.jpg"
+  → Table: | iPhone 15 Pro Max | ... | ![](https://storage.../iphone.jpg) |
+  
+  LỖI: Bỏ qua ảnh hoặc dùng URL không có trong context
 - KẾT THÚC bằng đề xuất cuối cùng và lời hỏi thêm
 
 🛒 HỆ THỐNG HỖ TRỢ CÁC HÀNH ĐỘNG SAU:
@@ -798,9 +816,12 @@ QUY TẮC BẮT BUỘC:
 2. LUÔN GỌI TÊN "{user_name}" trong mọi tin nhắn, KHÔNG dùng từ "bạn"
 3. Đề xuất 2-3 sản phẩm PHÙ HỢP NHẤT từ danh sách đã được sort
 4. Hiển thị ảnh: ![Tên](URL) - CHỈ dùng URL có trong dữ liệu
-5. So sánh bằng bảng markdown nếu có nhiều sản phẩm
-6. KHÔNG bịa sản phẩm hoặc mã giảm giá
-7. Kết thúc ngắn gọn, KHÔNG gợi ý thêm (hệ thống tự động hiển thị gợi ý)"""
+5. ⚠️ **CHÍNH XÁC TÊN SẢN PHẨM**: Khi đề xuất, PHẢI COPY CHÍNH XÁC tên từ context
+   - VÍ DỤ: Context có "Lenovo IdeaPad 3" → Viết "Lenovo IdeaPad 3" (KHÔNG viết "IdeaPad 15" hay thêm số khác)
+   - TUYỆT ĐỐI KHÔNG được tự bịa, sửa, hay thêm bớt tên sản phẩm
+6. ⚠️ BẢNG PHẢI CÓ ẢNH: Format | Sản phẩm | Giá | Sẵn có | Khả năng | Ảnh | - Mỗi dòngl phải có ![](URL) ở cột Ảnh. Tìm URL trong context sau icon 🖼️
+7. KHÔNG bịa sản phẩm hoặc mã giảm giá
+8. Kết thúc ngắn gọn, KHÔNG gợi ý thêm (hệ thống tự động hiển thị gợi ý)"""
         else:
             enhanced_system_prompt = f"""{base_system_prompt}
 

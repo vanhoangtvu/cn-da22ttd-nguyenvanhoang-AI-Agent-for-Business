@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
+import { useToast } from '@/components/ToastProvider';
 import ProductDetailPanel from '@/components/ProductDetailPanel';
 import {
   ShoppingCart,
@@ -120,11 +122,13 @@ const ProductSkeleton = ({ viewMode }: { viewMode: 'grid' | 'list' }) => (
   </div>
 );
 
-export default function ShopPage() {
+export default function HomePage() {
+  const router = useRouter();
+  const { showToast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
-  const [searchKeyword, setSearchKeyword] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchKeyword, setDebouncedSearchKeyword] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -171,10 +175,10 @@ export default function ShopPage() {
   // Debounce search keyword
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearchKeyword(searchKeyword);
+      setDebouncedSearchKeyword(searchTerm);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchKeyword]);
+  }, [searchTerm]);
 
   // Handle mobile menu close on ESC and click outside
   useEffect(() => {
@@ -256,16 +260,17 @@ export default function ShopPage() {
   // Add to cart
   const handleAddToCart = async (productId: number) => {
     if (!apiClient.isAuthenticated()) {
-      alert('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng');
+      showToast('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng', 'warning');
+      router.push('/login');
       return;
     }
 
     try {
       await apiClient.addToCart(productId, 1);
       setCartCount(cartCount + 1);
-      alert('Đã thêm vào giỏ hàng!');
+      showToast('Đã thêm vào giỏ hàng!', 'success');
     } catch (err) {
-      alert('Không thể thêm vào giỏ hàng');
+      showToast('Không thể thêm vào giỏ hàng', 'error');
       console.error(err);
     }
   };
@@ -301,14 +306,14 @@ export default function ShopPage() {
                   <input
                     type="text"
                     placeholder="Tìm kiếm sản phẩm..."
-                    value={searchKeyword}
-                    onChange={(e) => setSearchKeyword(e.target.value)}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full px-6 py-4 pl-14 bg-transparent border-0 rounded-2xl text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 focus:ring-0 focus:outline-none transition-all duration-300 text-lg"
                   />
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 group-hover:from-blue-600 group-hover:to-indigo-700 transition-all duration-300 group-hover:scale-110 group-hover:rotate-12">
                     <Search className="w-5 h-5 text-white" />
                   </div>
-                  {searchKeyword && (
+                  {searchTerm && (
                     <button
                       onClick={() => setSearchKeyword('')}
                       className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-200 opacity-0 group-hover:opacity-100"
@@ -418,7 +423,7 @@ export default function ShopPage() {
                   <input
                     type="text"
                     placeholder="Tìm kiếm sản phẩm..."
-                    value={searchKeyword}
+                    value={searchTerm}
                     onChange={(e) => setSearchKeyword(e.target.value)}
                     className="w-full px-4 py-3 pl-12 bg-gray-100/80 dark:bg-gray-700/80 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                   />
@@ -487,13 +492,13 @@ export default function ShopPage() {
 
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-6 animate-slide-up animation-delay-800">
-              <button
-                onClick={() => setSelectedCategory(null)}
+              <Link
+                href="/ai-chat"
                 className="group px-10 py-5 bg-gradient-to-r from-white to-gray-100 text-slate-900 rounded-2xl font-bold text-lg hover:shadow-2xl hover:shadow-white/25 transition-all duration-300 hover:scale-105 flex items-center justify-center gap-3"
               >
-                <Zap className="w-6 h-6 group-hover:animate-pulse" />
-                Khám phá ngay
-              </button>
+                <Sparkles className="w-6 h-6 group-hover:animate-pulse" />
+                Agent Chat
+              </Link>
               <button className="group px-10 py-5 bg-white/10 backdrop-blur-xl text-white rounded-2xl font-bold text-lg hover:bg-white/20 transition-all duration-300 border-2 border-white/30 hover:border-white/50 flex items-center justify-center gap-3">
                 <TrendingUp className="w-6 h-6 group-hover:scale-110 transition-transform" />
                 Xem Demo
@@ -925,8 +930,8 @@ export default function ShopPage() {
                 </div>
                 <h3 className="text-2xl font-bold mb-2">Không tìm thấy sản phẩm</h3>
                 <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto">
-                  {searchKeyword
-                    ? `Không có sản phẩm nào khớp với "${searchKeyword}". Hãy thử tìm kiếm với từ khóa khác hoặc duyệt các danh mục phổ biến.`
+                  {searchTerm
+                    ? `Không có sản phẩm nào khớp với "${searchTerm}". Hãy thử tìm kiếm với từ khóa khác hoặc duyệt các danh mục phổ biến.`
                     : 'Không có sản phẩm nào trong danh mục này. Hãy khám phá các danh mục khác!'
                   }
                 </p>
@@ -1002,18 +1007,12 @@ export default function ShopPage() {
                       {/* Enhanced Overlay */}
                       <div className={`absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 flex items-end p-4 ${product.quantity === 0 ? 'opacity-100' : ''
                         }`}>
-                        {product.quantity === 0 ? (
+                        {product.quantity === 0 && (
                           <div className="w-full text-center transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
                             <span className="inline-flex items-center gap-2 px-3 py-1.5 bg-red-500/90 backdrop-blur-sm text-white font-bold text-sm rounded-xl shadow-lg">
                               <X className="w-4 h-4" />
                               Hết hàng
                             </span>
-                          </div>
-                        ) : (
-                          <div className="w-full flex justify-end transform translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
-                            <button className="p-2 bg-white/95 backdrop-blur-sm text-red-500 rounded-lg hover:bg-white hover:scale-105 transition-all duration-200 shadow-lg">
-                              <Heart className="w-4 h-4" />
-                            </button>
                           </div>
                         )}
                       </div>

@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 public class CategoryService {
     
     private final CategoryRepository categoryRepository;
+    private final com.business.springservice.repository.ProductRepository productRepository;
     
     public List<CategoryDTO> getAllCategories() {
         return categoryRepository.findAll().stream()
@@ -92,12 +93,17 @@ public class CategoryService {
     }
     
     private CategoryDTO convertToDTO(Category category) {
-        return new CategoryDTO(
-                category.getId(),
-                category.getName(),
-                category.getDescription(),
-                category.getImageUrl(),
-                category.getStatus().name()
-        );
+        // Count number of products in this category
+        long productCount = productRepository.findByCategoryId(category.getId()).size();
+        
+        CategoryDTO dto = new CategoryDTO();
+        dto.setId(category.getId());
+        dto.setName(category.getName());
+        dto.setDescription(category.getDescription());
+        dto.setImageUrl(category.getImageUrl());
+        dto.setStatus(category.getStatus().name());
+        dto.setProductCount(productCount);
+        
+        return dto;
     }
 }

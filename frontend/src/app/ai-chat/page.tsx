@@ -1187,21 +1187,35 @@ export default function AIChatPage() {
                                 {children}
                               </a>
                             ),
-                            img: ({ src, alt }) => (
-                              <figure className="my-3 inline-block">
+                            img: ({ src, alt }) => {
+                              // Check if image is in table context (smaller thumbnail)
+                              const isTableImage = src?.toString().includes('imageUrl') || alt?.toString().toLowerCase().includes('product');
+                              return isTableImage ? (
                                 <img
                                   src={src as string}
-                                  alt={alt as string}
-                                  className="w-[200px] h-[200px] rounded-lg shadow-lg border border-slate-600 hover:shadow-xl transition-shadow duration-300 object-cover"
+                                  alt={alt as string || 'Product'}
+                                  className="w-16 h-16 rounded-md shadow border border-slate-600 object-cover inline-block"
                                   loading="lazy"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = 'https://via.placeholder.com/64?text=No+Image';
+                                  }}
                                 />
-                                {alt && (
-                                  <figcaption className="mt-2 text-center text-sm font-medium text-slate-300 bg-slate-700/50 rounded-md px-2 py-1 max-w-[200px]">
-                                    {alt}
-                                  </figcaption>
-                                )}
-                              </figure>
-                            ),
+                              ) : (
+                                <figure className="my-3 inline-block">
+                                  <img
+                                    src={src as string}
+                                    alt={alt as string}
+                                    className="w-[200px] h-[200px] rounded-lg shadow-lg border border-slate-600 hover:shadow-xl transition-shadow duration-300 object-cover"
+                                    loading="lazy"
+                                  />
+                                  {alt && (
+                                    <figcaption className="mt-2 text-center text-sm font-medium text-slate-300 bg-slate-700/50 rounded-md px-2 py-1 max-w-[200px]">
+                                      {alt}
+                                    </figcaption>
+                                  )}
+                                </figure>
+                              );
+                            },
                           } as any}
                         >
                           {msg.content}

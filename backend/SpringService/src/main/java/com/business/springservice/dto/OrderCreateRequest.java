@@ -15,6 +15,9 @@ public class OrderCreateRequest {
     @Schema(description = "Order note", example = "Giao hàng buổi chiều")
     private String note;
     
+    @Schema(description = "Payment method", example = "BANK_TRANSFER", allowableValues = {"CASH", "BANK_TRANSFER"})
+    private String paymentMethod = "CASH"; // Default to CASH
+    
     @Schema(description = "List of order items", required = true)
     private List<OrderItemRequest> items;
     

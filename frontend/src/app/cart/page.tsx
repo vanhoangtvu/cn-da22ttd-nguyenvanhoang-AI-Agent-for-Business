@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
+import { useToast } from '@/components/ToastProvider';
+import { useConfirm } from '@/components/ConfirmProvider';
 
 interface CartItem {
   id: number;
@@ -24,6 +26,8 @@ interface Cart {
 
 export default function CartPage() {
   const router = useRouter();
+  const { showToast } = useToast();
+  const { confirm } = useConfirm();
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
@@ -52,28 +56,36 @@ export default function CartPage() {
 
   const handleUpdateQuantity = async (itemId: number, newQuantity: number) => {
     if (newQuantity < 1) return;
-    
+
     setUpdating(true);
     try {
       const updatedCart = await apiClient.updateCartItem(itemId, newQuantity);
       setCart(updatedCart);
     } catch (err) {
-      alert('Không thể cập nhật số lượng');
+      showToast('Không thể cập nhật số lượng', 'error');
       console.error(err);
     } finally {
       setUpdating(false);
     }
   };
 
-  const handleRemoveItem = async (itemId: number) => {
-    if (!confirm('Bạn có chắc muốn xóa sản phẩm này?')) return;
+  const handleRemoveItem = async (productId: number) => {
+    const confirmed = await confirm({
+      title: 'Xóa sản phẩm',
+      message: 'Bạn có chắc muốn xóa sản phẩm này?',
+      confirmText: 'Xóa',
+      cancelText: 'Hủy',
+      type: 'danger'
+    });
+
+    if (!confirmed) return;
 
     setUpdating(true);
     try {
-      const updatedCart = await apiClient.removeCartItem(itemId);
+      const updatedCart = await apiClient.removeCartItem(productId);
       setCart(updatedCart);
     } catch (err) {
-      alert('Không thể xóa sản phẩm');
+      showToast('Không thể xóa sản phẩm', 'error');
       console.error(err);
     } finally {
       setUpdating(false);
@@ -81,14 +93,22 @@ export default function CartPage() {
   };
 
   const handleClearCart = async () => {
-    if (!confirm('Bạn có chắc muốn xóa toàn bộ giỏ hàng?')) return;
+    const confirmed = await confirm({
+      title: 'Xóa giỏ hàng',
+      message: 'Bạn có chắc muốn xóa toàn bộ giỏ hàng?',
+      confirmText: 'Xóa tất cả',
+      cancelText: 'Hủy',
+      type: 'danger'
+    });
+
+    if (!confirmed) return;
 
     setUpdating(true);
     try {
       await apiClient.clearCart();
       setCart({ ...cart!, items: [], totalPrice: 0 });
     } catch (err) {
-      alert('Không thể xóa giỏ hàng');
+      showToast('Không thể xóa giỏ hàng', 'error');
       console.error(err);
     } finally {
       setUpdating(false);
@@ -97,7 +117,7 @@ export default function CartPage() {
 
   const handleCheckout = () => {
     if (!cart || cart.items.length === 0) {
-      alert('Giỏ hàng trống');
+      showToast('Giỏ hàng trống', 'warning');
       return;
     }
     router.push('/checkout');

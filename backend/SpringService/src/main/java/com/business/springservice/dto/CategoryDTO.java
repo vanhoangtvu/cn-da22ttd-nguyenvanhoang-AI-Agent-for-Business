@@ -23,4 +23,7 @@ public class CategoryDTO {
     
     @Schema(description = "Category status", example = "ACTIVE")
     private String status;
+    
+    @Schema(accessMode = Schema.AccessMode.READ_ONLY, description = "Number of products in this category")
+    private Long productCount;
 }

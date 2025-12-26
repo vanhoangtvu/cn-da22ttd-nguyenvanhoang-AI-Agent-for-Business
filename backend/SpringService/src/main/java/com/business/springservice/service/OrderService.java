@@ -27,6 +27,7 @@ public class OrderService {
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
     private final CartService cartService;
+    private final VietQRService vietQRService;
 
     @Transactional
     public OrderDTO createOrder(OrderCreateRequest request, Long customerId) {
@@ -44,6 +45,7 @@ public class OrderService {
         order.setCustomerPhone(customer.getPhoneNumber());
         order.setShippingAddress(customer.getAddress());
         order.setNote(request.getNote());
+        order.setPaymentMethod(request.getPaymentMethod() != null ? request.getPaymentMethod() : "CASH");
         order.setStatus(OrderStatus.PENDING);
 
         // Create order items
@@ -217,8 +219,15 @@ public class OrderService {
         dto.setTotalAmount(order.getTotalAmount());
         dto.setStatus(order.getStatus().name());
         dto.setNote(order.getNote());
+        dto.setPaymentMethod(order.getPaymentMethod());
         dto.setCreatedAt(order.getCreatedAt());
         dto.setUpdatedAt(order.getUpdatedAt());
+
+        // Generate VietQR code if payment method is BANK_TRANSFER
+        if ("BANK_TRANSFER".equals(order.getPaymentMethod())) {
+            String qrCodeUrl = vietQRService.generateQRCode(order.getId(), order.getTotalAmount());
+            dto.setQrCodeUrl(qrCodeUrl);
+        }
 
         List<OrderItemDTO> itemDTOs = order.getOrderItems().stream()
                 .map(this::convertItemToDTO)

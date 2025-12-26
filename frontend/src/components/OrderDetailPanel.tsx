@@ -29,6 +29,8 @@ interface OrderDetail {
   totalAmount: number;
   status: string;
   note?: string;
+  paymentMethod?: string;
+  qrCodeUrl?: string;
   orderItems: OrderItem[];
   createdAt: string;
   updatedAt: string;
@@ -220,21 +222,19 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
             {/* PENDING */}
             <div className="flex gap-4">
               <div className="flex flex-col items-center">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                  ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPING', 'DELIVERED'].includes(order.status)
-                    ? 'bg-gradient-to-br from-yellow-500 to-orange-500 text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-400'
-                }`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPING', 'DELIVERED'].includes(order.status)
+                  ? 'bg-gradient-to-br from-yellow-500 to-orange-500 text-white'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-400'
+                  }`}>
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
                 {order.status !== 'PENDING' && order.status !== 'CANCELLED' && order.status !== 'RETURNED' && (
-                  <div className={`w-0.5 h-12 ${
-                    ['CONFIRMED', 'PROCESSING', 'SHIPPING', 'DELIVERED'].includes(order.status)
-                      ? 'bg-gradient-to-b from-yellow-500 to-blue-500'
-                      : 'bg-gray-200 dark:bg-gray-700'
-                  }`}></div>
+                  <div className={`w-0.5 h-12 ${['CONFIRMED', 'PROCESSING', 'SHIPPING', 'DELIVERED'].includes(order.status)
+                    ? 'bg-gradient-to-b from-yellow-500 to-blue-500'
+                    : 'bg-gray-200 dark:bg-gray-700'
+                    }`}></div>
                 )}
               </div>
               <div className="flex-1 pb-4">
@@ -250,21 +250,19 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
             {order.status !== 'CANCELLED' && order.status !== 'RETURNED' && (
               <div className="flex gap-4">
                 <div className="flex flex-col items-center">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    ['CONFIRMED', 'PROCESSING', 'SHIPPING', 'DELIVERED'].includes(order.status)
-                      ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-400'
-                  }`}>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${['CONFIRMED', 'PROCESSING', 'SHIPPING', 'DELIVERED'].includes(order.status)
+                    ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-400'
+                    }`}>
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
                   {order.status !== 'CONFIRMED' && (
-                    <div className={`w-0.5 h-12 ${
-                      ['PROCESSING', 'SHIPPING', 'DELIVERED'].includes(order.status)
-                        ? 'bg-gradient-to-b from-blue-500 to-purple-500'
-                        : 'bg-gray-200 dark:bg-gray-700'
-                    }`}></div>
+                    <div className={`w-0.5 h-12 ${['PROCESSING', 'SHIPPING', 'DELIVERED'].includes(order.status)
+                      ? 'bg-gradient-to-b from-blue-500 to-purple-500'
+                      : 'bg-gray-200 dark:bg-gray-700'
+                      }`}></div>
                   )}
                 </div>
                 <div className="flex-1 pb-4">
@@ -281,21 +279,19 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
             {order.status !== 'CANCELLED' && order.status !== 'RETURNED' && order.status !== 'PENDING' && (
               <div className="flex gap-4">
                 <div className="flex flex-col items-center">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    ['PROCESSING', 'SHIPPING', 'DELIVERED'].includes(order.status)
-                      ? 'bg-gradient-to-br from-purple-500 to-pink-500 text-white'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-400'
-                  }`}>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${['PROCESSING', 'SHIPPING', 'DELIVERED'].includes(order.status)
+                    ? 'bg-gradient-to-br from-purple-500 to-pink-500 text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-400'
+                    }`}>
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                     </svg>
                   </div>
                   {order.status !== 'PROCESSING' && (
-                    <div className={`w-0.5 h-12 ${
-                      ['SHIPPING', 'DELIVERED'].includes(order.status)
-                        ? 'bg-gradient-to-b from-purple-500 to-indigo-500'
-                        : 'bg-gray-200 dark:bg-gray-700'
-                    }`}></div>
+                    <div className={`w-0.5 h-12 ${['SHIPPING', 'DELIVERED'].includes(order.status)
+                      ? 'bg-gradient-to-b from-purple-500 to-indigo-500'
+                      : 'bg-gray-200 dark:bg-gray-700'
+                      }`}></div>
                   )}
                 </div>
                 <div className="flex-1 pb-4">
@@ -312,21 +308,19 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
             {order.status !== 'CANCELLED' && order.status !== 'RETURNED' && !['PENDING', 'CONFIRMED'].includes(order.status) && (
               <div className="flex gap-4">
                 <div className="flex flex-col items-center">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    ['SHIPPING', 'DELIVERED'].includes(order.status)
-                      ? 'bg-gradient-to-br from-indigo-500 to-blue-500 text-white'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-400'
-                  }`}>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${['SHIPPING', 'DELIVERED'].includes(order.status)
+                    ? 'bg-gradient-to-br from-indigo-500 to-blue-500 text-white'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-400'
+                    }`}>
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
                     </svg>
                   </div>
                   {order.status !== 'SHIPPING' && (
-                    <div className={`w-0.5 h-12 ${
-                      order.status === 'DELIVERED'
-                        ? 'bg-gradient-to-b from-indigo-500 to-green-500'
-                        : 'bg-gray-200 dark:bg-gray-700'
-                    }`}></div>
+                    <div className={`w-0.5 h-12 ${order.status === 'DELIVERED'
+                      ? 'bg-gradient-to-b from-indigo-500 to-green-500'
+                      : 'bg-gray-200 dark:bg-gray-700'
+                      }`}></div>
                   )}
                 </div>
                 <div className="flex-1 pb-4">
@@ -426,6 +420,43 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
             <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Ghi chú</p>
               <p className="text-gray-900 dark:text-white italic">"{order.note}"</p>
+            </div>
+          )}
+
+          {order.paymentMethod && (
+            <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Phương thức thanh toán</p>
+              <div className="flex items-center gap-2">
+                <p className="font-semibold text-gray-900 dark:text-white">
+                  {order.paymentMethod === 'BANK_TRANSFER' ? '🏦 Chuyển khoản ngân hàng' : '💵 Tiền mặt (COD)'}
+                </p>
+                {order.paymentMethod === 'BANK_TRANSFER' && (
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${order.status === 'PENDING'
+                      ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                      : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                    }`}>
+                    {order.status === 'PENDING' ? '⏳ Chưa thanh toán' : '✓ Đã thanh toán'}
+                  </span>
+                )}
+              </div>
+
+              {/* Only show QR code for BANK_TRANSFER with PENDING status */}
+              {order.paymentMethod === 'BANK_TRANSFER' && order.status === 'PENDING' && order.qrCodeUrl && (
+                <div className="mt-4 p-4 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                  <p className="text-sm font-semibold text-blue-800 dark:text-blue-300 mb-3">📱 Quét mã QR để thanh toán</p>
+                  <div className="bg-white dark:bg-gray-800 p-3 rounded-lg inline-block">
+                    <img src={order.qrCodeUrl} alt="VietQR Code" className="w-48 h-48 object-contain" />
+                  </div>
+                  <div className="mt-3 space-y-1 text-sm text-gray-700 dark:text-gray-300">
+                    <p><strong>Ngân hàng:</strong> MB Bank</p>
+                    <p><strong>STK:</strong> 0889559357</p>
+                    <p><strong>Tên TK:</strong> NGUYEN VAN HOANG</p>
+                    <p><strong>Số tiền:</strong> <span className="text-blue-600 dark:text-blue-400 font-bold">{order.totalAmount.toLocaleString('vi-VN')}đ</span></p>
+                    <p><strong>Nội dung:</strong> DH{order.id}</p>
+                    <p className="text-blue-600 dark:text-blue-400 mt-2 text-xs">ℹ️ Số tiền và nội dung sẽ tự động điền khi quét QR</p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

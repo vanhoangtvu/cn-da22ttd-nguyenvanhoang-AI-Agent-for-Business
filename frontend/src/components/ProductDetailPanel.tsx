@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { apiClient } from '@/lib/api';
+import { useToast } from '@/components/ToastProvider';
 
 interface ProductDetailPanelProps {
   productId: number;
@@ -36,7 +37,7 @@ interface ProductDetails {
 // Helper function to parse product details
 function parseProductDetails(detailsJson?: string): ProductDetails {
   if (!detailsJson) return {};
-  
+
   try {
     return JSON.parse(detailsJson) as ProductDetails;
   } catch (error) {
@@ -63,6 +64,7 @@ interface ProductDetail {
 }
 
 export default function ProductDetailPanel({ productId, onClose }: ProductDetailPanelProps) {
+  const { showToast } = useToast();
   const [product, setProduct] = useState<ProductDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
@@ -97,7 +99,7 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
     setTimeout(() => {
       setIsAutoPlaying(true);
     }, 8000);
-  };  const loadProductDetail = async () => {
+  }; const loadProductDetail = async () => {
     try {
       setLoading(true);
       console.log('Loading product detail for ID:', productId);
@@ -114,19 +116,19 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
 
   const handleAddToCart = async () => {
     if (!product) return;
-    
+
     try {
       setAddingToCart(true);
       await apiClient.addToCart(product.id, quantity);
-      
+
       // Show success animation
       setAddToCartSuccess(true);
       setTimeout(() => setAddToCartSuccess(false), 2000);
-      
-      alert(`Đã thêm ${quantity} sản phẩm vào giỏ hàng thành công!`);
+
+      showToast(`Đã thêm ${quantity} sản phẩm vào giỏ hàng thành công!`, 'success');
     } catch (error) {
       console.error('Error adding to cart:', error);
-      alert('Không thể thêm vào giỏ hàng. Vui lòng thử lại.');
+      showToast('Không thể thêm vào giỏ hàng. Vui lòng thử lại.', 'error');
     } finally {
       setAddingToCart(false);
     }
@@ -162,7 +164,7 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
 
   // Parse product details from JSON
   const details = parseProductDetails(product.details);
-  const discountedPrice = details.discount 
+  const discountedPrice = details.discount
     ? Math.round(product.price * (1 - details.discount / 100))
     : product.price;
 
@@ -199,9 +201,8 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
                     {product.imageUrls.map((url, index) => (
                       <div
                         key={index}
-                        className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
-                          index === selectedImageIndex ? 'opacity-100' : 'opacity-0'
-                        }`}
+                        className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${index === selectedImageIndex ? 'opacity-100' : 'opacity-0'
+                          }`}
                       >
                         <Image
                           src={url}
@@ -224,11 +225,10 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
                       {/* Auto-play indicator */}
                       <button
                         onClick={() => setIsAutoPlaying(!isAutoPlaying)}
-                        className={`w-8 h-8 rounded-xl backdrop-blur-xl border transition-all duration-300 ${
-                          isAutoPlaying
+                        className={`w-8 h-8 rounded-xl backdrop-blur-xl border transition-all duration-300 ${isAutoPlaying
                             ? 'bg-green-500/80 text-white border-green-400/50'
                             : 'bg-gray-500/80 text-white border-gray-400/50'
-                        } flex items-center justify-center shadow-lg`}
+                          } flex items-center justify-center shadow-lg`}
                         title={isAutoPlaying ? 'Tạm dừng tự động chuyển' : 'Bật tự động chuyển'}
                       >
                         {isAutoPlaying ? (
@@ -288,11 +288,10 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
                               setSelectedImageIndex(index);
                               handleImageInteraction();
                             }}
-                            className={`transition-all duration-300 ${
-                              selectedImageIndex === index
+                            className={`transition-all duration-300 ${selectedImageIndex === index
                                 ? 'w-8 h-3 bg-white rounded-full shadow-lg'
                                 : 'w-3 h-3 bg-white/50 hover:bg-white/75 rounded-full'
-                            }`}
+                              }`}
                           />
                         ))}
                       </div>
@@ -319,11 +318,10 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
                 <button
                   key={index}
                   onClick={() => setSelectedImageIndex(index)}
-                  className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all duration-300 hover:scale-105 ${
-                    selectedImageIndex === index
+                  className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all duration-300 hover:scale-105 ${selectedImageIndex === index
                       ? 'border-blue-500 ring-4 ring-blue-500/20 shadow-lg scale-105'
                       : 'border-gray-200 dark:border-gray-700 hover:border-blue-400 hover:shadow-md'
-                  }`}
+                    }`}
                 >
                   <Image
                     src={url}
@@ -385,7 +383,7 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
                 </span>
               )}
             </div>
-            
+
             {/* Rating if available */}
             {details.rating && (
               <div className="flex items-center justify-center gap-2">
@@ -393,11 +391,10 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
                   {[...Array(5)].map((_, i) => (
                     <svg
                       key={i}
-                      className={`w-5 h-5 ${
-                        i < Math.round(details.rating!)
+                      className={`w-5 h-5 ${i < Math.round(details.rating!)
                           ? 'text-yellow-400 fill-current'
                           : 'text-gray-300 fill-current'
-                      }`}
+                        }`}
                       viewBox="0 0 20 20"
                     >
                       <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
@@ -416,20 +413,18 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
             {/* Stock Status */}
             <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-2xl p-4 border border-green-100 dark:border-green-800/50">
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
-                  product.quantity > 0
+                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${product.quantity > 0
                     ? 'bg-green-500 shadow-lg shadow-green-500/30'
                     : 'bg-red-500 shadow-lg shadow-red-500/30'
-                }`}>
+                  }`}>
                   <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Tình trạng</p>
-                  <p className={`text-base font-bold ${
-                    product.quantity > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                  }`}>
+                  <p className={`text-base font-bold ${product.quantity > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                    }`}>
                     {product.quantity > 0 ? `Còn ${product.quantity} sp` : 'Hết hàng'}
                   </p>
                 </div>
@@ -440,22 +435,20 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
             {product.status && (
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-4 border border-blue-100 dark:border-blue-800/50">
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${
-                    product.status === 'ACTIVE'
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${product.status === 'ACTIVE'
                       ? 'bg-blue-500 shadow-lg shadow-blue-500/30'
                       : 'bg-gray-500 shadow-lg shadow-gray-500/30'
-                  }`}>
+                    }`}>
                     <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Trạng thái</p>
-                    <p className={`text-base font-bold ${
-                      product.status === 'ACTIVE'
+                    <p className={`text-base font-bold ${product.status === 'ACTIVE'
                         ? 'text-blue-600 dark:text-blue-400'
                         : 'text-gray-600 dark:text-gray-400'
-                    }`}>
+                      }`}>
                       {product.status === 'ACTIVE' ? 'Đang bán' : product.status}
                     </p>
                   </div>
@@ -767,31 +760,31 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
           <div className="relative space-y-4">
             {/* Price Summary Card - Hidden */}
             {false && (
-            <div className="bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-4 border border-blue-100/50 dark:border-blue-800/30">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
+              <div className="bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-4 border border-blue-100/50 dark:border-blue-800/30">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Tổng tiền</p>
+                      <p className="text-2xl font-black text-gray-900 dark:text-white">
+                        {formatPrice(product.price * quantity)}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Tổng tiền</p>
-                    <p className="text-2xl font-black text-gray-900 dark:text-white">
-                      {formatPrice(product.price * quantity)}
+                  <div className="text-right">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      {quantity} × {formatPrice(product.price)}
+                    </p>
+                    <p className="text-xs text-green-600 dark:text-green-400 font-medium">
+                      Tiết kiệm 0đ
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {quantity} × {formatPrice(product.price)}
-                  </p>
-                  <p className="text-xs text-green-600 dark:text-green-400 font-medium">
-                    Tiết kiệm 0đ
-                  </p>
-                </div>
               </div>
-            </div>
             )}
 
             {/* Action Buttons */}
@@ -800,9 +793,8 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
               <button
                 onClick={handleAddToCart}
                 disabled={addingToCart || addToCartSuccess}
-                className={`relative py-3 px-4 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 hover:from-green-600 hover:via-emerald-600 hover:to-teal-600 text-white font-bold rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-xl hover:shadow-green-500/30 hover:scale-[1.02] transform overflow-hidden group ${
-                  addToCartSuccess ? 'bg-gradient-to-r from-green-600 to-emerald-600' : ''
-                }`}
+                className={`relative py-3 px-4 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 hover:from-green-600 hover:via-emerald-600 hover:to-teal-600 text-white font-bold rounded-2xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-xl hover:shadow-green-500/30 hover:scale-[1.02] transform overflow-hidden group ${addToCartSuccess ? 'bg-gradient-to-r from-green-600 to-emerald-600' : ''
+                  }`}
               >
                 {/* Ripple effect */}
                 <div className="absolute inset-0 bg-white/20 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>

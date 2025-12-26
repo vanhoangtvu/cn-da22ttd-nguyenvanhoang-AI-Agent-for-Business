@@ -29,6 +29,13 @@ spring:
       max-file-size: 10MB
       max-request-size: 10MB
 
+# VietQR Configuration
+vietqr:
+  bank-id: "970422"  # MB Bank
+  account-no: "0889559357"
+  account-name: "NGUYEN VAN HOANG"
+  template: "compact2"
+
 # Server Configuration
 server:
   port: 8089

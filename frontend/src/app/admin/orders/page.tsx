@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api';
+import { useConfirm } from '@/components/ConfirmProvider';
 import AdminLayout from '@/components/AdminLayout';
 
 interface OrderItem {
@@ -23,6 +24,8 @@ interface Order {
   totalAmount: number;
   status: string;
   note?: string;
+  paymentMethod?: string;
+  qrCodeUrl?: string;
   customerId: number;
   customerName: string;
   customerEmail: string;
@@ -34,6 +37,7 @@ interface Order {
 
 export default function OrderManagement() {
   const router = useRouter();
+  const { confirm } = useConfirm();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [userData, setUserData] = useState<any>(null);
@@ -93,7 +97,15 @@ export default function OrderManagement() {
   };
 
   const handleStatusChange = async (orderId: number, newStatus: string) => {
-    if (!confirm(`Bạn có chắc chắn muốn chuyển trạng thái đơn hàng sang "${statusNames[newStatus]}"?`)) return;
+    const confirmed = await confirm({
+      title: 'Cập nhật trạng thái',
+      message: `Bạn có chắc chắn muốn chuyển trạng thái đơn hàng sang "${statusNames[newStatus]}"?`,
+      confirmText: 'Xác nhận',
+      cancelText: 'Hủy',
+      type: 'info'
+    });
+
+    if (!confirmed) return;
 
     try {
       await apiClient.updateOrderStatus(orderId, newStatus);
@@ -113,22 +125,22 @@ export default function OrderManagement() {
     try {
       const fullOrder = await apiClient.getOrder(order.id);
       console.log('Order details from API:', fullOrder);
-      
+
       // Normalize data from backend to match frontend interface
       if (!fullOrder.orderItems && !fullOrder.items) {
         fullOrder.orderItems = [];
       }
-      
+
       // Use orderItems as primary source, fallback to items for backward compatibility
       if (!fullOrder.orderItems && fullOrder.items) {
         fullOrder.orderItems = fullOrder.items;
       }
-      
+
       // Set orderDate from createdAt for backward compatibility
       if (!fullOrder.orderDate && fullOrder.createdAt) {
         fullOrder.orderDate = fullOrder.createdAt;
       }
-      
+
       setSelectedOrder(fullOrder);
       setShowDetailModal(true);
     } catch (error) {
@@ -139,7 +151,7 @@ export default function OrderManagement() {
 
   const filteredOrders = orders.filter(order => {
     const matchesStatus = filterStatus === 'ALL' || order.status === filterStatus;
-    const matchesSearch = 
+    const matchesSearch =
       order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.customerEmail.toLowerCase().includes(searchTerm.toLowerCase()) ||
       order.id.toString().includes(searchTerm);
@@ -173,11 +185,10 @@ export default function OrderManagement() {
             <div className="flex gap-2 overflow-x-auto">
               <button
                 onClick={() => setFilterStatus('ALL')}
-                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-colors ${
-                  filterStatus === 'ALL' 
-                    ? 'bg-purple-600 text-white' 
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
+                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-colors ${filterStatus === 'ALL'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                  }`}
               >
                 Tất cả
               </button>
@@ -185,11 +196,10 @@ export default function OrderManagement() {
                 <button
                   key={status}
                   onClick={() => setFilterStatus(status)}
-                  className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-colors ${
-                    filterStatus === status 
-                      ? statusColors[status] 
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                  }`}
+                  className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-colors ${filterStatus === status
+                    ? statusColors[status]
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                    }`}
                 >
                   {statusNames[status]}
                 </button>
@@ -300,18 +310,41 @@ export default function OrderManagement() {
                   <p className="text-gray-700 dark:text-gray-300">
                     <span className="font-semibold">Ngày đặt:</span> {
                       (selectedOrder.createdAt || selectedOrder.orderDate)
-                        ? new Date(selectedOrder.createdAt || selectedOrder.orderDate!).toLocaleString('vi-VN', { 
-                            year: 'numeric', 
-                            month: 'long', 
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })
+                        ? new Date(selectedOrder.createdAt || selectedOrder.orderDate!).toLocaleString('vi-VN', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })
                         : 'Không xác định'
                     }
                   </p>
                   <p className="text-gray-700 dark:text-gray-300"><span className="font-semibold">Trạng thái:</span> <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[selectedOrder.status]}`}>{statusNames[selectedOrder.status]}</span></p>
+                  {selectedOrder.paymentMethod && (
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-gray-700 dark:text-gray-300">Thanh toán:</span>
+                      <span className="text-gray-700 dark:text-gray-300">
+                        {selectedOrder.paymentMethod === 'BANK_TRANSFER' ? '🏦 Chuyển khoản' : '💵 Tiền mặt (COD)'}
+                      </span>
+                      {selectedOrder.paymentMethod === 'BANK_TRANSFER' && (
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${selectedOrder.status === 'PENDING'
+                          ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                          : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                          }`}>
+                          {selectedOrder.status === 'PENDING' ? '⏳ Chưa thanh toán' : '✓ Đã thanh toán'}
+                        </span>
+                      )}
+                    </div>
+                  )}
                   {selectedOrder.note && <p className="text-gray-700 dark:text-gray-300"><span className="font-semibold">Ghi chú:</span> {selectedOrder.note}</p>}
+                  {selectedOrder.paymentMethod === 'BANK_TRANSFER' && selectedOrder.status === 'PENDING' && selectedOrder.qrCodeUrl && (
+                    <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                      <p className="font-semibold text-blue-800 dark:text-blue-300 mb-2">📱 Mã QR thanh toán</p>
+                      <img src={selectedOrder.qrCodeUrl} alt="VietQR Code" className="w-48 h-48 object-contain bg-white rounded" />
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">Nội dung: DH{selectedOrder.id}</p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -324,7 +357,7 @@ export default function OrderManagement() {
                       // Use subtotal if available, otherwise calculate from productPrice or price
                       const itemTotal = item.subtotal || (item.productPrice || item.price || 0) * item.quantity;
                       const itemPrice = item.productPrice || item.price || 0;
-                      
+
                       return (
                         <div key={item.id} className="flex items-center justify-between bg-gray-50 dark:bg-gray-700 rounded-lg p-3">
                           <div className="flex-1">
@@ -363,11 +396,10 @@ export default function OrderManagement() {
                     <button
                       key={status}
                       onClick={() => handleStatusChange(selectedOrder.id, status)}
-                      className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
-                        selectedOrder.status === status 
-                          ? statusColors[status] 
-                          : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'
-                      }`}
+                      className={`px-4 py-2 rounded-lg font-semibold transition-colors ${selectedOrder.status === status
+                        ? statusColors[status]
+                        : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'
+                        }`}
                     >
                       {statusNames[status]}
                     </button>
