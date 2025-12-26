@@ -21,6 +21,7 @@ public class DiscountService {
     
     private final DiscountRepository discountRepository;
     private final UserRepository userRepository;
+    private final ChromaSyncWebhookService chromaSyncWebhookService;
     
     @Transactional(readOnly = true)
     public List<DiscountDTO> getAllDiscounts() {
@@ -95,7 +96,12 @@ public class DiscountService {
         discount.setCreatedBy(creator);
         
         Discount savedDiscount = discountRepository.save(discount);
-        return convertToDTO(savedDiscount);
+        DiscountDTO dto = convertToDTO(savedDiscount);
+        
+        // Sync to ChromaDB
+        chromaSyncWebhookService.syncDiscount(dto, "INSERT");
+        
+        return dto;
     }
     
     @Transactional
@@ -124,7 +130,12 @@ public class DiscountService {
         discount.setEndDate(request.getEndDate());
         
         Discount updatedDiscount = discountRepository.save(discount);
-        return convertToDTO(updatedDiscount);
+        DiscountDTO dto = convertToDTO(updatedDiscount);
+        
+        // Sync to ChromaDB
+        chromaSyncWebhookService.syncDiscount(dto, "UPDATE");
+        
+        return dto;
     }
     
     @Transactional
@@ -133,6 +144,9 @@ public class DiscountService {
                 .orElseThrow(() -> new RuntimeException("Discount not found with id: " + id));
         discount.setStatus(com.business.springservice.enums.Status.INACTIVE);
         discountRepository.save(discount);
+        
+        // Sync to ChromaDB (or update if we want to keep it as INACTIVE)
+        chromaSyncWebhookService.syncDiscount(convertToDTO(discount), "UPDATE");
     }
     
     @Transactional
@@ -144,7 +158,12 @@ public class DiscountService {
             com.business.springservice.enums.Status newStatus = com.business.springservice.enums.Status.valueOf(status.toUpperCase());
             discount.setStatus(newStatus);
             Discount updatedDiscount = discountRepository.save(discount);
-            return convertToDTO(updatedDiscount);
+            DiscountDTO dto = convertToDTO(updatedDiscount);
+            
+            // Sync to ChromaDB
+            chromaSyncWebhookService.syncDiscount(dto, "UPDATE");
+            
+            return dto;
         } catch (IllegalArgumentException e) {
             throw new RuntimeException("Invalid status value. Must be ACTIVE or INACTIVE");
         }

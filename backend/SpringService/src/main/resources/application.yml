@@ -56,3 +56,8 @@ springdoc:
 # File Upload Configuration
 file:
   upload-dir: uploads/documents
+
+# Python Service Configuration (AI Chat Sync)
+python:
+  service:
+    url: http://localhost:5000

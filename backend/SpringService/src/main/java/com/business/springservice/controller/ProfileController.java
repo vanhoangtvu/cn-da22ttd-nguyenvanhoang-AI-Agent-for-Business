@@ -55,6 +55,7 @@ public class ProfileController {
         // Convert ProfileUpdateRequest to UserDTO
         UserDTO userDTO = new UserDTO();
         userDTO.setUsername(profileRequest.getUsername());
+        userDTO.setFullName(profileRequest.getFullName());
         userDTO.setEmail(profileRequest.getEmail());
         userDTO.setAddress(profileRequest.getAddress());
         userDTO.setPhoneNumber(profileRequest.getPhoneNumber());

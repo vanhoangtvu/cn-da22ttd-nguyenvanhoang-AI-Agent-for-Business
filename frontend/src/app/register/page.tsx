@@ -10,6 +10,7 @@ export default function RegisterPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
     username: '',
+    fullName: '',
     email: '',
     password: '',
     confirmPassword: '',
@@ -38,6 +39,7 @@ export default function RegisterPage() {
     try {
       const response = await apiClient.register({
         username: formData.username,
+        fullName: formData.fullName,
         email: formData.email,
         password: formData.password,
       });
@@ -177,6 +179,25 @@ export default function RegisterPage() {
                       required
                     />
                   </div>
+                </div>
+              </div>
+
+              {/* Full Name */}
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 ml-1">
+                  Họ và tên
+                </label>
+                <div className="relative group">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <User className="h-5 w-5 text-gray-400 group-focus-within:text-purple-500 transition-colors" />
+                  </div>
+                  <input
+                    type="text"
+                    value={formData.fullName}
+                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                    className="block w-full pl-11 pr-4 py-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all font-medium"
+                    placeholder="Nguyễn Văn A"
+                  />
                 </div>
               </div>
 

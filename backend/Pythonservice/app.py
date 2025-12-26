@@ -23,6 +23,7 @@ from routes.data_sync import router as data_sync_router
 from routes.groq_chat import router as groq_chat_router, set_groq_client
 from routes.admin_chat import router as admin_chat_router
 from routes.agent_actions import router as agent_actions_router
+from routes.sync_management import router as sync_management_router
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -108,6 +109,7 @@ app.include_router(analytics_router, prefix="/api/analytics", tags=["Business An
 app.include_router(business_analytics_router, prefix="/api/business", tags=["Business Analytics Extended"])
 app.include_router(data_sync_router, tags=["Data Synchronization"])
 app.include_router(agent_actions_router, tags=["Agent Actions"])
+app.include_router(sync_management_router, prefix="/api/sync", tags=["Sync Management"])
 
 @app.get("/")
 async def root():

@@ -16,6 +16,7 @@ public class UserService {
     
     private final UserRepository userRepository;
     private final org.springframework.security.crypto.password.PasswordEncoder passwordEncoder;
+    private final ChromaSyncWebhookService chromaSyncWebhookService;
     
     public List<UserDTO> getAllUsers(String role) {
         System.out.println("getAllUsers called with role: " + role);
@@ -54,6 +55,7 @@ public class UserService {
         
         User user = new User();
         user.setUsername(request.getUsername());
+        user.setFullName(request.getFullName());
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setAddress(request.getAddress());
@@ -62,7 +64,12 @@ public class UserService {
         user.setRole(request.getRole() != null ? request.getRole() : com.business.springservice.enums.Role.CUSTOMER);
         
         User savedUser = userRepository.save(user);
-        return convertToDTO(savedUser);
+        UserDTO dto = convertToDTO(savedUser);
+        
+        // Sync to ChromaDB
+        chromaSyncWebhookService.syncUser(dto, "INSERT");
+        
+        return dto;
     }
     
     @Transactional
@@ -73,6 +80,9 @@ public class UserService {
         // Only update fields that are provided (not null)
         if (request.getUsername() != null && !request.getUsername().isEmpty()) {
             user.setUsername(request.getUsername());
+        }
+        if (request.getFullName() != null) {
+            user.setFullName(request.getFullName());
         }
         if (request.getEmail() != null && !request.getEmail().isEmpty()) {
             user.setEmail(request.getEmail());
@@ -97,7 +107,12 @@ public class UserService {
         }
         
         User updatedUser = userRepository.save(user);
-        return convertToDTO(updatedUser);
+        UserDTO dto = convertToDTO(updatedUser);
+        
+        // Sync to ChromaDB
+        chromaSyncWebhookService.syncUser(dto, "UPDATE");
+        
+        return dto;
     }
     
     @Transactional
@@ -105,6 +120,9 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found with id: " + id));
         userRepository.delete(user);
+        
+        // Sync to ChromaDB
+        chromaSyncWebhookService.deleteFromChroma("users", id);
     }
     
     @Transactional
@@ -160,6 +178,7 @@ public class UserService {
         return new UserDTO(
                 user.getId(),
                 user.getUsername(),
+                user.getFullName(),
                 user.getEmail(),
                 null, // password không trả về
                 user.getAddress(),

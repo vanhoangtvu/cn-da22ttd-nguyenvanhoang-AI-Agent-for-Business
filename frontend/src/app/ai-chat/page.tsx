@@ -222,9 +222,34 @@ export default function AIChatPage() {
   const [cartItems, setCartItems] = useState<any[]>([]);
   const [showQRModal, setShowQRModal] = useState<boolean>(false);
   const [qrOrderData, setQrOrderData] = useState<any>(null);
+  const [discountAmount, setDiscountAmount] = useState<number>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { showToast } = useToast();
+
+  // Validate discount code when orderDetails changes
+  useEffect(() => {
+    if (orderDetails?.discountCode && orderDetails?.totalAmount) {
+      validateDiscountCode(orderDetails.discountCode, orderDetails.totalAmount);
+    } else {
+      setDiscountAmount(0);
+    }
+  }, [orderDetails?.discountCode, orderDetails?.totalAmount]);
+
+  // Function to validate discount code
+  const validateDiscountCode = async (code: string, total: number) => {
+    try {
+      const result = await apiClient.applyDiscount(code, total) as any;
+      if (result.valid && result.discountAmount) {
+        setDiscountAmount(result.discountAmount);
+      } else {
+        setDiscountAmount(0);
+      }
+    } catch (error) {
+      console.error('Failed to validate discount:', error);
+      setDiscountAmount(0);
+    }
+  };
 
   // Scroll to bottom khi có message mới
   const scrollToBottom = () => {
@@ -262,7 +287,29 @@ export default function AIChatPage() {
   // Fetch cart on mount
   useEffect(() => {
     fetchCartCount();
+
+    // Restore actions from localStorage
+    try {
+      const savedActions = localStorage.getItem('chatActions');
+      if (savedActions) {
+        const parsedActions = JSON.parse(savedActions);
+        if (Array.isArray(parsedActions) && parsedActions.length > 0) {
+          setActions(parsedActions);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to restore actions:', err);
+    }
   }, []);
+
+  // Save actions to localStorage whenever they change
+  useEffect(() => {
+    if (actions.length > 0) {
+      localStorage.setItem('chatActions', JSON.stringify(actions));
+    } else {
+      localStorage.removeItem('chatActions');
+    }
+  }, [actions]);
 
   // Khởi tạo - Lấy user từ token, tạo session cho user đó
   useEffect(() => {
@@ -613,10 +660,56 @@ export default function AIChatPage() {
           break;
 
         case 'APPLY_DISCOUNT':
-          // For now, just copy discount code and show toast
-          navigator.clipboard?.writeText(action.discountCode);
-          showToast(`Mã ${action.discountCode} đã được copy. Áp dụng khi thanh toán.`, 'success');
+          // Open order confirmation popup with discount code pre-filled
+          try {
+            const cartResponse = await fetch(`${API_CONFIG.AI_SERVICE_URL}/api/agent/cart`, {
+              headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+            const cartData = await cartResponse.json();
+
+            if (cartData.success && cartData.cart && cartData.cart.items?.length > 0) {
+              // Fetch user info from Spring
+              try {
+                const userResponse = await fetch(`${API_CONFIG.API_URL}/users/me`, {
+                  headers: { 'Authorization': `Bearer ${authToken}` }
+                });
+                if (userResponse.ok) {
+                  const userData = await userResponse.json();
+                  setUserInfo(userData);
+                  setShippingAddress(userData.address || '');
+                }
+              } catch (err) {
+                console.error('Failed to fetch user info:', err);
+              }
+
+              // Set order details with discount code pre-filled
+              setOrderDetails({
+                items: cartData.cart.items,
+                totalAmount: cartData.cart.totalPrice || cartData.cart.totalAmount || 0,
+                discountCode: action.discountCode, // Pre-fill discount code
+                shippingAddress: ''
+              });
+              setPaymentMethod('COD');
+              setShowOrderConfirm(true);
+              showToast(`Đã áp mã ${action.discountCode}. Vui lòng xác nhận đơn hàng.`, 'success');
+              setActions([]); // Clear actions
+            } else {
+              showToast('Giỏ hàng trống. Vui lòng thêm sản phẩm trước.', 'warning');
+            }
+          } catch (err) {
+            showToast('Không thể lấy thông tin giỏ hàng', 'error');
+          }
+          return;
+
+        case 'VIEW_PROMOTIONS':
+          // Send message to AI to show promotions
+          setInputValue('Xem các chương trình khuyến mãi hiện có');
           setActions([]);
+          // Auto submit
+          setTimeout(() => {
+            const form = document.querySelector('form');
+            if (form) form.requestSubmit();
+          }, 100);
           return;
 
         case 'VIEW_CART':
@@ -624,8 +717,8 @@ export default function AIChatPage() {
           return;
 
         case 'GO_TO_CHECKOUT':
-          // Redirect to checkout page
-          window.location.href = '/checkout';
+          // Redirect to checkout page with source indicator
+          window.location.href = '/checkout?from=ai-chat';
           return;
 
         case 'CREATE_ORDER':
@@ -700,14 +793,31 @@ export default function AIChatPage() {
 
         // Update cart count
         fetchCartCount();
+
+        // Show follow-up actions after adding to cart
+        const followUpActions = [
+          {
+            type: 'GO_TO_CHECKOUT',
+            label: '💳 Đi tới thanh toán'
+          },
+          {
+            type: 'VIEW_CART',
+            label: '🛒 Xem giỏ hàng'
+          },
+          {
+            type: 'VIEW_PROMOTIONS',
+            label: '🎁 Xem khuyến mãi'
+          }
+        ];
+        setActions(followUpActions);
       } else {
         showToast(data.message || 'Không thể thực hiện thao tác', 'error');
+        setActions([]); // Clear actions on error
       }
-
-      setActions([]); // Clear actions after execution
     } catch (error) {
       console.error('Action execution error:', error);
       showToast('Không thể kết nối đến server', 'error');
+      setActions([]); // Clear actions on error
     }
   };
 
@@ -728,7 +838,7 @@ export default function AIChatPage() {
         return;
       }
 
-      const orderData = {
+      const orderData: any = {
         items: orderDetails.items.map((item: any) => ({
           productId: item.product?.id || item.productId,
           quantity: item.quantity
@@ -736,6 +846,11 @@ export default function AIChatPage() {
         shippingAddress: shippingAddress,
         paymentMethod: paymentMethod
       };
+
+      // Add discount code if exists
+      if (orderDetails.discountCode) {
+        orderData.discountCode = orderDetails.discountCode;
+      }
 
       // Call Spring API directly instead of Python proxy to avoid connection issues
       const response = await fetch(`${API_CONFIG.API_URL}/orders`, {
@@ -926,7 +1041,7 @@ export default function AIChatPage() {
                           <p className="text-yellow-300 font-bold">{orderDetails.discountCode}</p>
                         </div>
                       </div>
-                      <span className="font-bold text-green-400">-0đ</span>
+                      <span className="font-bold text-green-400">-{discountAmount.toLocaleString('vi-VN')}đ</span>
                     </div>
                   </div>
                 )}
@@ -946,7 +1061,7 @@ export default function AIChatPage() {
                     {orderDetails.discountCode && (
                       <div className="flex justify-between text-yellow-400">
                         <span>Giảm giá ({orderDetails.discountCode})</span>
-                        <span className="font-medium">-0đ</span>
+                        <span className="font-medium">-{discountAmount.toLocaleString('vi-VN')}đ</span>
                       </div>
                     )}
                     <div className="border-t border-slate-600 pt-3 mt-3">
@@ -954,7 +1069,7 @@ export default function AIChatPage() {
                         <span className="text-xl font-bold text-white">Tổng cộng</span>
                         <div className="text-right">
                           <span className="text-3xl font-bold text-green-400">
-                            {(orderDetails.totalAmount || 0).toLocaleString('vi-VN')}đ
+                            {((orderDetails.totalAmount || 0) - discountAmount).toLocaleString('vi-VN')}đ
                           </span>
                           <p className="text-xs text-slate-400 mt-1">(Đã bao gồm VAT)</p>
                         </div>
@@ -1120,14 +1235,68 @@ export default function AIChatPage() {
           <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 relative z-0 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
             {messages.length === 0 ? (
               <div className="flex items-center justify-center h-full">
-                <div className="text-center p-8 bg-slate-800/30 rounded-3xl border border-white/5 backdrop-blur-sm">
-                  <div className="w-16 h-16 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center shadow-lg shadow-blue-500/20 animate-bounce-slow">
-                    <MessageSquare className="w-8 h-8 text-white" />
+                <div className="text-center p-8 md:p-12 max-w-3xl">
+                  {/* Main Icon */}
+                  <div className="relative inline-block mb-8">
+                    <div className="w-20 h-20 mx-auto rounded-2xl bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-500 flex items-center justify-center shadow-2xl shadow-blue-500/30 animate-pulse">
+                      <MessageSquare className="w-10 h-10 text-white" />
+                    </div>
+                    <div className="absolute -top-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-4 border-slate-900 flex items-center justify-center">
+                      <span className="w-2 h-2 bg-white rounded-full animate-ping"></span>
+                    </div>
                   </div>
-                  <h3 className="text-2xl font-bold mb-2 text-white">Xin chào!</h3>
-                  <p className="text-slate-400 text-sm max-w-xs mx-auto leading-relaxed">
-                    Tôi là trợ lý AI của bạn. Hãy hỏi tôi về sản phẩm, đơn hàng hoặc bất cứ điều gì bạn cần hỗ trợ.
+
+                  {/* Welcome Text */}
+                  <h3 className="text-3xl md:text-4xl font-bold mb-3 bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                    Xin chào! 👋
+                  </h3>
+                  <p className="text-slate-400 text-base md:text-lg mb-8 leading-relaxed">
+                    Tôi là trợ lý AI của bạn. Hãy hỏi tôi về sản phẩm,<br className="hidden md:block" />
+                    đơn hàng hoặc bất cứ điều gì bạn cần hỗ trợ.
                   </p>
+
+                  {/* Feature Cards */}
+                  <div className="grid md:grid-cols-3 gap-4 mt-8">
+                    <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4 hover:bg-slate-800/60 hover:border-blue-500/30 transition-all group">
+                      <div className="w-12 h-12 mx-auto mb-3 rounded-lg bg-blue-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <ShoppingCart className="w-6 h-6 text-blue-400" />
+                      </div>
+                      <h4 className="font-semibold text-white mb-1 text-sm">Tư vấn sản phẩm</h4>
+                      <p className="text-xs text-slate-400">Tìm kiếm & đề xuất sản phẩm phù hợp</p>
+                    </div>
+
+                    <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4 hover:bg-slate-800/60 hover:border-indigo-500/30 transition-all group">
+                      <div className="w-12 h-12 mx-auto mb-3 rounded-lg bg-indigo-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <ClipboardList className="w-6 h-6 text-indigo-400" />
+                      </div>
+                      <h4 className="font-semibold text-white mb-1 text-sm">Tra cứu đơn hàng</h4>
+                      <p className="text-xs text-slate-400">Kiểm tra trạng thái & lịch sử đơn</p>
+                    </div>
+
+                    <div className="bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-xl p-4 hover:bg-slate-800/60 hover:border-purple-500/30 transition-all group">
+                      <div className="w-12 h-12 mx-auto mb-3 rounded-lg bg-purple-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Bot className="w-6 h-6 text-purple-400" />
+                      </div>
+                      <h4 className="font-semibold text-white mb-1 text-sm">Hỗ trợ 24/7</h4>
+                      <p className="text-xs text-slate-400">Trả lời nhanh mọi thắc mắc</p>
+                    </div>
+                  </div>
+
+                  {/* Quick Suggestions */}
+                  <div className="mt-8">
+                    <p className="text-xs text-slate-500 uppercase tracking-wider mb-3">Gợi ý câu hỏi</p>
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      <button className="px-4 py-2 bg-slate-800/60 hover:bg-slate-700 border border-slate-700 hover:border-blue-500/50 rounded-full text-sm text-slate-300 hover:text-white transition-all">
+                        💼 Sản phẩm mới nhất
+                      </button>
+                      <button className="px-4 py-2 bg-slate-800/60 hover:bg-slate-700 border border-slate-700 hover:border-blue-500/50 rounded-full text-sm text-slate-300 hover:text-white transition-all">
+                        📦 Đơn hàng của tôi
+                      </button>
+                      <button className="px-4 py-2 bg-slate-800/60 hover:bg-slate-700 border border-slate-700 hover:border-blue-500/50 rounded-full text-sm text-slate-300 hover:text-white transition-all">
+                        🎯 Khuyến mãi hot
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -1343,7 +1512,7 @@ export default function AIChatPage() {
                     onClick={() => {
                       setInputValue(suggestion);
                       setSuggestions([]);
-                      setActions([]); // Clear actions too
+                      // Don't clear actions here - let new response update them
                       // Auto submit
                       const form = document.querySelector('form');
                       if (form) {

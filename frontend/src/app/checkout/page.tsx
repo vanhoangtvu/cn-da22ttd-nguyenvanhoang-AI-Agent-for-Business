@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import { useToast } from '@/components/ToastProvider';
 import AddressSelector from '@/components/AddressSelector';
@@ -22,7 +22,7 @@ interface Cart {
   totalPrice: number;
 }
 
-export default function CheckoutPage() {
+function CheckoutPage() {
   const router = useRouter();
   const { showToast } = useToast();
   const [cart, setCart] = useState<Cart | null>(null);
@@ -39,6 +39,10 @@ export default function CheckoutPage() {
   // Discount state
   const [appliedDiscount, setAppliedDiscount] = useState<any>(null);
   const [finalTotal, setFinalTotal] = useState(0);
+
+  // Check where user came from
+  const searchParams = useSearchParams();
+  const fromSource = searchParams.get('from'); // 'ai-chat' or null
 
   useEffect(() => {
     if (!apiClient.isAuthenticated()) {
@@ -137,11 +141,16 @@ export default function CheckoutPage() {
       <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50 sticky top-0 z-50 shadow-lg">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <Link href="/cart" className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20">
+            <Link
+              href={fromSource === 'ai-chat' ? '/ai-chat' : '/cart'}
+              className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20"
+            >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
-              <span className="font-medium">Quay lại giỏ hàng</span>
+              <span className="font-medium">
+                {fromSource === 'ai-chat' ? 'Quay lại chat' : 'Quay lại giỏ hàng'}
+              </span>
             </Link>
             <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
               Thanh toán
@@ -594,5 +603,24 @@ Ví dụ: Giao hàng buổi chiều, gọi trước khi giao..."
         </div>
       )}
     </div>
+  );
+}
+
+// Wrapper with Suspense for useSearchParams
+export default function CheckoutPageWrapper() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="text-center">
+          <svg className="animate-spin h-12 w-12 text-blue-600 mx-auto mb-4" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <p className="text-gray-600 dark:text-gray-400">Đang tải...</p>
+        </div>
+      </div>
+    }>
+      <CheckoutPage />
+    </Suspense>
   );
 }

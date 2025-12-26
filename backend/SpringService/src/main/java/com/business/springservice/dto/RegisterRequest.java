@@ -12,6 +12,9 @@ public class RegisterRequest {
     @Schema(description = "Username", example = "john_doe", required = true)
     private String username;
     
+    @Schema(description = "Full name", example = "Nguyễn Văn A")
+    private String fullName;
+    
     @Schema(description = "Email address", example = "john@example.com", required = true)
     private String email;
     

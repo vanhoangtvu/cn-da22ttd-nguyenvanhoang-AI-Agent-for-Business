@@ -31,8 +31,18 @@ export default function DiscountApplier({
     try {
       const result = (await apiClient.applyDiscount(discountCode.toUpperCase(), orderTotal)) as any;
 
-      if (result.success) {
-        onDiscountApplied(result.discount, result.newTotal);
+      if (result.valid) {
+        // Construct discount object expected by parent and UI
+        const discountInfo = {
+          code: result.discountCode,
+          name: result.message || 'Mã ưu đãi',
+          type: result.discountType,
+          value: result.discountValue,
+          discountAmount: result.discountAmount,
+          newTotal: result.finalAmount // Add newTotal to discount object for internal use
+        };
+
+        onDiscountApplied(discountInfo, result.finalAmount);
         setDiscountCode('');
       } else {
         setError(result.message || 'Mã giảm giá không hợp lệ');
@@ -141,7 +151,9 @@ export default function DiscountApplier({
           <div className="flex justify-between items-center text-sm">
             <span className="text-gray-600 dark:text-gray-400">Tiết kiệm:</span>
             <span className="font-semibold text-green-600 dark:text-green-400">
-              -{(orderTotal - appliedDiscount.newTotal).toLocaleString('vi-VN')}đ
+              -{appliedDiscount.discountAmount
+                ? appliedDiscount.discountAmount.toLocaleString('vi-VN')
+                : (orderTotal - (appliedDiscount.newTotal || orderTotal)).toLocaleString('vi-VN')}đ
             </span>
           </div>
         </div>

@@ -27,6 +27,7 @@ public class ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final UserRepository userRepository;
+    private final ChromaSyncWebhookService chromaSyncWebhookService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     
     @Transactional(readOnly = true)
@@ -110,7 +111,12 @@ public class ProductService {
         product.setSeller(seller);
         
         Product savedProduct = productRepository.save(product);
-        return convertToDTO(savedProduct);
+        ProductDTO dto = convertToDTO(savedProduct);
+        
+        // Sync to ChromaDB
+        chromaSyncWebhookService.syncProduct(prepareSyncData(dto), "INSERT");
+        
+        return dto;
     }
     
     @Transactional
@@ -143,7 +149,12 @@ public class ProductService {
         }
         
         Product updatedProduct = productRepository.save(product);
-        return convertToDTO(updatedProduct);
+        ProductDTO dto = convertToDTO(updatedProduct);
+        
+        // Sync to ChromaDB
+        chromaSyncWebhookService.syncProduct(prepareSyncData(dto), "UPDATE");
+        
+        return dto;
     }
     
     @Transactional
@@ -151,6 +162,9 @@ public class ProductService {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Product not found with id: " + id));
         productRepository.delete(product);
+        
+        // Sync to ChromaDB
+        chromaSyncWebhookService.deleteFromChroma("products", id);
     }
     
     @Transactional
@@ -162,10 +176,28 @@ public class ProductService {
             com.business.springservice.enums.Status status = com.business.springservice.enums.Status.valueOf(statusStr.toUpperCase());
             product.setStatus(status);
             Product updatedProduct = productRepository.save(product);
-            return convertToDTO(updatedProduct);
+            ProductDTO dto = convertToDTO(updatedProduct);
+            
+            // Sync to ChromaDB
+            chromaSyncWebhookService.syncProduct(prepareSyncData(dto), "UPDATE");
+            
+            return dto;
         } catch (IllegalArgumentException e) {
             throw new RuntimeException("Invalid status value. Must be ACTIVE or INACTIVE");
         }
+    }
+    
+    private java.util.Map<String, Object> prepareSyncData(ProductDTO dto) {
+        java.util.Map<String, Object> data = new java.util.HashMap<>();
+        data.put("id", dto.getId());
+        data.put("name", dto.getName());
+        data.put("price", dto.getPrice());
+        data.put("category", dto.getCategoryName());
+        data.put("stock", dto.getQuantity());
+        data.put("img_url", (dto.getImageUrls() != null && !dto.getImageUrls().isEmpty()) ? dto.getImageUrls().get(0) : "");
+        data.put("description", dto.getDescription());
+        data.put("status", dto.getStatus());
+        return data;
     }
     
     private ProductDTO convertToDTO(Product product) {

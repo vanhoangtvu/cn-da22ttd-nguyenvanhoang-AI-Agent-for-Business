@@ -28,6 +28,8 @@ public class OrderService {
     private final UserRepository userRepository;
     private final CartService cartService;
     private final VietQRService vietQRService;
+    private final ChromaSyncWebhookService chromaSyncWebhookService;
+    private final DiscountService discountService;
 
     @Transactional
     public OrderDTO createOrder(OrderCreateRequest request, Long customerId) {
@@ -83,6 +85,20 @@ public class OrderService {
             productRepository.save(product);
         }
 
+        // Apply discount if provided
+        BigDecimal discountAmount = BigDecimal.ZERO;
+        if (request.getDiscountCode() != null && !request.getDiscountCode().trim().isEmpty()) {
+            try {
+                discountAmount = discountService.applyDiscount(request.getDiscountCode(), totalAmount);
+                totalAmount = totalAmount.subtract(discountAmount);
+            } catch (Exception e) {
+                // Log error but don't fail order creation
+                System.err.println("Failed to apply discount: " + e.getMessage());
+                // You can choose to throw exception here if discount is critical
+                // throw new RuntimeException("Invalid discount code: " + e.getMessage());
+            }
+        }
+
         order.setTotalAmount(totalAmount);
         Order savedOrder = orderRepository.save(order);
 
@@ -94,7 +110,12 @@ public class OrderService {
             System.err.println("Failed to clear cart after order creation: " + e.getMessage());
         }
 
-        return convertToDTO(savedOrder);
+        OrderDTO dto = convertToDTO(savedOrder);
+
+        // Sync to ChromaDB
+        chromaSyncWebhookService.syncOrder(dto, "INSERT");
+
+        return dto;
     }
 
     @Transactional(readOnly = true)
@@ -149,7 +170,12 @@ public class OrderService {
 
             order.setStatus(newStatus);
             Order updatedOrder = orderRepository.save(order);
-            return convertToDTO(updatedOrder);
+            OrderDTO dto = convertToDTO(updatedOrder);
+
+            // Sync to ChromaDB
+            chromaSyncWebhookService.syncOrder(dto, "UPDATE");
+
+            return dto;
 
         } catch (IllegalArgumentException e) {
             throw new RuntimeException("Invalid order status: " + statusStr);
@@ -181,7 +207,10 @@ public class OrderService {
         }
 
         order.setStatus(OrderStatus.CANCELLED);
-        orderRepository.save(order);
+        Order savedOrder = orderRepository.save(order);
+
+        // Sync to ChromaDB
+        chromaSyncWebhookService.syncOrder(convertToDTO(savedOrder), "UPDATE");
     }
 
     @Transactional
@@ -204,7 +233,12 @@ public class OrderService {
 
         order.setShippingAddress(newAddress);
         Order updatedOrder = orderRepository.save(order);
-        return convertToDTO(updatedOrder);
+        OrderDTO dto = convertToDTO(updatedOrder);
+
+        // Sync to ChromaDB
+        chromaSyncWebhookService.syncOrder(dto, "UPDATE");
+
+        return dto;
     }
 
     private OrderDTO convertToDTO(Order order) {

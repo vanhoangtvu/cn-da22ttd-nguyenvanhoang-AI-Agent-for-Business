@@ -228,18 +228,25 @@ def detect_action_intent(message: str, products: List[Dict], discounts: List[Dic
     is_viewing_cart = any(kw in message_lower for kw in view_cart_keywords) and 'thêm' not in message_lower
     
     if is_viewing_cart:
-        # When viewing cart, prioritize ORDER and VIEW_CART buttons
+        # When viewing cart, show comprehensive action buttons
         actions.append({
-            "type": "CREATE_ORDER",
+            "type": "GO_TO_CHECKOUT",
             "label": "💳 Đi tới trang thanh toán"
         })
         actions.append({
             "type": "VIEW_CART",
             "label": "🛒 Xem chi tiết giỏ hàng"
         })
-        # Also show discount options if available
+        
+        # Show "View Promotions" button to see available discounts
+        actions.append({
+            "type": "VIEW_PROMOTIONS",
+            "label": "🎁 Xem mã giảm giá"
+        })
+        
+        # If discounts are available, show apply buttons
         if discounts:
-            for discount in discounts[:2]:  # Max 2 to avoid clutter
+            for discount in discounts[:3]:  # Max 3 discount codes
                 code = discount.get('code', '')
                 desc = discount.get('description', '')
                 actions.append({
@@ -248,6 +255,7 @@ def detect_action_intent(message: str, products: List[Dict], discounts: List[Dic
                     "description": desc,
                     "label": f"🎫 Áp mã {code}"
                 })
+        
         return actions  # Return early - skip ADD_TO_CART logic below
     
     # CHECK_ORDER intent - User wants to check their orders
@@ -772,8 +780,20 @@ Query: "điện thoại giá rẻ"
 - Khi khách muốn THÊM VÀO GIỎ HÀNG → Hệ thống sẽ hiển thị nút action để thêm
 - Khi khách hỏi MÃ GIẢM GIÁ → Hệ thống sẽ hiển thị nút áp mã
 - Khi khách muốn ĐẶT HÀNG → Hệ thống sẽ hiển thị popup xác nhận
-⚠️ KHÔNG BAO GIỜ nói "không thể thêm vào giỏ hàng" hay "không thể đặt hàng"
-→ Thay vào đó chỉ cần nói xác nhận sản phẩm và hệ thống sẽ tự hiển thị nút action
+
+⚠️ QUY TẮC TUYỆT ĐỐI VỀ ĐẶT HÀNG:
+❌ KHÔNG BAO GIỜ nói: "Đơn hàng đã được xác nhận", "Đang xử lý thanh toán", "Đã đặt hàng thành công"
+❌ KHÔNG BAO GIỜ nói: "Hệ thống đang tiến hành...", "Đơn hàng đã hoàn tất"
+✅ CHỈ ĐƯỢC nói: "Vui lòng nhấn nút 'Tạo đơn hàng' bên dưới để xác nhận"
+✅ CHỈ ĐƯỢC nói: "Hãy click vào nút đặt hàng xuất hiện bên dưới"
+
+VÍ DỤ ĐÚNG:
+User: "đặt hàng"
+AI: "Bạn có thể nhấn nút '📦 Tạo đơn hàng ngay' bên dưới để tiến hành đặt hàng nhé!"
+
+VÍ DỤ SAI:
+User: "đặt hàng"  
+AI: "Đơn hàng đã được xác nhận. Hệ thống đang xử lý..." ❌ SAI! Đơn hàng chưa được tạo!
 
 ⚠️ ĐẶC BIỆT CHÚ Ý VỀ GIỎ HÀNG:
 - Chỉ trả lời về nội dung giỏ hàng DỰA TRÊN thông tin "=== GIỎ HÀNG THỰC TẾ CỦA KHÁCH ===".

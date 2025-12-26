@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api';
 import { useToast } from '@/components/ToastProvider';
 import ProductDetailPanel from '@/components/ProductDetailPanel';
+import ThemeToggle from '@/components/ThemeToggle';
 import {
   ShoppingCart,
   Settings,
@@ -142,6 +143,7 @@ export default function HomePage() {
   const [selectedProductId, setSelectedProductId] = useState<number | null>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{ username: string; fullName?: string; avatarUrl?: string } | null>(null);
   const [hoveredProduct, setHoveredProduct] = useState<number | null>(null);
   // Floating particles state for hydration fix
   const [particles, setParticles] = useState<Array<{ left: string, top: string, delay: string, duration: string }>>([]);
@@ -153,6 +155,20 @@ export default function HomePage() {
       delay: `${Math.random() * 5}s`,
       duration: `${3 + Math.random() * 4}s`
     })));
+  }, []);
+
+  // Load user data
+  useEffect(() => {
+    if (apiClient.isAuthenticated()) {
+      const userData = apiClient.getUserData();
+      if (userData) {
+        setCurrentUser({
+          username: userData.username,
+          fullName: userData.fullName,
+          avatarUrl: userData.avatarUrl
+        });
+      }
+    }
   }, []);
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -396,11 +412,21 @@ export default function HomePage() {
                     href="/profile"
                     className="flex items-center gap-3 pl-2 pr-4 py-1.5 rounded-lg hover:bg-white/5 transition-all group"
                   >
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-xs ring-2 ring-[#050505] group-hover:ring-blue-500/50 transition-all">
-                      U
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-xs ring-2 ring-[#050505] group-hover:ring-blue-500/50 transition-all overflow-hidden">
+                      {currentUser?.avatarUrl ? (
+                        <img
+                          src={currentUser.avatarUrl}
+                          alt={currentUser.fullName || currentUser.username}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span>{(currentUser?.fullName || currentUser?.username || 'U').charAt(0).toUpperCase()}</span>
+                      )}
                     </div>
                     <div className="hidden md:block text-left">
-                      <div className="text-sm font-medium text-white group-hover:text-blue-400 transition-colors">Account</div>
+                      <div className="text-sm font-medium text-white group-hover:text-blue-400 transition-colors">
+                        {currentUser?.fullName || currentUser?.username || 'Account'}
+                      </div>
                     </div>
                   </Link>
 
@@ -411,6 +437,9 @@ export default function HomePage() {
                   >
                     <LogOut className="w-5 h-5" />
                   </button>
+
+                  {/* Theme Toggle */}
+                  <ThemeToggle />
                 </>
               ) : isClient ? (
                 <>

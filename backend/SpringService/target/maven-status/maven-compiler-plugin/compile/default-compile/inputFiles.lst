@@ -16,6 +16,7 @@
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/controller/PasswordChangeRequest.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/controller/ProductManagementController.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/controller/ProfileController.java
+/home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/controller/PublicDiscountController.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/controller/ShopController.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/controller/UserController.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/dto/ActivityLogDTO.java
@@ -77,6 +78,7 @@
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/service/BusinessDocumentService.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/service/CartService.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/service/CategoryService.java
+/home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/service/ChromaSyncWebhookService.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/service/DashboardService.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/service/DiscountService.java
 /home/hv/DuAn/CSN/AI-Agent-for-Business/backend/SpringService/src/main/java/com/business/springservice/service/OrderService.java

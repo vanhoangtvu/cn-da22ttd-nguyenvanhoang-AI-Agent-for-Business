@@ -47,6 +47,22 @@ interface ModalConfig {
   is_active: boolean;
 }
 
+interface SyncConfig {
+  enabled: boolean;
+  fields: string[];
+  last_sync: string | null;
+  sync_count: number;
+}
+
+interface SyncStats {
+  total_syncs: number;
+  last_webhook: string | null;
+  tables: Record<string, {
+    count: number;
+    last_sync: string | null;
+  }>;
+}
+
 const AI_SERVICE_URL = process.env.NEXT_PUBLIC_AI_SERVICE_URL || 'http://localhost:5000';
 
 export default function AIAgentChatManagementPage() {
@@ -58,8 +74,11 @@ export default function AIAgentChatManagementPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [userData, setUserData] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'redis' | 'chroma' | 'modal-config'>('redis');
+  const [activeTab, setActiveTab] = useState<'redis' | 'chroma' | 'modal-config' | 'sync'>('redis');
   const [chromaCollections, setChromaCollections] = useState<ChromaCollection[]>([]);
+  const [syncConfigs, setSyncConfigs] = useState<Record<string, SyncConfig>>({});
+  const [syncStats, setSyncStats] = useState<SyncStats | null>(null);
+  const [loadingSync, setLoadingSync] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<{ type: 'session' | 'user' | 'all', userId?: string, sessionId?: string } | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null);
@@ -92,6 +111,8 @@ export default function AIAgentChatManagementPage() {
       loadChromaCollections();
       loadModalConfigs();
       loadAvailableModels();
+      loadSyncConfigs();
+      loadSyncStats();
     } catch (error) {
       console.error('Error checking auth:', error);
       router.push('/login');
@@ -134,7 +155,74 @@ export default function AIAgentChatManagementPage() {
     await loadChatStats();
     await loadAllUsers();
     await loadChromaCollections();
+    await loadSyncConfigs();
+    await loadSyncStats();
     setRefreshing(false);
+  };
+
+  const loadSyncConfigs = async () => {
+    try {
+      setLoadingSync(true);
+      const response = await fetch(`${AI_SERVICE_URL}/api/sync/configs`);
+      if (response.ok) {
+        const data = await response.json();
+        setSyncConfigs(data);
+      }
+    } catch (error) {
+      console.error('Error loading sync configs:', error);
+    } finally {
+      setLoadingSync(false);
+    }
+  };
+
+  const loadSyncStats = async () => {
+    try {
+      const response = await fetch(`${AI_SERVICE_URL}/api/sync/stats`);
+      if (response.ok) {
+        const data = await response.json();
+        setSyncStats(data);
+      }
+    } catch (error) {
+      console.error('Error loading sync stats:', error);
+    }
+  };
+
+  const updateSyncConfig = async (table: string, config: Partial<SyncConfig>) => {
+    try {
+      const response = await fetch(`${AI_SERVICE_URL}/api/sync/configs/${table}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+      });
+      if (response.ok) {
+        showToast(`Đã cập nhật cấu hình cho ${table}`, 'success');
+        loadSyncConfigs();
+      } else {
+        showToast('Lỗi khi cập nhật cấu hình', 'error');
+      }
+    } catch (error) {
+      console.error('Error updating sync config:', error);
+      showToast('Lỗi kết nối', 'error');
+    }
+  };
+
+  const handleManualSync = async (table: string) => {
+    try {
+      showToast(`Đang bắt đầu đồng bộ thủ công cho ${table}...`, 'info');
+      const response = await fetch(`${AI_SERVICE_URL}/api/sync/manual-sync/${table}`, {
+        method: 'POST'
+      });
+      if (response.ok) {
+        showToast(`Đồng bộ thành công cho ${table}`, 'success');
+        loadSyncStats();
+        loadSyncConfigs();
+      } else {
+        showToast('Lỗi khi đồng bộ thủ công', 'error');
+      }
+    } catch (error) {
+      console.error('Error manual syncing:', error);
+      showToast('Lỗi kết nối', 'error');
+    }
   };
 
   const handleDeleteSession = async (userId: string, sessionId: string) => {
@@ -572,6 +660,16 @@ export default function AIAgentChatManagementPage() {
             >
               <Settings size={18} className="inline-block mr-2" />
               Cấu Hình Modal AI
+            </button>
+            <button
+              onClick={() => setActiveTab('sync')}
+              className={`px-6 py-3 font-semibold text-sm transition-colors border-b-2 ${activeTab === 'sync'
+                ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                : 'border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300'
+                }`}
+            >
+              <RefreshCw size={18} className="inline-block mr-2" />
+              MySQL Sync (Real-time)
             </button>
           </div>
         </div>
@@ -1016,6 +1114,107 @@ export default function AIAgentChatManagementPage() {
                   )}
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Sync Management Tab */}
+        {activeTab === 'sync' && (
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-800 dark:text-white">Real-time MySQL Synchronization</h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Quản lý đồng bộ dữ liệu tức thời từ MySQL sang ChromaDB (Chat AI)</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => { loadSyncConfigs(); loadSyncStats(); }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+                  >
+                    <RefreshCw size={18} className="mr-2" />
+                    Làm mới
+                  </button>
+                </div>
+              </div>
+
+              {/* Sync Stats Summary */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-100 dark:border-blue-800">
+                  <p className="text-sm text-blue-600 dark:text-blue-400 mb-1">Tổng lượt Sync</p>
+                  <p className="text-2xl font-bold text-gray-800 dark:text-white">{syncStats?.total_syncs || 0}</p>
+                </div>
+                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-100 dark:border-green-800">
+                  <p className="text-sm text-green-600 dark:text-green-400 mb-1">Webhook cuối cùng</p>
+                  <p className="text-lg font-bold text-gray-800 dark:text-white">
+                    {syncStats?.last_webhook ? new Date(syncStats.last_webhook).toLocaleString('vi-VN') : 'N/A'}
+                  </p>
+                </div>
+                <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-100 dark:border-purple-800">
+                  <p className="text-sm text-purple-600 dark:text-purple-400 mb-1">Trạng thái Webhook</p>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                    <p className="text-lg font-bold text-gray-800 dark:text-white">Đang chờ...</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sync Table List */}
+              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+                <table className="w-full">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Tên Bảng</th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Trạng Thái</th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Lần cuối</th>
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Hành Động</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {Object.entries(syncConfigs).map(([table, config]) => (
+                      <tr key={table} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <td className="px-6 py-4">
+                          <span className="font-semibold text-gray-800 dark:text-white uppercase">{table}</span>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {config.fields.map(field => (
+                              <span key={field} className="text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-1 rounded">
+                                {field}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={config.enabled}
+                              onChange={(e) => updateSyncConfig(table, { enabled: e.target.checked })}
+                              className="sr-only peer"
+                            />
+                            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                            <span className="ml-3 text-sm font-medium text-gray-900 dark:text-gray-300">
+                              {config.enabled ? 'Đang bật' : 'Đã tắt'}
+                            </span>
+                          </label>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                          {config.last_sync ? new Date(config.last_sync).toLocaleString('vi-VN') : 'Chưa đồng bộ'}
+                          <div className="text-xs text-blue-600 font-medium">Count: {config.sync_count}</div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <button
+                            onClick={() => handleManualSync(table)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm font-medium transition-colors"
+                          >
+                            <RefreshCw size={14} />
+                            Sync ngay
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}

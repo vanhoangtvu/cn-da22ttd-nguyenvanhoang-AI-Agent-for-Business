@@ -7,6 +7,7 @@ import { API_CONFIG } from '@/config/api.config';
 // Types based on Spring Service DTOs
 export interface RegisterRequest {
   username: string;
+  fullName?: string;
   email: string;
   password: string;
 }
@@ -20,7 +21,9 @@ export interface LoginResponse {
   token: string;
   userId: number;
   username: string;
+  fullName?: string;
   email: string;
+  avatarUrl?: string;
   role: 'ADMIN' | 'BUSINESS' | 'CUSTOMER';
 }
 
@@ -597,9 +600,8 @@ class ApiClient {
   }
 
   async applyDiscount(code: string, orderTotal: number) {
-    return this.fetch('/admin/discounts/apply', {
+    return this.fetch(`/discounts/validate?discountCode=${code}&orderAmount=${orderTotal}`, {
       method: 'POST',
-      body: JSON.stringify({ code, orderTotal }),
     });
   }
 

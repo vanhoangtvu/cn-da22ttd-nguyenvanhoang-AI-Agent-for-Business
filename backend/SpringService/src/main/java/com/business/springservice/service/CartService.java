@@ -29,6 +29,7 @@ public class CartService {
     private final CartItemRepository cartItemRepository;
     private final ProductRepository productRepository;
     private final UserRepository userRepository;
+    private final ChromaSyncWebhookService chromaSyncWebhookService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     
     @Transactional(readOnly = true)
@@ -89,7 +90,12 @@ public class CartService {
             cartItemRepository.save(newItem);
         }
         
-        return convertToDTO(cartRepository.findById(cart.getId()).get());
+        CartDTO dto = convertToDTO(cartRepository.findById(cart.getId()).get());
+        
+        // Sync to ChromaDB
+        chromaSyncWebhookService.syncCart(dto, "UPDATE");
+        
+        return dto;
     }
     
     @Transactional
@@ -115,7 +121,12 @@ public class CartService {
         item.setQuantity(quantity);
         cartItemRepository.save(item);
         
-        return convertToDTO(cartRepository.findById(cart.getId()).get());
+        CartDTO dto = convertToDTO(cartRepository.findById(cart.getId()).get());
+        
+        // Sync to ChromaDB
+        chromaSyncWebhookService.syncCart(dto, "UPDATE");
+        
+        return dto;
     }
     
     @Transactional
@@ -132,7 +143,12 @@ public class CartService {
         
         cartItemRepository.delete(item);
         
-        return convertToDTO(cartRepository.findById(cart.getId()).get());
+        CartDTO dto = convertToDTO(cartRepository.findById(cart.getId()).get());
+        
+        // Sync to ChromaDB
+        chromaSyncWebhookService.syncCart(dto, "UPDATE");
+        
+        return dto;
     }
     
     @Transactional
@@ -141,6 +157,10 @@ public class CartService {
                 .orElseThrow(() -> new RuntimeException("Cart not found"));
         
         cartItemRepository.deleteByCartId(cart.getId());
+        
+        // Sync empty cart to ChromaDB
+        CartDTO emptyCart = getCart(userId);
+        chromaSyncWebhookService.syncCart(emptyCart, "UPDATE");
     }
     
     private CartDTO convertToDTO(Cart cart) {
