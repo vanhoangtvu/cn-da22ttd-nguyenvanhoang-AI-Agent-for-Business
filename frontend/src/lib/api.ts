@@ -109,9 +109,9 @@ class ApiClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const headers: HeadersInit = {
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...options.headers,
+      ...(options.headers as Record<string, string>),
     };
 
     // Add Authorization header if token exists
@@ -155,7 +155,7 @@ class ApiClient {
         errorMessage,
         errorText
       });
-      
+
       // If unauthorized, clear token and redirect to login
       if (response.status === 401) {
         console.error('Unauthorized! Token may be invalid or expired.');
@@ -164,7 +164,7 @@ class ApiClient {
           window.location.href = '/login';
         }
       }
-      
+
       throw new Error(errorMessage);
     }
 
@@ -194,7 +194,7 @@ class ApiClient {
     });
     console.log('Login response received:', response);
     console.log('Token in response:', response.token);
-    
+
     // Automatically set token and user data after successful login
     if (response.token) {
       this.setAuthToken(response.token);
@@ -203,7 +203,7 @@ class ApiClient {
     } else {
       console.error('No token in login response!');
     }
-    
+
     return response;
   }
 
@@ -305,10 +305,10 @@ class ApiClient {
     return this.fetch('/profile');
   }
 
-  async updateProfile(data: { 
-    username?: string; 
-    email?: string; 
-    address?: string; 
+  async updateProfile(data: {
+    username?: string;
+    email?: string;
+    address?: string;
     phoneNumber?: string;
     avatarUrl?: string;
   }) {

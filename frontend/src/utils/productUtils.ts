@@ -25,7 +25,7 @@ export interface ProductDetails {
  */
 export function parseProductDetails(detailsJson?: string): ProductDetails {
   if (!detailsJson) return {};
-  
+
   try {
     return JSON.parse(detailsJson) as ProductDetails;
   } catch (error) {
@@ -49,7 +49,7 @@ export function stringifyProductDetails(details: ProductDetails): string {
 /**
  * Get a specific value from details JSON
  */
-export function getDetailValue(detailsJson?: string, key: string, defaultValue: any = null) {
+export function getDetailValue(key: string, detailsJson?: string, defaultValue: any = null) {
   const details = parseProductDetails(detailsJson);
   return details[key] ?? defaultValue;
 }
@@ -58,9 +58,9 @@ export function getDetailValue(detailsJson?: string, key: string, defaultValue: 
  * Update a specific value in details JSON
  */
 export function updateDetailValue(
-  detailsJson?: string,
   key: string,
-  value: any
+  value: any,
+  detailsJson?: string
 ): string {
   const details = parseProductDetails(detailsJson);
   details[key] = value;
@@ -77,7 +77,7 @@ export function calculateDiscountedPrice(
   if (!details.discount || details.discount <= 0) {
     return originalPrice;
   }
-  
+
   return Math.round(originalPrice * (1 - details.discount / 100));
 }
 
@@ -140,7 +140,7 @@ export function createSampleDetails(): ProductDetails {
 export function validateProductDetails(details: any): boolean {
   try {
     if (!details || typeof details !== 'object') return false;
-    
+
     // Check optional numeric fields
     const numericFields = ['rating', 'reviews', 'discount', 'originalPrice', 'weight'];
     for (const field of numericFields) {
@@ -148,27 +148,27 @@ export function validateProductDetails(details: any): boolean {
         return false;
       }
     }
-    
+
     // Check rating range
     if (details.rating !== undefined && (details.rating < 0 || details.rating > 5)) {
       return false;
     }
-    
+
     // Check discount range
     if (details.discount !== undefined && (details.discount < 0 || details.discount > 100)) {
       return false;
     }
-    
+
     // Check specifications object
     if (details.specifications !== undefined && typeof details.specifications !== 'object') {
       return false;
     }
-    
+
     // Check features array
     if (details.features !== undefined && !Array.isArray(details.features)) {
       return false;
     }
-    
+
     return true;
   } catch (error) {
     console.error('Error validating product details:', error);
@@ -207,7 +207,7 @@ export function extractSearchableText(details: ProductDetails): string {
     ...Object.values(details.specifications || {}),
     ...Object.keys(details.specifications || {})
   ];
-  
+
   return searchableFields
     .filter(Boolean)
     .join(' ')

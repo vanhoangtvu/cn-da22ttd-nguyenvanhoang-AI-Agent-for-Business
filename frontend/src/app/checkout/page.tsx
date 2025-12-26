@@ -51,7 +51,7 @@ export default function CheckoutPage() {
   const loadCart = async () => {
     setLoading(true);
     try {
-      const data = await apiClient.getCart();
+      const data = (await apiClient.getCart()) as Cart;
       if (!data || data.items.length === 0) {
         showToast('Giỏ hàng trống', 'warning');
         router.push('/cart');

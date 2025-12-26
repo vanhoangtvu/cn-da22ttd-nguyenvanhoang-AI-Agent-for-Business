@@ -56,7 +56,7 @@ export default function DiscountAnalyticsPage() {
   const loadAnalytics = async () => {
     try {
       setLoading(true);
-      const data = await apiClient.getDiscountAnalytics();
+      const data = (await apiClient.getDiscountAnalytics()) as DiscountAnalytics;
       setAnalytics(data);
     } catch (error) {
       console.error('Failed to load analytics:', error);
@@ -201,9 +201,8 @@ export default function DiscountAnalyticsPage() {
             <div className="space-y-4">
               {analytics.topDiscounts.map((discount, index) => (
                 <div key={discount.id} className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${
-                    index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-orange-600' : 'bg-gray-300'
-                  }`}>
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold ${index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : index === 2 ? 'bg-orange-600' : 'bg-gray-300'
+                    }`}>
                     {index + 1}
                   </div>
                   <div className="flex-1">
@@ -264,7 +263,7 @@ export default function DiscountAnalyticsPage() {
             {analytics.recentUsage.map((day, index) => (
               <div key={index} className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-xl">
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                  {new Date(day.date).toLocaleDateString('vi-VN', { 
+                  {new Date(day.date).toLocaleDateString('vi-VN', {
                     weekday: 'short',
                     day: 'numeric',
                     month: 'numeric'

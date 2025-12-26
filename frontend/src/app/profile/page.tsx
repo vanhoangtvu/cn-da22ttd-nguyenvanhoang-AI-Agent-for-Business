@@ -56,7 +56,7 @@ export default function ProfilePage() {
   const loadProfile = async () => {
     setLoading(true);
     try {
-      const data = await apiClient.getProfile();
+      const data = (await apiClient.getProfile()) as User;
       setUser(data);
       setFormData({
         username: data.username || '',
@@ -80,7 +80,7 @@ export default function ProfilePage() {
     setSuccess('');
 
     try {
-      const updatedUser = await apiClient.updateProfile(formData);
+      const updatedUser = (await apiClient.updateProfile(formData)) as User;
       setUser(updatedUser);
       setIsEditing(false);
       setSuccess('Cập nhật profile thành công!');
@@ -94,7 +94,7 @@ export default function ProfilePage() {
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (passwordData.newPassword !== passwordData.confirmPassword) {
       setError('Mật khẩu mới không khớp');
       return;
@@ -312,11 +312,10 @@ export default function ProfilePage() {
             <div className="flex">
               <button
                 onClick={() => setActiveTab('info')}
-                className={`px-6 py-4 font-semibold transition-all relative ${
-                  activeTab === 'info'
+                className={`px-6 py-4 font-semibold transition-all relative ${activeTab === 'info'
                     ? 'text-blue-600 dark:text-blue-400'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -330,11 +329,10 @@ export default function ProfilePage() {
               </button>
               <button
                 onClick={() => setActiveTab('security')}
-                className={`px-6 py-4 font-semibold transition-all relative ${
-                  activeTab === 'security'
+                className={`px-6 py-4 font-semibold transition-all relative ${activeTab === 'security'
                     ? 'text-blue-600 dark:text-blue-400'
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -482,9 +480,9 @@ export default function ProfilePage() {
                     <div className="mt-2 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
                       <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Xem trước avatar:</p>
                       <div className="flex items-center gap-3">
-                        <img 
-                          src={formData.avatarUrl} 
-                          alt="Preview" 
+                        <img
+                          src={formData.avatarUrl}
+                          alt="Preview"
                           className="w-16 h-16 rounded-xl object-cover ring-2 ring-blue-200 dark:ring-blue-800"
                           onError={(e) => {
                             e.currentTarget.src = '';
@@ -596,10 +594,10 @@ export default function ProfilePage() {
                           </div>
                           <div className="flex justify-between py-2">
                             <span className="text-gray-600 dark:text-gray-400">Ngày tạo:</span>
-                            <span className="font-semibold">{new Date(user.createdAt).toLocaleDateString('vi-VN', { 
-                              year: 'numeric', 
-                              month: 'long', 
-                              day: 'numeric' 
+                            <span className="font-semibold">{new Date(user.createdAt).toLocaleDateString('vi-VN', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
                             })}</span>
                           </div>
                         </div>

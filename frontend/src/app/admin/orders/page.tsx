@@ -86,7 +86,7 @@ export default function OrderManagement() {
   const loadOrders = async () => {
     try {
       setLoading(true);
-      const data = await apiClient.getAdminOrders();
+      const data = (await apiClient.getAdminOrders()) as Order[];
       setOrders(data);
     } catch (error) {
       console.error('Failed to load orders:', error);
@@ -112,7 +112,7 @@ export default function OrderManagement() {
       alert('Cập nhật trạng thái thành công!');
       loadOrders();
       if (selectedOrder?.id === orderId) {
-        const updated = await apiClient.getOrder(orderId);
+        const updated = (await apiClient.getOrder(orderId)) as Order;
         setSelectedOrder(updated);
       }
     } catch (error) {
@@ -123,7 +123,7 @@ export default function OrderManagement() {
 
   const viewOrderDetail = async (order: Order) => {
     try {
-      const fullOrder = await apiClient.getOrder(order.id);
+      const fullOrder = (await apiClient.getOrder(order.id)) as Order;
       console.log('Order details from API:', fullOrder);
 
       // Normalize data from backend to match frontend interface
@@ -236,7 +236,7 @@ export default function OrderManagement() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-gray-700 dark:text-gray-300">
-                      {new Date(order.orderDate).toLocaleString('vi-VN')}
+                      {new Date(order.orderDate || order.createdAt).toLocaleString('vi-VN')}
                     </td>
                     <td className="px-6 py-4 font-semibold text-gray-800 dark:text-white">
                       {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.totalAmount)}

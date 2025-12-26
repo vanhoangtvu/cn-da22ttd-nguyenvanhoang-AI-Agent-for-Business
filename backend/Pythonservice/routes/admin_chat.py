@@ -932,7 +932,8 @@ async def sync_system_data_to_chroma(authorization: Optional[str] = None):
             "products": 0,
             "categories": 0,
             "discounts": 0,
-            "orders": 0
+            "orders": 0,
+            "carts": 0
         }
         
         # Xóa các collection cũ nếu tồn tại
@@ -1472,6 +1473,18 @@ async def sync_system_data_to_chroma(authorization: Optional[str] = None):
                 logger.info(f"[Admin Chat] Successfully synced {synced_data['orders']} orders to chat_ai_orders")
             except Exception as e:
                 logger.error(f"[Admin Chat] Error syncing orders: {str(e)}")
+        
+        # 6. Đồng bộ Carts vào collection chat_ai_carts
+        logger.info("[Admin Chat] Starting cart synchronization")
+        try:
+            cart_count = chroma_service.sync_carts_from_analytics(
+                authorization if authorization.startswith("Bearer ") else f"Bearer {authorization}"
+            )
+            synced_data["carts"] = cart_count
+            logger.info(f"[Admin Chat] Successfully synced {cart_count} carts to chat_ai_carts")
+        except Exception as cart_error:
+            logger.error(f"[Admin Chat] Error syncing carts: {str(cart_error)}")
+            synced_data["carts"] = 0
         
         total_documents = sum(synced_data.values())
         

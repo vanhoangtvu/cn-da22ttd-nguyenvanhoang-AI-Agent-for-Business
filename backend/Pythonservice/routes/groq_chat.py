@@ -231,7 +231,7 @@ def detect_action_intent(message: str, products: List[Dict], discounts: List[Dic
         # When viewing cart, prioritize ORDER and VIEW_CART buttons
         actions.append({
             "type": "CREATE_ORDER",
-            "label": "💳 Thanh toán ngay"
+            "label": "💳 Đi tới trang thanh toán"
         })
         actions.append({
             "type": "VIEW_CART",

@@ -32,7 +32,7 @@ const STATUS_LABELS: Record<string, string> = {
   RETURNED: 'Đã trả hàng',
 };
 
-const STATUS_ICONS: Record<string, JSX.Element> = {
+const STATUS_ICONS: Record<string, any> = {
   PENDING: (
     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -88,7 +88,7 @@ export default function OrderCard({
   };
 
   const cardContent = (
-    <div 
+    <div
       onClick={handleClick}
       className="bg-white dark:bg-gray-800 rounded-xl shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden border border-gray-200 dark:border-gray-700 group cursor-pointer"
     >
@@ -150,7 +150,7 @@ export default function OrderCard({
               </div>
             )}
           </div>
-          
+
           <div className="flex items-center gap-1 text-blue-600 dark:text-blue-400 group-hover:text-blue-700 dark:group-hover:text-blue-300 font-medium group-hover:gap-2 transition-all">
             <span>Xem chi tiết</span>
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

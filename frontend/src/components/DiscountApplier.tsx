@@ -10,11 +10,11 @@ interface DiscountApplierProps {
   appliedDiscount?: any;
 }
 
-export default function DiscountApplier({ 
-  orderTotal, 
-  onDiscountApplied, 
-  onDiscountRemoved, 
-  appliedDiscount 
+export default function DiscountApplier({
+  orderTotal,
+  onDiscountApplied,
+  onDiscountRemoved,
+  appliedDiscount
 }: DiscountApplierProps) {
   const [discountCode, setDiscountCode] = useState('');
   const [isApplying, setIsApplying] = useState(false);
@@ -22,15 +22,15 @@ export default function DiscountApplier({
 
   const handleApplyDiscount = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!discountCode.trim()) return;
-    
+
     setIsApplying(true);
     setError('');
 
     try {
-      const result = await apiClient.applyDiscount(discountCode.toUpperCase(), orderTotal);
-      
+      const result = (await apiClient.applyDiscount(discountCode.toUpperCase(), orderTotal)) as any;
+
       if (result.success) {
         onDiscountApplied(result.discount, result.newTotal);
         setDiscountCode('');

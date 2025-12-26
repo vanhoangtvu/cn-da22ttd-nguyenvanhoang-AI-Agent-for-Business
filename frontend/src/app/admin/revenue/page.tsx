@@ -42,10 +42,10 @@ export default function RevenueManagement() {
   const loadData = async (user: any) => {
     try {
       setLoading(true);
-      
+
       // Load stats
-      const statsData = user.role === 'ADMIN' 
-        ? await apiClient.getAdminStats() 
+      const statsData = user.role === 'ADMIN'
+        ? await apiClient.getAdminStats()
         : await apiClient.getBusinessStats();
       setStats(statsData);
 
@@ -53,22 +53,22 @@ export default function RevenueManagement() {
       let data: RevenueData[] = [];
       if (user.role === 'ADMIN') {
         if (period === 'daily') {
-          data = await apiClient.getAdminDailyRevenue(duration);
+          data = (await apiClient.getAdminDailyRevenue(duration)) as RevenueData[];
         } else if (period === 'weekly') {
-          data = await apiClient.getAdminWeeklyRevenue(duration);
+          data = (await apiClient.getAdminWeeklyRevenue(duration)) as RevenueData[];
         } else {
-          data = await apiClient.getAdminMonthlyRevenue(duration);
+          data = (await apiClient.getAdminMonthlyRevenue(duration)) as RevenueData[];
         }
       } else {
         if (period === 'daily') {
-          data = await apiClient.getDailyRevenue(duration);
+          data = (await apiClient.getDailyRevenue(duration)) as RevenueData[];
         } else if (period === 'weekly') {
-          data = await apiClient.getWeeklyRevenue(duration);
+          data = (await apiClient.getWeeklyRevenue(duration)) as RevenueData[];
         } else {
-          data = await apiClient.getMonthlyRevenue(duration);
+          data = (await apiClient.getMonthlyRevenue(duration)) as RevenueData[];
         }
       }
-      
+
       setRevenueData(data);
     } catch (error) {
       console.error('Failed to load revenue data:', error);
@@ -112,11 +112,10 @@ export default function RevenueManagement() {
             <div className="flex gap-2 flex-wrap">
               <button
                 onClick={() => setPeriod('daily')}
-                className={`px-6 py-2.5 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 ${
-                  period === 'daily' 
-                    ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/50' 
+                className={`px-6 py-2.5 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 ${period === 'daily'
+                    ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/50'
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 hover:shadow-md'
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -127,11 +126,10 @@ export default function RevenueManagement() {
               </button>
               <button
                 onClick={() => setPeriod('weekly')}
-                className={`px-6 py-2.5 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 ${
-                  period === 'weekly' 
-                    ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/50' 
+                className={`px-6 py-2.5 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 ${period === 'weekly'
+                    ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/50'
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 hover:shadow-md'
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -142,11 +140,10 @@ export default function RevenueManagement() {
               </button>
               <button
                 onClick={() => setPeriod('monthly')}
-                className={`px-6 py-2.5 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 ${
-                  period === 'monthly' 
-                    ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/50' 
+                className={`px-6 py-2.5 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 ${period === 'monthly'
+                    ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/50'
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 hover:shadow-md'
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -252,9 +249,9 @@ export default function RevenueManagement() {
                   return (
                     <div key={index} className="flex-1 flex flex-col-reverse items-center group max-w-[80px]">
                       {/* Column */}
-                      <div 
+                      <div
                         className="w-full bg-gradient-to-t from-blue-500 via-blue-600 to-purple-600 rounded-t-lg transition-all duration-1000 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 cursor-pointer shadow-lg hover:shadow-2xl relative overflow-hidden"
-                        style={{ 
+                        style={{
                           height: `${heightPx}px`,
                           animation: `growUp 1s ease-out ${index * 0.1}s both`
                         }}
@@ -326,24 +323,24 @@ export default function RevenueManagement() {
                       const angle = (percentage / 100) * 360;
                       const startAngle = currentAngle;
                       currentAngle += angle;
-                      
+
                       const startRad = (startAngle * Math.PI) / 180;
                       const endRad = (currentAngle * Math.PI) / 180;
-                      
+
                       const x1 = 100 + 80 * Math.cos(startRad);
                       const y1 = 100 + 80 * Math.sin(startRad);
                       const x2 = 100 + 80 * Math.cos(endRad);
                       const y2 = 100 + 80 * Math.sin(endRad);
-                      
+
                       const largeArc = angle > 180 ? 1 : 0;
-                      
+
                       const pathData = [
                         `M 100 100`,
                         `L ${x1} ${y1}`,
                         `A 80 80 0 ${largeArc} 1 ${x2} ${y2}`,
                         `Z`
                       ].join(' ');
-                      
+
                       return (
                         <g key={index}>
                           <path
@@ -371,7 +368,7 @@ export default function RevenueManagement() {
                   </text>
                 </svg>
               </div>
-              
+
               {/* Legend */}
               <div className="grid grid-cols-2 gap-3 w-full max-h-48 overflow-y-auto">
                 {revenueData.map((item, index) => {
@@ -381,12 +378,12 @@ export default function RevenueManagement() {
                     '#EF4444', '#06B6D4', '#6366F1', '#F97316', '#14B8A6'
                   ];
                   return (
-                    <div 
-                      key={index} 
+                    <div
+                      key={index}
                       className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                       style={{ animation: `slideIn 0.5s ease-out ${index * 0.1}s both` }}
                     >
-                      <div 
+                      <div
                         className="w-4 h-4 rounded-full flex-shrink-0 shadow-md"
                         style={{ backgroundColor: colors[index % colors.length] }}
                       ></div>
@@ -402,7 +399,7 @@ export default function RevenueManagement() {
                   );
                 })}
               </div>
-              
+
               {revenueData.length === 0 && (
                 <div className="text-center py-12">
                   <p className="text-gray-500 dark:text-gray-400">Không có dữ liệu</p>
@@ -425,10 +422,10 @@ export default function RevenueManagement() {
               const percentage = maxRevenue > 0 ? (item.revenue / maxRevenue) * 100 : 0;
               const deliveryRate = item.totalOrders > 0 ? (item.deliveredOrders / item.totalOrders) * 100 : 0;
               return (
-                <div 
-                  key={index} 
+                <div
+                  key={index}
                   className="space-y-2 group hover:bg-gray-50 dark:hover:bg-gray-700/50 p-3 rounded-lg transition-all duration-300"
-                  style={{ 
+                  style={{
                     animation: `slideIn 0.5s ease-out ${index * 0.1}s both`
                   }}
                 >
@@ -461,7 +458,7 @@ export default function RevenueManagement() {
                     <div className="w-full bg-gradient-to-r from-gray-200 via-gray-200 to-gray-300 dark:from-gray-700 dark:via-gray-700 dark:to-gray-600 rounded-full h-5 overflow-hidden shadow-inner">
                       <div
                         className="h-full bg-gradient-to-r from-purple-500 via-purple-600 to-pink-600 rounded-full transition-all duration-1000 flex items-center justify-between px-3 relative overflow-hidden group-hover:shadow-lg"
-                        style={{ 
+                        style={{
                           width: `${percentage}%`,
                           animation: `expandWidth 1s ease-out ${index * 0.1}s both`
                         }}
@@ -598,10 +595,10 @@ export default function RevenueManagement() {
                 {revenueData.map((item, index) => {
                   const deliveryRate = item.totalOrders > 0 ? (item.deliveredOrders / item.totalOrders) * 100 : 0;
                   return (
-                    <tr 
-                      key={index} 
+                    <tr
+                      key={index}
                       className="hover:bg-gradient-to-r hover:from-purple-50 hover:to-pink-50 dark:hover:from-gray-700 dark:hover:to-gray-700 transition-all duration-300 group"
-                      style={{ 
+                      style={{
                         animation: `fadeInUp 0.5s ease-out ${index * 0.05}s both`
                       }}
                     >
@@ -621,7 +618,7 @@ export default function RevenueManagement() {
                           <span className="text-green-600 dark:text-green-400 font-bold">{item.deliveredOrders}</span>
                           <div className="flex-1 max-w-[60px]">
                             <div className="h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-                              <div 
+                              <div
                                 className="h-full bg-gradient-to-r from-green-400 to-green-600 rounded-full transition-all duration-1000"
                                 style={{ width: `${deliveryRate}%` }}
                               ></div>

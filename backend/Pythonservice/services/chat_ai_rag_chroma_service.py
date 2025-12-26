@@ -1394,18 +1394,22 @@ class ChatAIRAGChromaService:
             with httpx.Client(timeout=30.0) as client:
                 response = client.get(
                     f"{spring_url}/admin/analytics/system-data",
-                    headers={"Authorization": f"Bearer {admin_token}"}
+                    headers={"Authorization": admin_token}
                 )
                 
                 if response.status_code != 200:
                     print(f"[ChatAIRAGChromaService] Failed to fetch analytics: {response.status_code}")
+                    print(f"[ChatAIRAGChromaService] Response body: {response.text[:500]}")
                     return 0
                 
                 data = response.json()
+                print(f"[ChatAIRAGChromaService] Analytics data keys: {data.keys()}")
                 carts = data.get('carts', [])
+                print(f"[ChatAIRAGChromaService] Found {len(carts)} carts in analytics data")
                 
                 if not carts:
                     print("[ChatAIRAGChromaService] No carts found in analytics data")
+                    print(f"[ChatAIRAGChromaService] Full data keys: {list(data.keys())}")
                     return 0
                 
                 # Clear old cart data
@@ -1417,13 +1421,18 @@ class ChatAIRAGChromaService:
                 for cart in carts:
                     user_id = cart.get('userId')
                     username = cart.get('username', '')
+                    email = cart.get('userEmail', '')  # Spring uses 'userEmail' not 'email'
                     items = cart.get('items', [])
+                    # Spring CartAnalyticsDTO uses 'totalValue', not 'totalCartValue'
                     total_value = cart.get('totalValue', 0)
                     
                     # Format cart content for embedding
-                    cart_content = f"Giỏ hàng của {username} (user_id: {user_id}):\n"
+                    cart_content = f"Giỏ hàng của {username} ({email}) (user_id: {user_id}):\n"
                     for item in items:
-                        cart_content += f"- {item.get('productName')} x{item.get('quantity')} = {item.get('subtotal'):,.0f}đ\n"
+                        product_name = item.get('productName', 'Unknown')
+                        quantity = item.get('quantity', 0)
+                        subtotal = item.get('subtotal', 0)
+                        cart_content += f"- {product_name} x{quantity} = {subtotal:,.0f}đ\n"
                     cart_content += f"Tổng giá trị: {total_value:,.0f}đ"
                     
                     cart_collection.upsert(
@@ -1432,6 +1441,7 @@ class ChatAIRAGChromaService:
                         metadatas=[{
                             "user_id": str(user_id),
                             "username": username,
+                            "email": email,
                             "total_items": len(items),
                             "total_value": str(total_value),
                             "items_json": json.dumps(items, ensure_ascii=False),

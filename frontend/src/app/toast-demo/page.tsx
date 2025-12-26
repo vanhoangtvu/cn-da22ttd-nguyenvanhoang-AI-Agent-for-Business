@@ -1,46 +1,26 @@
 'use client';
 
-'use client';
+
 
 import { useToast } from '@/components/ToastProvider';
 
 export default function ToastDemo() {
-  const { addToast } = useToast();
+  const { showToast } = useToast();
 
   const showSuccessToast = () => {
-    addToast({
-      type: 'success',
-      title: 'Thành công!',
-      message: 'Thao tác đã được thực hiện thành công.',
-      duration: 4000
-    });
+    showToast('Thao tác đã được thực hiện thành công.', 'success');
   };
 
   const showErrorToast = () => {
-    addToast({
-      type: 'error',
-      title: 'Lỗi!',
-      message: 'Đã xảy ra lỗi trong quá trình xử lý.',
-      duration: 5000
-    });
+    showToast('Đã xảy ra lỗi trong quá trình xử lý.', 'error');
   };
 
   const showWarningToast = () => {
-    addToast({
-      type: 'warning',
-      title: 'Cảnh báo!',
-      message: 'Vui lòng kiểm tra lại thông tin.',
-      duration: 6000
-    });
+    showToast('Vui lòng kiểm tra lại thông tin.', 'warning');
   };
 
   const showInfoToast = () => {
-    addToast({
-      type: 'info',
-      title: 'Thông tin',
-      message: 'Đây là một thông báo thông tin.',
-      duration: 3000
-    });
+    showToast('Đây là một thông báo thông tin.', 'info');
   };
 
   return (

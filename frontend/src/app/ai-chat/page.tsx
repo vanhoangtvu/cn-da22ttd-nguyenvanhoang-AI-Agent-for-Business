@@ -586,11 +586,7 @@ export default function AIChatPage() {
       setMessages([]);
       createNewSession(userId);
       setShowHistory(false);
-      showToast({
-        type: 'success',
-        title: 'Thành công',
-        message: 'Lịch sử đã được xóa'
-      });
+      showToast('Lịch sử đã được xóa', 'success');
     } catch (error) {
       console.error('Error clearing history:', error);
     }
@@ -1154,39 +1150,39 @@ export default function AIChatPage() {
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
                           components={{
-                            p: ({ children }) => <p className="text-base leading-relaxed mb-2">{children}</p>,
-                            strong: ({ children }) => <strong className="font-semibold text-white bg-slate-600/50 px-1 rounded">{children}</strong>,
-                            em: ({ children }) => <em className="italic text-slate-200">{children}</em>,
-                            ul: ({ children }) => <ul className="my-2 space-y-1 list-disc list-inside">{children}</ul>,
-                            ol: ({ children }) => <ol className="my-2 space-y-1 list-decimal list-inside">{children}</ol>,
-                            li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-                            code: ({ inline, children }) => inline ? (
+                            p: ({ children }: any) => <p className="text-base leading-relaxed mb-2">{children}</p>,
+                            strong: ({ children }: any) => <strong className="font-semibold text-white bg-slate-600/50 px-1 rounded">{children}</strong>,
+                            em: ({ children }: any) => <em className="italic text-slate-200">{children}</em>,
+                            ul: ({ children }: any) => <ul className="my-2 space-y-1 list-disc list-inside">{children}</ul>,
+                            ol: ({ children }: any) => <ol className="my-2 space-y-1 list-decimal list-inside">{children}</ol>,
+                            li: ({ children }: any) => <li className="leading-relaxed">{children}</li>,
+                            code: ({ inline, children }: any) => inline ? (
                               <code className="bg-slate-600 text-blue-300 px-1.5 py-0.5 rounded text-sm font-mono">{children}</code>
                             ) : (
                               <code className="block bg-slate-600 text-slate-100 p-3 rounded-lg text-sm font-mono overflow-x-auto my-2">{children}</code>
                             ),
-                            blockquote: ({ children }) => (
+                            blockquote: ({ children }: any) => (
                               <blockquote className="border-l-4 border-blue-400 pl-4 my-2 italic text-slate-300">{children}</blockquote>
                             ),
-                            h1: ({ children }) => <h1 className="text-xl font-bold text-white mt-4 mb-2">{children}</h1>,
-                            h2: ({ children }) => <h2 className="text-lg font-bold text-white mt-3 mb-2">{children}</h2>,
-                            h3: ({ children }) => <h3 className="text-base font-semibold text-white mt-3 mb-1">{children}</h3>,
-                            table: ({ children }) => (
+                            h1: ({ children }: any) => <h1 className="text-xl font-bold text-white mt-4 mb-2">{children}</h1>,
+                            h2: ({ children }: any) => <h2 className="text-lg font-bold text-white mt-3 mb-2">{children}</h2>,
+                            h3: ({ children }: any) => <h3 className="text-base font-semibold text-white mt-3 mb-1">{children}</h3>,
+                            table: ({ children }: any) => (
                               <div className="overflow-x-auto my-3 rounded-lg">
                                 <table className="min-w-full border-collapse border border-slate-600">{children}</table>
                               </div>
                             ),
-                            thead: ({ children }) => <thead className="bg-slate-600">{children}</thead>,
-                            tbody: ({ children }) => <tbody className="bg-slate-700">{children}</tbody>,
-                            tr: ({ children }) => <tr className="border-b border-slate-600">{children}</tr>,
-                            th: ({ children }) => <th className="border border-slate-600 px-3 py-2 text-left font-semibold text-white text-sm">{children}</th>,
-                            td: ({ children }) => <td className="border border-slate-600 px-3 py-2 text-slate-200 text-sm">{children}</td>,
-                            a: ({ children, href }) => (
+                            thead: ({ children }: any) => <thead className="bg-slate-600">{children}</thead>,
+                            tbody: ({ children }: any) => <tbody className="bg-slate-700">{children}</tbody>,
+                            tr: ({ children }: any) => <tr className="border-b border-slate-600">{children}</tr>,
+                            th: ({ children }: any) => <th className="border border-slate-600 px-3 py-2 text-left font-semibold text-white text-sm">{children}</th>,
+                            td: ({ children }: any) => <td className="border border-slate-600 px-3 py-2 text-slate-200 text-sm">{children}</td>,
+                            a: ({ children, href }: any) => (
                               <a href={href as string} className="text-blue-400 hover:text-blue-300 underline" target="_blank" rel="noopener noreferrer">
                                 {children}
                               </a>
                             ),
-                            img: ({ src, alt }) => {
+                            img: ({ src, alt }: any) => {
                               // Check if image is in table context (smaller thumbnail)
                               const isTableImage = src?.toString().includes('imageUrl') || alt?.toString().toLowerCase().includes('product');
                               return isTableImage ? (

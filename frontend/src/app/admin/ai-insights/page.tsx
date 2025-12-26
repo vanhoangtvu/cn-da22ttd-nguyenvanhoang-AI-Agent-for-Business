@@ -1254,8 +1254,8 @@ export default function AIInsightsPage() {
                     </button>
                   </div>
                   <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    rehypePlugins={[rehypeRaw]}
+                    remarkPlugins={[remarkGfm] as any}
+                    rehypePlugins={[rehypeRaw] as any}
                     components={{
                       h1: ({ children }) => (
                         <div className="bg-gradient-to-r from-violet-600 to-fuchsia-600 p-6 rounded-xl shadow-lg mb-8 text-white transform -rotate-1">

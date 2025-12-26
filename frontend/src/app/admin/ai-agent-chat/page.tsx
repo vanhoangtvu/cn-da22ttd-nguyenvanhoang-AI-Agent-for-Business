@@ -162,6 +162,26 @@ export default function AIAgentChatManagementPage() {
     }
   };
 
+  const handleClearAllData = async () => {
+    try {
+      const response = await fetch(`${AI_SERVICE_URL}/api/admin/clear-all-chat-data`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        setUsers([]);
+        setShowDeleteConfirm(null);
+        loadChatStats();
+        showToast('Đã xóa toàn bộ dữ liệu chat', 'success');
+      } else {
+        showToast('Lỗi khi xóa dữ liệu', 'error');
+      }
+    } catch (error) {
+      console.error('Error clearing all data:', error);
+      showToast('Lỗi kết nối khi xóa dữ liệu', 'error');
+    }
+  };
+
   const handleDeleteUserData = async (userId: string) => {
     try {
       const response = await fetch(`${AI_SERVICE_URL}/api/admin/user/${userId}/sessions`, {
@@ -188,25 +208,13 @@ export default function AIAgentChatManagementPage() {
 
       if (response.ok) {
         loadModalConfigs();
-        addToast({
-          type: 'success',
-          title: 'Thành công',
-          message: 'Modal config đã được xóa thành công!'
-        });
+        showToast('Modal config đã được xóa thành công!', 'success');
       } else {
-        addToast({
-          type: 'error',
-          title: 'Lỗi',
-          message: 'Lỗi khi xóa modal config'
-        });
+        showToast('Lỗi khi xóa modal config', 'error');
       }
     } catch (error) {
       console.error('Error deleting modal config:', error);
-      addToast({
-        type: 'error',
-        title: 'Lỗi',
-        message: 'Lỗi khi xóa modal config'
-      });
+      showToast('Lỗi khi xóa modal config', 'error');
     }
   };
 
@@ -246,7 +254,7 @@ export default function AIAgentChatManagementPage() {
       showToast("Tự động đồng bộ mỗi 30 giây", "success");
     } else {
       setAutoSyncCountdown(0);
-      addToast({ type: 'info', title: 'Auto Sync Tắt', message: 'Đã dừng tự động đồng bộ' });
+      showToast('Đã dừng tự động đồng bộ', 'info');
     }
   };
 
@@ -260,7 +268,7 @@ export default function AIAgentChatManagementPage() {
           (async () => {
             const token = localStorage.getItem('authToken');
             if (!token) {
-              addToast({ type: 'error', title: 'Lỗi xác thực', message: 'Không tìm thấy token admin' });
+              showToast('Không tìm thấy token admin', 'error');
               setIsAutoSyncing(false);
               return;
             }
@@ -272,7 +280,7 @@ export default function AIAgentChatManagementPage() {
               });
               if (res.ok) {
                 const data = await res.json();
-                addToast({ type: 'success', title: 'Đồng bộ tự động', message: `Sync thành công ${data.total_documents || 0} documents` });
+                showToast(`Đồng bộ tự động: Sync thành công ${data.total_documents || 0} documents`, 'success');
                 loadChromaCollections();
               }
             } catch (e) {
@@ -379,11 +387,7 @@ export default function AIAgentChatManagementPage() {
       // Lấy token từ localStorage (key là 'authToken' không phải 'token')
       const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
       if (!token) {
-        addToast({
-          type: 'error',
-          title: 'Lỗi xác thực',
-          message: 'Vui lòng đăng nhập lại'
-        });
+        showToast('Vui lòng đăng nhập lại', 'error');
         router.push('/login');
         return;
       }
@@ -397,31 +401,18 @@ export default function AIAgentChatManagementPage() {
 
       if (response.ok) {
         const result = await response.json();
-        addToast({
-          type: 'success',
-          title: 'Đồng bộ thành công!',
-          message: `Dữ liệu đã đồng bộ: ${result.synced_data?.users || 0} users, ${result.synced_data?.products || 0} products, ${result.synced_data?.categories || 0} categories, ${result.synced_data?.discounts || 0} discounts. Tổng: ${result.total_documents || 0} documents`,
-          duration: 8000
-        });
+        showToast(`Đồng bộ thành công! Dữ liệu: ${result.synced_data?.users || 0} users, ${result.synced_data?.products || 0} products, ${result.synced_data?.categories || 0} categories, ${result.synced_data?.discounts || 0} discounts. Tổng: ${result.total_documents || 0} documents`, 'success');
         loadChromaCollections();
       } else {
         const error = await response.json();
-        addToast({
-          type: 'error',
-          title: 'Lỗi đồng bộ',
-          message: error.message || 'Unknown error'
-        });
+        showToast(error.message || 'Lỗi đồng bộ không xác định', 'error');
         if (response.status === 401) {
           router.push('/login');
         }
       }
     } catch (error) {
       console.error('Error syncing system data:', error);
-      addToast({
-        type: 'error',
-        title: 'Lỗi kết nối',
-        message: error instanceof Error ? error.message : 'Unknown error'
-      });
+      showToast(error instanceof Error ? error.message : 'Lỗi kết nối không xác định', 'error');
     } finally {
       setRefreshing(false);
     }
@@ -999,20 +990,20 @@ export default function AIAgentChatManagementPage() {
                       <div className="mt-3 space-y-2">
                         <div className="text-sm">
                           <span className="font-medium text-gray-600 dark:text-gray-400">Model:</span>
-                          <span className="ml-2 text-gray-800 dark:text-white">{config.model || 'N/A'}</span>
+                          <span className="ml-2 text-gray-800 dark:text-white">{config.config?.model || 'N/A'}</span>
                         </div>
                         <div className="text-sm">
                           <span className="font-medium text-gray-600 dark:text-gray-400">Temperature:</span>
-                          <span className="ml-2 text-gray-800 dark:text-white">{config.temperature || 'N/A'}</span>
+                          <span className="ml-2 text-gray-800 dark:text-white">{config.config?.temperature || 'N/A'}</span>
                         </div>
                         <div className="text-sm">
                           <span className="font-medium text-gray-600 dark:text-gray-400">Max Tokens:</span>
-                          <span className="ml-2 text-gray-800 dark:text-white">{config.max_tokens || 'N/A'}</span>
+                          <span className="ml-2 text-gray-800 dark:text-white">{config.config?.max_tokens || 'N/A'}</span>
                         </div>
                         <div className="text-sm">
                           <span className="font-medium text-gray-600 dark:text-gray-400">System Prompt:</span>
                           <p className="ml-2 mt-1 text-gray-700 dark:text-gray-300 text-xs italic">
-                            {config.system_prompt?.substring(0, 100)}...
+                            {config.config?.system_prompt?.substring(0, 100)}...
                           </p>
                         </div>
                       </div>
@@ -1053,7 +1044,7 @@ export default function AIAgentChatManagementPage() {
                       body: JSON.stringify(data),
                     });
 
-                    console.log('Save response status:', response.status_code);
+                    console.log('Save response status:', response.status);
                     const responseData = await response.json();
                     console.log('Save response data:', responseData);
 
@@ -1061,26 +1052,14 @@ export default function AIAgentChatManagementPage() {
                       console.log('Save successful, reloading configs...');
                       await loadModalConfigs();
                       setShowModalConfigForm(false);
-                      addToast({
-                        type: 'success',
-                        title: 'Thành công',
-                        message: 'Modal config đã được lưu thành công!'
-                      });
+                      showToast('Modal config đã được lưu thành công!', 'success');
                     } else {
                       console.error('Save failed:', responseData);
-                      addToast({
-                        type: 'error',
-                        title: 'Lỗi',
-                        message: 'Lỗi khi lưu modal config: ' + (responseData.message || 'Unknown error')
-                      });
+                      showToast('Lỗi khi lưu modal config: ' + (responseData.message || 'Unknown error'), 'error');
                     }
                   } catch (error) {
                     console.error('Error saving modal config:', error);
-                    addToast({
-                      type: 'error',
-                      title: 'Lỗi',
-                      message: 'Lỗi khi lưu modal config: ' + (error instanceof Error ? error.message : 'Unknown error')
-                    });
+                    showToast('Lỗi khi lưu modal config: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
                   }
                 }}
                 onCancel={() => setShowModalConfigForm(false)}
@@ -1147,11 +1126,11 @@ interface ModalConfigFormProps {
 
 function ModalConfigForm({ initialData, availableModels, onSave, onCancel }: ModalConfigFormProps) {
   const [modalName, setModalName] = useState(initialData?.modal_name || '');
-  const [selectedModel, setSelectedModel] = useState(initialData?.model || '');
-  const [temperature, setTemperature] = useState(initialData?.temperature || 0.7);
-  const [maxTokens, setMaxTokens] = useState(initialData?.max_tokens || 1000);
+  const [selectedModel, setSelectedModel] = useState(initialData?.config?.model || '');
+  const [temperature, setTemperature] = useState(initialData?.config?.temperature || 0.7);
+  const [maxTokens, setMaxTokens] = useState(initialData?.config?.max_tokens || 1000);
   const [systemPrompt, setSystemPrompt] = useState(
-    initialData?.system_prompt ||
+    initialData?.config?.system_prompt ||
     "Bạn là trợ lý AI hữu ích cho một trang web thương mại điện tử. Hãy trả lời một cách thân thiện, chuyên nghiệp và hữu ích."
   );
   const [isActive, setIsActive] = useState(initialData?.is_active || false);

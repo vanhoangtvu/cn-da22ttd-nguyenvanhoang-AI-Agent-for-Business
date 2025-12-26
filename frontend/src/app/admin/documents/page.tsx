@@ -50,7 +50,7 @@ export default function DocumentsPage() {
   const loadDocuments = async () => {
     try {
       setLoading(true);
-      const data = await apiClient.getMyDocuments();
+      const data = (await apiClient.getMyDocuments()) as Document[];
       setDocuments(data);
     } catch (error) {
       console.error('Failed to load documents:', error);
@@ -180,7 +180,7 @@ export default function DocumentsPage() {
 
   const filteredDocuments = documents.filter(doc => {
     const matchesSearch = doc.fileName.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-                         doc.description?.toLowerCase().includes(searchKeyword.toLowerCase());
+      doc.description?.toLowerCase().includes(searchKeyword.toLowerCase());
     const matchesType = filterType === 'all' || doc.fileType.includes(filterType);
     return matchesSearch && matchesType;
   });
@@ -292,7 +292,7 @@ export default function DocumentsPage() {
                   <h3 className="font-bold text-lg mb-2 line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                     {doc.fileName}
                   </h3>
-                  
+
                   {doc.description && (
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
                       {doc.description}

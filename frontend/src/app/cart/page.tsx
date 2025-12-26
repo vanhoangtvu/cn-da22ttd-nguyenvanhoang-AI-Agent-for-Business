@@ -44,7 +44,7 @@ export default function CartPage() {
   const loadCart = async () => {
     setLoading(true);
     try {
-      const data = await apiClient.getCart();
+      const data = (await apiClient.getCart()) as Cart;
       setCart(data);
     } catch (err) {
       setError('Không thể tải giỏ hàng');
@@ -59,7 +59,7 @@ export default function CartPage() {
 
     setUpdating(true);
     try {
-      const updatedCart = await apiClient.updateCartItem(itemId, newQuantity);
+      const updatedCart = (await apiClient.updateCartItem(itemId, newQuantity)) as Cart;
       setCart(updatedCart);
     } catch (err) {
       showToast('Không thể cập nhật số lượng', 'error');
@@ -82,7 +82,7 @@ export default function CartPage() {
 
     setUpdating(true);
     try {
-      const updatedCart = await apiClient.removeCartItem(productId);
+      const updatedCart = (await apiClient.removeCartItem(productId)) as Cart;
       setCart(updatedCart);
     } catch (err) {
       showToast('Không thể xóa sản phẩm', 'error');

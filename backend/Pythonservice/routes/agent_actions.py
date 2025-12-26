@@ -31,6 +31,7 @@ class OrderItemRequest(BaseModel):
 class CreateOrderRequest(BaseModel):
     items: List[OrderItemRequest]
     shippingAddress: str
+    paymentMethod: Optional[str] = "CASH"  # CASH or BANK_TRANSFER
     discountCode: Optional[str] = None
 
 # Response Models
@@ -161,7 +162,8 @@ async def create_order(
         async with httpx.AsyncClient(timeout=15.0) as client:
             order_data = {
                 "items": [{"productId": item.productId, "quantity": item.quantity} for item in request.items],
-                "shippingAddress": request.shippingAddress
+                "shippingAddress": request.shippingAddress,
+                "paymentMethod": request.paymentMethod or "CASH"
             }
             if request.discountCode:
                 order_data["discountCode"] = request.discountCode
@@ -174,10 +176,11 @@ async def create_order(
             
             if response.status_code in [200, 201]:
                 order = response.json()
+                # Include full order data with qrCodeUrl if available
                 return ActionResult(
                     success=True,
                     message=f"Đơn hàng #{order.get('id')} đã được tạo thành công!",
-                    data=order
+                    data={"order": order}  # Wrap order in object for easier access
                 )
             else:
                 error_msg = response.json().get("message", "Không thể tạo đơn hàng")

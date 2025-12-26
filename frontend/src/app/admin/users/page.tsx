@@ -63,7 +63,7 @@ export default function UserManagement() {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      const data = await apiClient.getAllUsers();
+      const data = (await apiClient.getAllUsers()) as User[];
       setUsers(data);
     } catch (error) {
       console.error('Failed to load users:', error);
@@ -132,7 +132,7 @@ export default function UserManagement() {
   };
 
   const filteredUsers = users.filter(user => {
-    const matchesSearch = 
+    const matchesSearch =
       user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (user.phoneNumber && user.phoneNumber.includes(searchTerm));
@@ -193,41 +193,37 @@ export default function UserManagement() {
             <div className="flex gap-2">
               <button
                 onClick={() => setFilterRole('ALL')}
-                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-colors ${
-                  filterRole === 'ALL' 
-                    ? 'bg-purple-600 text-white' 
+                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-colors ${filterRole === 'ALL'
+                    ? 'bg-purple-600 text-white'
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
+                  }`}
               >
                 Tất cả
               </button>
               <button
                 onClick={() => setFilterRole('ADMIN')}
-                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-colors ${
-                  filterRole === 'ADMIN' 
-                    ? roleColors.ADMIN 
+                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-colors ${filterRole === 'ADMIN'
+                    ? roleColors.ADMIN
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
+                  }`}
               >
                 Admin
               </button>
               <button
                 onClick={() => setFilterRole('BUSINESS')}
-                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-colors ${
-                  filterRole === 'BUSINESS' 
-                    ? roleColors.BUSINESS 
+                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-colors ${filterRole === 'BUSINESS'
+                    ? roleColors.BUSINESS
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
+                  }`}
               >
                 Business
               </button>
               <button
                 onClick={() => setFilterRole('CUSTOMER')}
-                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-colors ${
-                  filterRole === 'CUSTOMER' 
-                    ? roleColors.CUSTOMER 
+                className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-colors ${filterRole === 'CUSTOMER'
+                    ? roleColors.CUSTOMER
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
+                  }`}
               >
                 Customer
               </button>
@@ -257,9 +253,9 @@ export default function UserManagement() {
                   <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <img 
-                          src={user.avatarUrl || '/placeholder-avatar.png'} 
-                          alt={user.username} 
+                        <img
+                          src={user.avatarUrl || '/placeholder-avatar.png'}
+                          alt={user.username}
                           className="w-10 h-10 rounded-full object-cover"
                         />
                         <div>
@@ -294,11 +290,10 @@ export default function UserManagement() {
                           <button
                             onClick={() => handleChangeRole(user)}
                             disabled={user.id === userData.userId}
-                            className={`px-3 py-2 rounded-lg transition-colors text-sm font-semibold ${
-                              user.id === userData.userId
+                            className={`px-3 py-2 rounded-lg transition-colors text-sm font-semibold ${user.id === userData.userId
                                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                 : 'bg-purple-600 text-white hover:bg-purple-700'
-                            }`}
+                              }`}
                             title="Đổi vai trò"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -309,11 +304,10 @@ export default function UserManagement() {
                         <button
                           onClick={() => handleChangeStatus(user)}
                           disabled={user.id === userData.userId}
-                          className={`px-3 py-2 rounded-lg transition-colors text-sm font-semibold ${
-                            user.id === userData.userId
+                          className={`px-3 py-2 rounded-lg transition-colors text-sm font-semibold ${user.id === userData.userId
                               ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                               : 'bg-yellow-600 text-white hover:bg-yellow-700'
-                          }`}
+                            }`}
                           title="Đổi trạng thái"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -323,11 +317,10 @@ export default function UserManagement() {
                         <button
                           onClick={() => handleDelete(user.id, user.username)}
                           disabled={user.id === userData.userId}
-                          className={`px-3 py-2 rounded-lg transition-colors text-sm font-semibold ${
-                            user.id === userData.userId
+                          className={`px-3 py-2 rounded-lg transition-colors text-sm font-semibold ${user.id === userData.userId
                               ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                               : 'bg-red-600 text-white hover:bg-red-700'
-                          }`}
+                            }`}
                           title="Xóa"
                         >
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -369,9 +362,9 @@ export default function UserManagement() {
             </div>
             <div className="p-6 space-y-6">
               <div className="flex items-center gap-4">
-                <img 
-                  src={selectedUser.avatarUrl || '/placeholder-avatar.png'} 
-                  alt={selectedUser.username} 
+                <img
+                  src={selectedUser.avatarUrl || '/placeholder-avatar.png'}
+                  alt={selectedUser.username}
                   className="w-24 h-24 rounded-full object-cover border-4 border-purple-500"
                 />
                 <div>

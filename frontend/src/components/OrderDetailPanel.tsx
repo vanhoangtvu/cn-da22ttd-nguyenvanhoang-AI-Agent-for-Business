@@ -121,7 +121,7 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
     try {
       setLoading(true);
       console.log('Loading order detail for ID:', orderId);
-      const data = await apiClient.getOrder(orderId);
+      const data = (await apiClient.getOrder(orderId)) as OrderDetail;
       console.log('Order data received:', data);
       setOrder(data);
     } catch (error) {
@@ -432,8 +432,8 @@ export default function OrderDetailPanel({ orderId, onClose }: OrderDetailPanelP
                 </p>
                 {order.paymentMethod === 'BANK_TRANSFER' && (
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold ${order.status === 'PENDING'
-                      ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                      : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                    ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
+                    : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
                     }`}>
                     {order.status === 'PENDING' ? '⏳ Chưa thanh toán' : '✓ Đã thanh toán'}
                   </span>

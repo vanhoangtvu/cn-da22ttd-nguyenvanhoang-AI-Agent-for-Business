@@ -47,8 +47,8 @@ const parseProducts = (content: string): { products: Product[]; cleanContent: st
 
   // Pattern 1: Find markdown images with product info
   const imagePattern = /!\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g;
-  const images: Array<{alt: string, url: string, index: number}> = [];
-  
+  const images: Array<{ alt: string, url: string, index: number }> = [];
+
   let imgMatch;
   while ((imgMatch = imagePattern.exec(content)) !== null) {
     images.push({
@@ -64,7 +64,7 @@ const parseProducts = (content: string): { products: Product[]; cleanContent: st
   images.forEach(img => {
     const beforeImage = content.substring(Math.max(0, img.index - 500), img.index);
     const afterImage = content.substring(img.index, Math.min(content.length, img.index + 600));
-    
+
     // Find product name - look for **Name** pattern or numbered list
     let name = img.alt;
     const namePatterns = [
@@ -72,7 +72,7 @@ const parseProducts = (content: string): { products: Product[]; cleanContent: st
       /\d+\.\s+\*\*([^*]+)\*\*/,     // Numbered list with bold
       /^[•\-\*]\s+\*\*([^*]+)\*\*/m  // Bullet list with bold
     ];
-    
+
     for (const pattern of namePatterns) {
       const match = beforeImage.match(pattern);
       if (match) {
@@ -80,14 +80,14 @@ const parseProducts = (content: string): { products: Product[]; cleanContent: st
         break;
       }
     }
-    
+
     // Find Product ID from metadata
     let productId: number | undefined;
     const idMatch = afterImage.match(/ID:\s*(\d+)|Product ID:\s*(\d+)|Mã SP:\s*(\d+)/i);
     if (idMatch) {
       productId = parseInt(idMatch[1] || idMatch[2] || idMatch[3]);
     }
-    
+
     // Find price - multiple formats with Vietnamese currency
     const pricePatterns = [
       /Giá bán:\s*([0-9.,]+\s*(?:VNĐ|VND|đ))/i,
@@ -95,7 +95,7 @@ const parseProducts = (content: string): { products: Product[]; cleanContent: st
       /Price:\s*([0-9.,]+\s*(?:VNĐ|VND|đ))/i,
       /([0-9]{1,3}(?:[.,][0-9]{3})*\s*(?:VNĐ|VND|đ))/i
     ];
-    
+
     let price: string | undefined;
     for (const pattern of pricePatterns) {
       const match = afterImage.match(pattern);
@@ -104,7 +104,7 @@ const parseProducts = (content: string): { products: Product[]; cleanContent: st
         break;
       }
     }
-    
+
     // Find description - look for common patterns
     let description = '';
     const descPatterns = [
@@ -113,7 +113,7 @@ const parseProducts = (content: string): { products: Product[]; cleanContent: st
       /Đặc điểm:\s*([^\n*]+)/i,
       /\n\s*\*\s*([^*\n]+?)(?=\n\s*\*|Giá:|$)/
     ];
-    
+
     for (const pattern of descPatterns) {
       const match = afterImage.match(pattern);
       if (match && !match[1].includes('Giá') && !match[1].includes('VNĐ')) {
@@ -121,7 +121,7 @@ const parseProducts = (content: string): { products: Product[]; cleanContent: st
         break;
       }
     }
-    
+
     // If no specific description found, try to get text after image
     if (!description) {
       const textMatch = afterImage.match(/\n([^*\n]{20,150}?)(?:\n|Giá:|$)/);
@@ -129,7 +129,7 @@ const parseProducts = (content: string): { products: Product[]; cleanContent: st
         description = textMatch[1].trim();
       }
     }
-    
+
     // Find stock/quantity
     const stockPatterns = [
       /Tồn kho:\s*(\d+)/i,
@@ -137,7 +137,7 @@ const parseProducts = (content: string): { products: Product[]; cleanContent: st
       /Số lượng:\s*(\d+)/i,
       /Stock:\s*(\d+)/i
     ];
-    
+
     let stock: number | undefined;
     for (const pattern of stockPatterns) {
       const match = afterImage.match(pattern);
@@ -146,11 +146,11 @@ const parseProducts = (content: string): { products: Product[]; cleanContent: st
         break;
       }
     }
-    
+
     // Find category
     const categoryMatch = afterImage.match(/Danh mục:\s*([^\n*]+)/i);
     const categoryName = categoryMatch ? categoryMatch[1].trim() : undefined;
-    
+
     products.push({
       id: productId,
       name,
@@ -166,8 +166,8 @@ const parseProducts = (content: string): { products: Product[]; cleanContent: st
 
   // Remove duplicates based on imageUrl or productId
   const uniqueProducts = products.filter((product, index, self) =>
-    index === self.findIndex((p) => 
-      (p.id && product.id && p.id === product.id) || 
+    index === self.findIndex((p) =>
+      (p.id && product.id && p.id === product.id) ||
       (p.imageUrl === product.imageUrl)
     )
   );
@@ -212,7 +212,7 @@ export default function AIContentWidget() {
     try {
       const userData = apiClient.getUserData();
       const userId = userData?.userId?.toString() || 'anonymous';
-      
+
       const response = await fetch(`${AI_SERVICE_URL}/ai-config/user-preference/${userId}`);
       if (response.ok) {
         const data = await response.json();
@@ -232,7 +232,7 @@ export default function AIContentWidget() {
     const loadAIConfig = async () => {
       // Only for Gemini provider
       if (aiProvider !== 'gemini') return;
-      
+
       try {
         const res = await fetch(`${AI_SERVICE_URL}/ai-config/user-config`);
         if (res.ok) {
@@ -292,10 +292,10 @@ export default function AIContentWidget() {
     try {
       // Get auth token
       const authToken = apiClient.getAuthToken();
-      
+
       // Use the main chat endpoint with RAG
       const apiEndpoint = `${AI_SERVICE_URL}/api/groq-chat/chat`;
-      
+
       const response = await fetch(apiEndpoint, {
         method: 'POST',
         headers: {
@@ -362,11 +362,10 @@ export default function AIContentWidget() {
       {/* Chat Toggle Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 ${
-          isOpen
+        className={`fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 ${isOpen
             ? 'bg-gray-600 hover:bg-gray-700'
             : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
-        }`}
+          }`}
       >
         {isOpen ? (
           <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -385,11 +384,10 @@ export default function AIContentWidget() {
 
       {/* Chat Window */}
       <div
-        className={`fixed bottom-24 right-6 z-50 w-96 h-[600px] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300 transform ${
-          isOpen
+        className={`fixed bottom-24 right-6 z-50 w-96 h-[600px] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300 transform ${isOpen
             ? 'opacity-100 scale-100 translate-y-0'
             : 'opacity-0 scale-95 translate-y-4 pointer-events-none'
-        }`}
+          }`}
       >
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4 flex items-center gap-3">
@@ -432,11 +430,10 @@ export default function AIContentWidget() {
                 className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`${message.role === 'user' ? 'max-w-[80%]' : 'max-w-[95%]'} rounded-2xl px-4 py-3 ${
-                    message.role === 'user'
+                  className={`${message.role === 'user' ? 'max-w-[80%]' : 'max-w-[95%]'} rounded-2xl px-4 py-3 ${message.role === 'user'
                       ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-br-md'
                       : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 shadow-md rounded-bl-md'
-                  }`}
+                    }`}
                 >
                   {message.role === 'assistant' && (
                     <div className="flex items-center gap-2 mb-2 pb-2 border-b border-gray-100 dark:border-gray-700">
@@ -452,46 +449,46 @@ export default function AIContentWidget() {
                   {/* AI Response Text */}
                   <div className="prose prose-sm dark:prose-invert max-w-none prose-p:my-1 prose-headings:mt-3 prose-headings:mb-2 prose-ul:my-2 prose-ol:my-2 prose-li:my-0.5">
                     {message.role === 'assistant' ? (
-                      <ReactMarkdown 
+                      <ReactMarkdown
                         remarkPlugins={[remarkGfm]}
                         components={{
-                          a: ({node, ...props}) => (
+                          a: ({ node, ...props }: any) => (
                             <a {...props} className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline decoration-blue-600/30 hover:decoration-blue-600 transition-colors font-medium" target="_blank" rel="noopener noreferrer" />
                           ),
-                          img: ({node, ...props}) => (
+                          img: ({ node, ...props }: any) => (
                             <img {...props} className="max-w-full h-auto rounded-xl shadow-lg my-3 border border-gray-200 dark:border-gray-700" loading="lazy" alt={props.alt || 'Product image'} />
                           ),
-                          p: ({node, ...props}) => (
+                          p: ({ node, ...props }: any) => (
                             <p {...props} className="my-2 leading-relaxed text-gray-800 dark:text-gray-200" />
                           ),
-                          strong: ({node, ...props}) => (
+                          strong: ({ node, ...props }: any) => (
                             <strong {...props} className="font-semibold text-gray-900 dark:text-white bg-gray-100 dark:bg-gray-700/50 px-1 rounded" />
                           ),
-                          ul: ({node, ...props}) => (
+                          ul: ({ node, ...props }: any) => (
                             <ul {...props} className="my-2 space-y-1 list-disc list-inside text-gray-700 dark:text-gray-300" />
                           ),
-                          ol: ({node, ...props}) => (
+                          ol: ({ node, ...props }: any) => (
                             <ol {...props} className="my-2 space-y-1 list-decimal list-inside text-gray-700 dark:text-gray-300" />
                           ),
-                          li: ({node, ...props}) => (
+                          li: ({ node, ...props }: any) => (
                             <li {...props} className="leading-relaxed" />
                           ),
-                          code: ({node, inline, ...props}: any) => 
+                          code: ({ node, inline, ...props }: any) =>
                             inline ? (
                               <code {...props} className="bg-gray-100 dark:bg-gray-700 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded text-sm font-mono" />
                             ) : (
                               <code {...props} className="block bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 p-3 rounded-lg text-sm font-mono overflow-x-auto" />
                             ),
-                          blockquote: ({node, ...props}) => (
+                          blockquote: ({ node, ...props }: any) => (
                             <blockquote {...props} className="border-l-4 border-blue-500 pl-4 my-2 italic text-gray-600 dark:text-gray-400" />
                           ),
-                          h1: ({node, ...props}) => (
+                          h1: ({ node, ...props }: any) => (
                             <h1 {...props} className="text-xl font-bold text-gray-900 dark:text-white mt-4 mb-2" />
                           ),
-                          h2: ({node, ...props}) => (
+                          h2: ({ node, ...props }: any) => (
                             <h2 {...props} className="text-lg font-bold text-gray-900 dark:text-white mt-3 mb-2" />
                           ),
-                          h3: ({node, ...props}) => (
+                          h3: ({ node, ...props }: any) => (
                             <h3 {...props} className="text-base font-semibold text-gray-900 dark:text-white mt-3 mb-1" />
                           )
                         }}
@@ -542,7 +539,7 @@ export default function AIContentWidget() {
               </div>
             );
           })}
-          
+
           {/* Loading indicator */}
           {isLoading && !isStreaming && (
             <div className="flex justify-start p-4">

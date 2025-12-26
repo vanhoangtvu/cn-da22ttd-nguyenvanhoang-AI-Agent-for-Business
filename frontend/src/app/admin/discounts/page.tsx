@@ -42,7 +42,7 @@ export default function DiscountsPage() {
     code: '',
     name: '',
     description: '',
-    discountType: 'PERCENTAGE' as const,
+    discountType: 'PERCENTAGE' as 'PERCENTAGE' | 'FIXED_AMOUNT' | 'FREE_SHIPPING',
     discountValue: 0,
     minOrderValue: 0,
     maxDiscountAmount: 0,
@@ -107,7 +107,7 @@ export default function DiscountsPage() {
       discountValue: discount.discountValue,
       minOrderValue: discount.minOrderValue || 0,
       maxDiscountAmount: discount.maxDiscountAmount || 0,
-      usageLimit: discount.usageLimit,
+      usageLimit: discount.usageLimit ?? null,
       startDate: discount.startDate ? new Date(discount.startDate).toISOString().slice(0, 16) : '',
       endDate: discount.endDate ? new Date(discount.endDate).toISOString().slice(0, 16) : '',
     });
@@ -299,8 +299,8 @@ export default function DiscountsPage() {
                     <td className="px-6 py-4">
                       <div>
                         <span className={`px-3 py-1 rounded-full text-sm font-semibold ${discount.discountType === 'PERCENTAGE' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
-                            discount.discountType === 'FIXED_AMOUNT' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
-                              'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
+                          discount.discountType === 'FIXED_AMOUNT' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
+                            'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
                           }`}>
                           {discount.discountType === 'PERCENTAGE' ? 'Phần trăm' :
                             discount.discountType === 'FIXED_AMOUNT' ? 'Cố định' : 'Miễn phí ship'}
@@ -322,7 +322,7 @@ export default function DiscountsPage() {
                           <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mt-2">
                             <div
                               className={`h-2 rounded-full ${discount.usagePercentage >= 90 ? 'bg-red-500' :
-                                  discount.usagePercentage >= 70 ? 'bg-yellow-500' : 'bg-green-500'
+                                discount.usagePercentage >= 70 ? 'bg-yellow-500' : 'bg-green-500'
                                 }`}
                               style={{ width: `${Math.min(discount.usagePercentage, 100)}%` }}
                             ></div>
