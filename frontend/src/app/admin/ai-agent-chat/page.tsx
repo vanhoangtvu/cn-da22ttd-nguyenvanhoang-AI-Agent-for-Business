@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/AdminLayout';
 import { Trash2, RefreshCw, MessageSquare, Users, MessageCircle, Database, FileText, Layers, Settings, Plus, Search, Eye, AlertCircle } from 'lucide-react';
-import { useToast } from '@/components/Toast';
+import { useToast } from '@/components/ToastProvider';
 
 interface ChatSession {
   session_id: string;
@@ -72,7 +72,7 @@ export default function AIAgentChatManagementPage() {
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [autoSyncCountdown, setAutoSyncCountdown] = useState<number>(0);
   const [isAutoSyncing, setIsAutoSyncing] = useState(false);
-  const { addToast } = useToast();
+  const { showToast } = useToast();
   const checkAuth = async () => {
     try {
       const userDataStr = typeof window !== 'undefined' ? localStorage.getItem('userData') : null;
@@ -243,7 +243,7 @@ export default function AIAgentChatManagementPage() {
     setIsAutoSyncing(!isAutoSyncing);
     if (!isAutoSyncing) {
       setAutoSyncCountdown(30);
-      addToast({ type: 'success', title: 'Auto Sync Bật', message: 'Tự động đồng bộ mỗi 30 giây' });
+      showToast("Tự động đồng bộ mỗi 30 giây", "success");
     } else {
       setAutoSyncCountdown(0);
       addToast({ type: 'info', title: 'Auto Sync Tắt', message: 'Đã dừng tự động đồng bộ' });

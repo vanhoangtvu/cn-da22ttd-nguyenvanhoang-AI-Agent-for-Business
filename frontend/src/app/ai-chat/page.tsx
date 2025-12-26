@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Plus, Loader2, Bot, Trash2, MessageSquare, User, Send, ClipboardList, ArrowLeft, ShoppingCart } from 'lucide-react';
 import { API_CONFIG, getGroqChatUrl } from '@/config/api.config';
 import { apiClient } from '@/lib/api';
-import { useToast } from '@/components/Toast';
+import { useToast } from '@/components/ToastProvider';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Inter, Poppins } from 'next/font/google';
@@ -220,9 +220,11 @@ export default function AIChatPage() {
   const [cartCount, setCartCount] = useState<number>(0);
   const [showCartPreview, setShowCartPreview] = useState<boolean>(false);
   const [cartItems, setCartItems] = useState<any[]>([]);
+  const [showQRModal, setShowQRModal] = useState<boolean>(false);
+  const [qrOrderData, setQrOrderData] = useState<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const { addToast } = useToast();
+  const { showToast } = useToast();
 
   // Scroll to bottom khi có message mới
   const scrollToBottom = () => {
@@ -584,7 +586,7 @@ export default function AIChatPage() {
       setMessages([]);
       createNewSession(userId);
       setShowHistory(false);
-      addToast({
+      showToast({
         type: 'success',
         title: 'Thành công',
         message: 'Lịch sử đã được xóa'
@@ -599,7 +601,7 @@ export default function AIChatPage() {
     const authToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
 
     if (!authToken) {
-      addToast({ type: 'error', title: 'Lỗi', message: 'Vui lòng đăng nhập để thực hiện thao tác này' });
+      showToast('Vui lòng đăng nhập để thực hiện thao tác này', 'error');
       return;
     }
 
@@ -617,16 +619,17 @@ export default function AIChatPage() {
         case 'APPLY_DISCOUNT':
           // For now, just copy discount code and show toast
           navigator.clipboard?.writeText(action.discountCode);
-          addToast({
-            type: 'success',
-            title: 'Đã copy mã!',
-            message: `Mã ${action.discountCode} đã được copy. Áp dụng khi thanh toán.`
-          });
+          showToast(`Mã ${action.discountCode} đã được copy. Áp dụng khi thanh toán.`, 'success');
           setActions([]);
           return;
 
         case 'VIEW_CART':
           window.location.href = '/cart';
+          return;
+
+        case 'GO_TO_CHECKOUT':
+          // Redirect to checkout page
+          window.location.href = '/checkout';
           return;
 
         case 'CREATE_ORDER':
@@ -663,15 +666,15 @@ export default function AIChatPage() {
               setPaymentMethod('COD');
               setShowOrderConfirm(true);
             } else {
-              addToast({ type: 'warning', title: 'Giỏ hàng trống', message: 'Vui lòng thêm sản phẩm vào giỏ trước khi đặt hàng' });
+              showToast('Vui lòng thêm sản phẩm vào giỏ trước khi đặt hàng', 'warning');
             }
           } catch (err) {
-            addToast({ type: 'error', title: 'Lỗi', message: 'Không thể lấy thông tin giỏ hàng' });
+            showToast('Không thể lấy thông tin giỏ hàng', 'error');
           }
           return;
 
         default:
-          addToast({ type: 'error', title: 'Lỗi', message: 'Thao tác không hợp lệ' });
+          showToast('Thao tác không hợp lệ', 'error');
           return;
       }
 
@@ -688,11 +691,7 @@ export default function AIChatPage() {
       const data = await result.json();
 
       if (data.success) {
-        addToast({
-          type: 'success',
-          title: 'Thành công!',
-          message: data.message || `Đã thêm ${action.productName} vào giỏ hàng!`
-        });
+        showToast(data.message || `Đã thêm ${action.productName} vào giỏ hàng!`, 'success');
 
         // Add confirmation message to chat
         const confirmMessage: Message = {
@@ -706,17 +705,13 @@ export default function AIChatPage() {
         // Update cart count
         fetchCartCount();
       } else {
-        addToast({
-          type: 'error',
-          title: 'Thất bại',
-          message: data.message || 'Không thể thực hiện thao tác'
-        });
+        showToast(data.message || 'Không thể thực hiện thao tác', 'error');
       }
 
       setActions([]); // Clear actions after execution
     } catch (error) {
       console.error('Action execution error:', error);
-      addToast({ type: 'error', title: 'Lỗi', message: 'Không thể kết nối đến server' });
+      showToast('Không thể kết nối đến server', 'error');
     }
   };
 
@@ -726,14 +721,14 @@ export default function AIChatPage() {
 
     const authToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
     if (!authToken) {
-      addToast({ type: 'error', title: 'Lỗi', message: 'Vui lòng đăng nhập' });
+      showToast('Vui lòng đăng nhập', 'error');
       return;
     }
 
     try {
       // Validate shipping address
       if (!shippingAddress || shippingAddress.trim() === '') {
-        addToast({ type: 'error', title: 'Lỗi', message: 'Vui lòng nhập địa chỉ giao hàng' });
+        showToast('Vui lòng nhập địa chỉ giao hàng', 'error');
         return;
       }
 
@@ -746,7 +741,8 @@ export default function AIChatPage() {
         paymentMethod: paymentMethod
       };
 
-      const response = await fetch(`${API_CONFIG.AI_SERVICE_URL}/api/agent/order/create`, {
+      // Call Spring API directly instead of Python proxy to avoid connection issues
+      const response = await fetch(`${API_CONFIG.API_URL}/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -757,35 +753,38 @@ export default function AIChatPage() {
 
       const result = await response.json();
 
-      if (result.success) {
-        addToast({
-          type: 'success',
-          title: '🎉 Đặt hàng thành công!',
-          message: result.message || 'Đơn hàng của bạn đã được tạo'
-        });
+      if (response.ok) {
+        // Check if payment method is BANK_TRANSFER and order has QR code
+        const order = result;
+        if (paymentMethod === 'BANK_TRANSFER' && order && order.qrCodeUrl) {
+          setQrOrderData(order);
+          setShowQRModal(true);
+          setShowOrderConfirm(false);
+          setOrderDetails(null);
+          setActions([]);
+        } else {
+          // COD or no QR - show success toast
+          showToast(`Đơn hàng #${order.id} đã được tạo thành công!` || 'Đơn hàng của bạn đã được tạo', 'success');
 
-        // Add success message to chat
-        const successMessage: Message = {
-          role: 'assistant',
-          content: `🎉 **Đặt hàng thành công!**\n\n${result.message}\n\nCảm ơn bạn đã mua hàng! Chúng tôi sẽ liên hệ xác nhận đơn hàng sớm nhất.`,
-          model: 'system',
-          timestamp: new Date().toISOString(),
-        };
-        setMessages((prev) => [...prev, successMessage]);
+          // Add success message to chat
+          const successMessage: Message = {
+            role: 'assistant',
+            content: `🎉 **Đặt hàng thành công!**\n\n${result.message}\n\nCảm ơn bạn đã mua hàng! Chúng tôi sẽ liên hệ xác nhận đơn hàng sớm nhất.`,
+            model: 'system',
+            timestamp: new Date().toISOString(),
+          };
+          setMessages((prev) => [...prev, successMessage]);
 
-        setShowOrderConfirm(false);
-        setOrderDetails(null);
-        setActions([]);
+          setShowOrderConfirm(false);
+          setOrderDetails(null);
+          setActions([]);
+        }
       } else {
-        addToast({
-          type: 'error',
-          title: 'Đặt hàng thất bại',
-          message: result.message || 'Vui lòng thử lại'
-        });
+        showToast(result.message || 'Vui lòng thử lại', 'error');
       }
     } catch (error) {
       console.error('Order creation error:', error);
-      addToast({ type: 'error', title: 'Lỗi', message: 'Không thể kết nối đến server' });
+      showToast('Không thể kết nối đến server', 'error');
     }
   };
 
@@ -1231,15 +1230,15 @@ export default function AIChatPage() {
                                 product={product}
                                 onAddToCart={async (productId, productName) => {
                                   if (!apiClient.isAuthenticated()) {
-                                    addToast({ type: 'error', title: 'Lỗi', message: 'Vui lòng đăng nhập' });
+                                    showToast('Vui lòng đăng nhập', 'error');
                                     return;
                                   }
                                   try {
                                     await apiClient.addToCart(productId, 1);
-                                    addToast({ type: 'success', title: 'Thành công', message: `Đã thêm ${productName} vào giỏ` });
+                                    showToast(`Đã thêm ${productName} vào giỏ`, 'success');
                                     fetchCartCount();
                                   } catch (err) {
-                                    addToast({ type: 'error', title: 'Lỗi', message: 'Không thể thêm vào giỏ' });
+                                    showToast('Không thể thêm vào giỏ', 'error');
                                   }
                                 }}
                                 onViewDetail={async (productId) => {
@@ -1529,6 +1528,105 @@ export default function AIChatPage() {
             />
           </div>
         </>
+      )}
+
+      {/* QR Code Modal for Bank Transfer */}
+      {showQRModal && qrOrderData && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl shadow-2xl border border-green-500/30 max-w-md w-full">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-green-600 to-emerald-600 p-6 rounded-t-2xl">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                  <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-white">💳 Thanh toán QR</h2>
+                  <p className="text-green-100 text-sm">Đơn hàng #{qrOrderData.id}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-4">
+              <div className="bg-green-500/10 border border-yellow-500/30 rounded-xl p-4">
+                <p className="text-green-300 text-sm font-medium text-center">
+                  📱 Quét mã QR bằng ứng dụng ngân hàng
+                </p>
+              </div>
+
+              {/* QR Code */}
+              {qrOrderData.qrCodeUrl && (
+                <div className="bg-white p-4 rounded-xl">
+                  <img
+                    src={qrOrderData.qrCodeUrl}
+                    alt="VietQR Code"
+                    className="w-48 h-48 mx-auto object-contain"
+                  />
+                </div>
+              )}
+
+              {/* Bank Details */}
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Ngân hàng:</span>
+                  <span className="text-white font-semibold">MB Bank</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">STK:</span>
+                  <span className="text-white font-semibold">0889559357</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Tên TK:</span>
+                  <span className="text-white font-semibold">NGUYEN VAN HOANG</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Số tiền:</span>
+                  <span className="text-emerald-400 font-bold text-lg">{qrOrderData.totalAmount?.toLocaleString('vi-VN')}đ</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Nội dung:</span>
+                  <span className="text-white font-semibold">DH{qrOrderData.id}</span>
+                </div>
+              </div>
+
+              <p className="text-blue-400 text-xs text-center">
+                ℹ️ Số tiền và nội dung sẽ tự động điền khi quét QR
+              </p>
+
+              {/* Close Button */}
+              <button
+                onClick={async () => {
+                  // Auto-confirm order for testing
+                  try {
+                    await apiClient.updateOrderStatus(qrOrderData.id, 'CONFIRMED');
+                  } catch (error) {
+                    console.error('Failed to update order status:', error);
+                  }
+                  setShowQRModal(false);
+                  showToast('Đơn hàng đã được xác nhận.', 'success');
+
+                  // Add success message to chat
+                  const successMessage: Message = {
+                    role: 'assistant',
+                    content: `🎉 **Đặt hàng thành công!**\n\nĐơn hàng #${qrOrderData.id} đã được xác nhận.\n\nCảm ơn bạn đã mua hàng! Chúng tôi sẽ liên hệ xác nhận đơn hàng sớm nhất.`,
+                    model: 'system',
+                    timestamp: new Date().toISOString(),
+                  };
+                  setMessages((prev) => [...prev, successMessage]);
+                }}
+                className="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-bold hover:shadow-lg transition-all duration-300 flex items-center justify-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Đã hiểu, đóng
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

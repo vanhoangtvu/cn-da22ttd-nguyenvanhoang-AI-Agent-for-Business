@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useToast } from '@/components/Toast';
+import { useToast } from '@/components/ToastProvider';
 
 export default function ToastDemo() {
   const { addToast } = useToast();
