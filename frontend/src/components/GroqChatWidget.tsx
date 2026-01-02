@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Loader, AlertCircle, X, Hand, Lightbulb, Check } from 'lucide-react';
+import { Send, Loader, AlertCircle, X, Hand, Lightbulb, Check, RefreshCw } from 'lucide-react';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -30,6 +30,11 @@ export default function GroqChatWidget({
   const [selectedModel, setSelectedModel] = useState('openai/gpt-oss-20b');
   const [availableModels, setAvailableModels] = useState<string[]>([]);
 
+  // Session management
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
   // Load available models on mount
   useEffect(() => {
     const loadModels = async () => {
@@ -47,6 +52,81 @@ export default function GroqChatWidget({
 
     loadModels();
   }, []);
+
+  // Initialize session and user on mount
+  useEffect(() => {
+    // Get or create session ID
+    const storedSessionId = localStorage.getItem('groq_chat_session_id');
+    if (storedSessionId) {
+      setSessionId(storedSessionId);
+    } else {
+      const newSessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      setSessionId(newSessionId);
+      localStorage.setItem('groq_chat_session_id', newSessionId);
+    }
+
+    // Get user ID from auth token if available
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        const extractedUserId = payload.userId || payload.sub || payload.id;
+        if (extractedUserId) {
+          // Use user_X format for consistency with backend
+          setUserId(`user_${extractedUserId}`);
+        }
+      } catch (e) {
+        console.error('Failed to parse token:', e);
+      }
+    }
+  }, []);
+
+  // Load chat history when session and user are ready
+  useEffect(() => {
+    if (sessionId && userId) {
+      loadChatHistory();
+    }
+  }, [sessionId, userId]);
+
+  const loadChatHistory = async () => {
+    if (!sessionId || !userId) return;
+
+    setLoadingHistory(true);
+    try {
+      const token = localStorage.getItem('token');
+      const extractedUserId = userId.replace('user_', ''); // Remove prefix for API call
+
+      const response = await fetch(
+        `${GROQ_API_URL}/api/groq-chat/user/${userId}/history/${sessionId}?auth_user_id=${userId}`,
+        {
+          headers: token ? {
+            'Authorization': `Bearer ${token}`,
+          } : {},
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const historyMessages: ChatMessage[] = data.messages.map((msg: any) => ({
+          role: msg.role,
+          content: msg.content,
+          timestamp: msg.timestamp,
+        }));
+        setMessages(historyMessages);
+        console.log(`[Chat] Loaded ${historyMessages.length} messages from history`);
+      } else if (response.status === 404) {
+        // No history found - this is normal for new sessions
+        console.log('[Chat] No history found for this session');
+      } else {
+        console.error('[Chat] Failed to load history:', response.status);
+      }
+    } catch (err) {
+      console.error('[Chat] Error loading chat history:', err);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
+
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -70,14 +150,18 @@ export default function GroqChatWidget({
     setError(null);
 
     try {
+      const token = localStorage.getItem('token');
       const response = await fetch(`${GROQ_API_URL}/api/groq-chat/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           message: input.trim(),
           model: selectedModel,
+          session_id: sessionId,
+          user_id: userId,
         }),
       });
 
@@ -109,6 +193,15 @@ export default function GroqChatWidget({
     setError(null);
   };
 
+  const startNewChat = () => {
+    const newSessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    setSessionId(newSessionId);
+    localStorage.setItem('groq_chat_session_id', newSessionId);
+    setMessages([]);
+    setError(null);
+    console.log('[Chat] Started new session:', newSessionId);
+  };
+
   if (compact) {
     return (
       <div className={`bg-white rounded-lg shadow-lg border border-gray-200 ${className}`}>
@@ -130,7 +223,16 @@ export default function GroqChatWidget({
 
         {/* Messages */}
         <div className="h-80 overflow-y-auto p-4 space-y-4 bg-gray-50">
-          {messages.length === 0 && (
+          {loadingHistory && (
+            <div className="text-center text-gray-500 py-8">
+              <div className="flex items-center justify-center gap-2">
+                <Loader className="w-4 h-4 animate-spin" />
+                <p className="text-sm">Loading chat history...</p>
+              </div>
+            </div>
+          )}
+
+          {!loadingHistory && messages.length === 0 && (
             <div className="text-center text-gray-500 py-8">
               <p className="text-sm flex items-center gap-1"><Hand className="w-4 h-4" /> Start a conversation!</p>
             </div>
@@ -143,8 +245,8 @@ export default function GroqChatWidget({
             >
               <div
                 className={`max-w-xs px-4 py-2 rounded-lg ${msg.role === 'user'
-                    ? 'bg-blue-600 text-white rounded-br-none'
-                    : 'bg-gray-300 text-gray-900 rounded-bl-none'
+                  ? 'bg-blue-600 text-white rounded-br-none'
+                  : 'bg-gray-300 text-gray-900 rounded-bl-none'
                   }`}
               >
                 <p className="text-sm">{msg.content}</p>
@@ -213,13 +315,23 @@ export default function GroqChatWidget({
           </div>
 
           {messages.length > 0 && (
-            <button
-              type="button"
-              onClick={clearChat}
-              className="text-sm text-gray-600 hover:text-gray-900 mt-2"
-            >
-              Clear Chat
-            </button>
+            <div className="flex gap-2 mt-2">
+              <button
+                type="button"
+                onClick={clearChat}
+                className="text-sm text-gray-600 hover:text-gray-900"
+              >
+                Clear Chat
+              </button>
+              <button
+                type="button"
+                onClick={startNewChat}
+                className="text-sm text-blue-600 hover:text-blue-900 flex items-center gap-1"
+              >
+                <RefreshCw className="w-3 h-3" />
+                New Chat
+              </button>
+            </div>
           )}
         </form>
       </div>
@@ -259,8 +371,8 @@ export default function GroqChatWidget({
               >
                 <div
                   className={`max-w-md px-6 py-4 rounded-lg ${msg.role === 'user'
-                      ? 'bg-blue-600 text-white rounded-br-none'
-                      : 'bg-white border border-gray-300 text-gray-900 rounded-bl-none'
+                    ? 'bg-blue-600 text-white rounded-br-none'
+                    : 'bg-white border border-gray-300 text-gray-900 rounded-bl-none'
                     }`}
                 >
                   <p className="whitespace-pre-wrap">{msg.content}</p>
@@ -353,13 +465,23 @@ export default function GroqChatWidget({
               </div>
 
               {messages.length > 0 && (
-                <button
-                  type="button"
-                  onClick={clearChat}
-                  className="text-sm text-gray-600 hover:text-gray-900"
-                >
-                  Clear Conversation
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={clearChat}
+                    className="text-sm text-gray-600 hover:text-gray-900"
+                  >
+                    Clear Conversation
+                  </button>
+                  <button
+                    type="button"
+                    onClick={startNewChat}
+                    className="text-sm text-blue-600 hover:text-blue-900 flex items-center gap-1 font-medium"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    New Chat
+                  </button>
+                </div>
               )}
             </form>
           </div>
