@@ -214,6 +214,59 @@ async def get_cart(authorization: Optional[str] = Header(None)):
         return {"success": False, "cart": None, "error": str(e)}
 
 
+@router.post("/cart/clear", response_model=ActionResult)
+async def clear_cart(
+    authorization: Optional[str] = Header(None)
+):
+    """Xóa toàn bộ sản phẩm trong giỏ hàng"""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing authorization token")
+    
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            # Get current cart items
+            cart_response = await client.get(
+                f"{SPRING_API_URL}/cart",
+                headers={"Authorization": authorization}
+            )
+            
+            if cart_response.status_code != 200:
+                return ActionResult(success=False, message="Không thể lấy thông tin giỏ hàng")
+            
+            cart_data = cart_response.json()
+            items = cart_data.get("items", [])
+            
+            if not items:
+                return ActionResult(success=True, message="Giỏ hàng đã trống")
+            
+            # Delete each item
+            deleted_count = 0
+            for item in items:
+                item_id = item.get("id")
+                if item_id:
+                    try:
+                        delete_response = await client.delete(
+                            f"{SPRING_API_URL}/cart/items/{item_id}",
+                            headers={"Authorization": authorization}
+                        )
+                        if delete_response.status_code == 200:
+                            deleted_count += 1
+                    except Exception as e:
+                        print(f"[Cart Clear] Failed to delete item {item_id}: {e}")
+            
+            return ActionResult(
+                success=True,
+                message=f"Đã xóa {deleted_count}/{len(items)} sản phẩm khỏi giỏ hàng",
+                data={"deleted_count": deleted_count, "total_items": len(items)}
+            )
+                
+    except httpx.TimeoutException:
+        return ActionResult(success=False, message="Timeout khi kết nối đến server")
+    except Exception as e:
+        print(f"[Agent Action Error] clear_cart: {e}")
+        return ActionResult(success=False, message=f"Lỗi: {str(e)}")
+
+
 @router.post("/sync-carts")
 async def sync_carts_to_chromadb(
     authorization: Optional[str] = Header(None)

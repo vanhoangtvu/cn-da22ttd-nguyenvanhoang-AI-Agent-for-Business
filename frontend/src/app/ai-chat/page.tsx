@@ -639,6 +639,72 @@ export default function AIChatPage() {
     }
   };
 
+  // Helper function to restore cart backup (shared across multiple functions)
+  const restoreCartBackup = async (token: string, immediate: boolean = false) => {
+    try {
+      const backupStr = sessionStorage.getItem('cartBackup');
+      if (!backupStr) {
+        console.log('[RESTORE] No cart backup found');
+        return;
+      }
+
+      const backupItems = JSON.parse(backupStr);
+      if (!backupItems || backupItems.length === 0) {
+        console.log('[RESTORE] Backup is empty');
+        sessionStorage.removeItem('cartBackup');
+        return;
+      }
+
+      if (!immediate) {
+        console.log(`[RESTORE] Waiting for order completion and cart clear...`);
+        // Wait 2 seconds for Spring Service to clear cart after order creation
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Verify cart is empty before restoring
+        const checkCartResponse = await fetch(`${API_CONFIG.AI_SERVICE_URL}/api/agent/cart`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const checkCartData = await checkCartResponse.json();
+        
+        if (checkCartData.success && checkCartData.cart?.items?.length > 0) {
+          console.log('[RESTORE] Cart not empty yet, skipping restore to avoid duplicates');
+          sessionStorage.removeItem('cartBackup');
+          return;
+        }
+      }
+
+      console.log(`[RESTORE] Restoring ${backupItems.length} backup items`);
+
+      // Add each item back to cart
+      for (const item of backupItems) {
+        try {
+          await fetch(`${API_CONFIG.AI_SERVICE_URL}/api/agent/cart/add`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              productId: item.productId || item.product?.id,
+              quantity: item.quantity || 1
+            })
+          });
+        } catch (err) {
+          console.error(`[RESTORE] Failed to restore item:`, err);
+        }
+      }
+
+      // Clear backup after restoration
+      sessionStorage.removeItem('cartBackup');
+      console.log('[RESTORE] Cart backup restored successfully');
+      
+      // Update cart count
+      fetchCartCount();
+    } catch (err) {
+      console.error('[RESTORE] Error restoring cart:', err);
+    }
+  };
+
   // Execute action from AI Agent
   const executeAction = async (action: any) => {
     const authToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
@@ -660,14 +726,104 @@ export default function AIChatPage() {
           break;
 
         case 'APPLY_DISCOUNT':
-          // Open order confirmation popup with discount code pre-filled
-          try {
-            const cartResponse = await fetch(`${API_CONFIG.AI_SERVICE_URL}/api/agent/cart`, {
-              headers: { 'Authorization': `Bearer ${authToken}` }
-            });
-            const cartData = await cartResponse.json();
+          console.log('[APPLY_DISCOUNT] Action data:', action);
+          
+          // Check if there's a pending product to add first
+          if (action.pendingProductId && action.pendingQuantity) {
+            console.log(`[APPLY_DISCOUNT] Clearing cart and adding pending product: ${action.pendingProductId} x ${action.pendingQuantity}`);
+            
+            try {
+              // Step 1: Get current cart to backup
+              const currentCartResponse = await fetch(`${API_CONFIG.AI_SERVICE_URL}/api/agent/cart`, {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+              });
+              const currentCartData = await currentCartResponse.json();
+              const backupItems = currentCartData.success && currentCartData.cart ? currentCartData.cart.items || [] : [];
+              console.log('[APPLY_DISCOUNT] Backup cart items:', backupItems.length);
+              
+              // Step 2: Clear entire cart
+              if (backupItems.length > 0) {
+                const clearResponse = await fetch(`${API_CONFIG.AI_SERVICE_URL}/api/agent/cart/clear`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`
+                  }
+                });
+                
+                if (clearResponse.ok) {
+                  console.log('[APPLY_DISCOUNT] Cart cleared successfully');
+                } else {
+                  console.warn('[APPLY_DISCOUNT] Failed to clear cart, continuing anyway');
+                }
+              }
+              
+              // Step 3: Add pending product with exact quantity
+              const addResponse = await fetch(`${API_CONFIG.AI_SERVICE_URL}/api/agent/cart/add`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${authToken}`
+                },
+                body: JSON.stringify({
+                  productId: action.pendingProductId,
+                  quantity: action.pendingQuantity
+                })
+              });
 
-            if (cartData.success && cartData.cart && cartData.cart.items?.length > 0) {
+              const addResult = await addResponse.json();
+              console.log('[APPLY_DISCOUNT] Add to cart result:', addResult);
+
+              if (!addResponse.ok || !addResult.success) {
+                showToast('Không thể thêm sản phẩm vào giỏ hàng', 'error');
+                return;
+              }
+
+              // Store backup items to restore after successful order
+              sessionStorage.setItem('cartBackup', JSON.stringify(backupItems));
+              console.log('[APPLY_DISCOUNT] Stored cart backup in sessionStorage');
+
+              showToast(`Đã chuẩn bị ${action.pendingQuantity} sản phẩm cho đơn hàng`, 'success');
+              
+              // Store pending product info for order creation (get from add result)
+              const addedItem = addResult.data?.cart?.items?.find((item: any) => 
+                (item.productId || item.product?.id) === action.pendingProductId
+              );
+              
+              if (addedItem) {
+                sessionStorage.setItem('pendingOrderItem', JSON.stringify(addedItem));
+                console.log('[APPLY_DISCOUNT] Stored pending order item:', addedItem);
+              }
+            } catch (err) {
+              console.error('Failed to prepare cart:', err);
+              showToast('Lỗi khi chuẩn bị giỏ hàng', 'error');
+              return;
+            }
+          } else {
+            console.log('[APPLY_DISCOUNT] No pending product, using existing cart...');
+          }
+
+          // Step 2: Open order confirmation popup with discount code pre-filled
+          try {
+            // Check if we have a pending order item (just added from AI)
+            const pendingItemStr = sessionStorage.getItem('pendingOrderItem');
+            let orderItems = [];
+            
+            if (pendingItemStr) {
+              // Use ONLY the pending item for order, not entire cart
+              const pendingItem = JSON.parse(pendingItemStr);
+              orderItems = [pendingItem];
+              console.log('[APPLY_DISCOUNT] Using pending item for order:', orderItems);
+            } else {
+              // No pending item, get from cart
+              const cartResponse = await fetch(`${API_CONFIG.AI_SERVICE_URL}/api/agent/cart`, {
+                headers: { 'Authorization': `Bearer ${authToken}` }
+              });
+              const cartData = await cartResponse.json();
+              orderItems = cartData.success && cartData.cart ? cartData.cart.items || [] : [];
+            }
+
+            if (orderItems.length > 0) {
               // Fetch user info from Spring
               try {
                 const userResponse = await fetch(`${API_CONFIG.API_URL}/users/me`, {
@@ -683,9 +839,15 @@ export default function AIChatPage() {
               }
 
               // Set order details with discount code pre-filled
+              const totalAmount = orderItems.reduce((sum: number, item: any) => {
+                const price = item.product?.price || item.price || 0;
+                const quantity = item.quantity || 1;
+                return sum + (price * quantity);
+              }, 0);
+              
               setOrderDetails({
-                items: cartData.cart.items,
-                totalAmount: cartData.cart.totalPrice || cartData.cart.totalAmount || 0,
+                items: orderItems,
+                totalAmount: totalAmount,
                 discountCode: action.discountCode, // Pre-fill discount code
                 shippingAddress: ''
               });
@@ -693,6 +855,11 @@ export default function AIChatPage() {
               setShowOrderConfirm(true);
               showToast(`Đã áp mã ${action.discountCode}. Vui lòng xác nhận đơn hàng.`, 'success');
               setActions([]); // Clear actions
+              
+              // Clear pending item after use
+              if (pendingItemStr) {
+                sessionStorage.removeItem('pendingOrderItem');
+              }
             } else {
               showToast('Giỏ hàng trống. Vui lòng thêm sản phẩm trước.', 'warning');
             }
@@ -921,6 +1088,9 @@ export default function AIChatPage() {
           setShowOrderConfirm(false);
           setOrderDetails(null);
           setActions([]);
+          
+          // Restore cart backup after successful order
+          await restoreCartBackup(authToken);
         } else {
           // COD or no QR - show success toast
           showToast(`Đơn hàng #${order.id} đã được tạo thành công!` || 'Đơn hàng của bạn đã được tạo', 'success');
@@ -937,13 +1107,20 @@ export default function AIChatPage() {
           setShowOrderConfirm(false);
           setOrderDetails(null);
           setActions([]);
+          
+          // Restore cart backup after successful order
+          await restoreCartBackup(authToken);
         }
       } else {
         showToast(result.message || 'Vui lòng thử lại', 'error');
+        // Restore cart backup on order creation failure (immediate)
+        await restoreCartBackup(authToken, true);
       }
     } catch (error) {
       console.error('Order creation error:', error);
       showToast('Không thể kết nối đến server', 'error');
+      // Restore cart backup on error (immediate)
+      await restoreCartBackup(authToken, true);
     }
   };
 
@@ -1141,9 +1318,16 @@ export default function AIChatPage() {
             {/* Footer */}
             <div className="p-6 bg-slate-800/50 border-t border-slate-600/50 flex gap-4">
               <button
-                onClick={() => {
+                onClick={async () => {
                   setShowOrderConfirm(false);
                   setOrderDetails(null);
+                  
+                  // Restore cart backup when user cancels
+                  const authToken = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+                  if (authToken) {
+                    await restoreCartBackup(authToken, true); // immediate restore on cancel
+                    showToast('Đã khôi phục giỏ hàng', 'success');
+                  }
                 }}
                 className="flex-1 px-6 py-4 bg-slate-600 hover:bg-slate-500 text-white rounded-xl transition-all font-semibold"
               >

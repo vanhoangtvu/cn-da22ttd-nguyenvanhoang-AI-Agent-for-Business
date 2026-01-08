@@ -1250,16 +1250,59 @@ Bạn đang tư vấn cho khách hàng chưa có thông tin cá nhân. Hãy tậ
             # If discounts were shown in response, add discount buttons
             # But SKIP if checking order history (to avoid confusion with past orders)
             if discounts_for_action and ('mã giảm' in response_lower or 'khuyến mãi' in response_lower or 'giảm giá' in response_lower) and not is_checking_order:
+                # SPECIAL CASE: Detect if AI is asking about applying discount AFTER confirming quantity
+                # Pattern: "Số lượng: X chiếc" OR "x2" OR "2 chiếc" + has product in response
+                import re
+                
+                # Try multiple patterns to extract quantity
+                quantity_match = (
+                    re.search(r'(?:số lượng|quantity)[:\s]*(\d+)', response_lower) or
+                    re.search(r'x\s*(\d+)', response_lower) or
+                    re.search(r'(\d+)\s*(?:chiếc|cái|sản phẩm)', response_lower)
+                )
+                
+                pending_product_id = None
+                pending_quantity = 1
+                
+                print(f"[CHAT] Discount detection - quantity_match: {quantity_match}, products: {len(products_for_action)}")
+                print(f"[CHAT] Response snippet: {response_lower[:200]}")
+                
+                # If we found quantity and have products, try to match product
+                if quantity_match and products_for_action:
+                    pending_quantity = int(quantity_match.group(1))
+                    print(f"[CHAT] Extracted quantity: {pending_quantity}")
+                    
+                    # Strategy 1: Find product mentioned in response
+                    for product in products_for_action:
+                        product_name_lower = product.get('name', '').lower()
+                        if product_name_lower and product_name_lower in response_lower:
+                            pending_product_id = product.get('id')
+                            print(f"[CHAT] Found pending product by name match: {product.get('name')} (ID: {pending_product_id})")
+                            break
+                    
+                    # Strategy 2: If only 1 product in context, use it
+                    if not pending_product_id and len(products_for_action) == 1:
+                        pending_product_id = products_for_action[0].get('id')
+                        print(f"[CHAT] Using single product in context: {products_for_action[0].get('name')} (ID: {pending_product_id})")
+                
                 for discount in discounts_for_action:
                     # Check if we already have this discount action
                     already_added = any(a.get('discountCode') == discount.get('code') for a in actions)
                     if not already_added:
-                        actions.append({
+                        discount_action = {
                             "type": "APPLY_DISCOUNT",
                             "discountCode": discount.get('code'),
                             "description": discount.get('description'),
                             "label": f"🎫 Áp mã {discount.get('code')}"
-                        })
+                        }
+                        # Add pending product context if detected
+                        if pending_product_id:
+                            discount_action["pendingProductId"] = pending_product_id
+                            discount_action["pendingQuantity"] = pending_quantity
+                            print(f"[CHAT] Added pending context to discount button: productId={pending_product_id}, quantity={pending_quantity}")
+                        else:
+                            print(f"[CHAT] No pending product detected for discount {discount.get('code')}")
+                        actions.append(discount_action)
             
             print(f"[CHAT] Detected {len(actions)} actions: {[a.get('type') for a in actions]}")
         except Exception as action_error:
