@@ -264,7 +264,10 @@ def detect_action_intent(message: str, products: List[Dict], discounts: List[Dic
         'xem đơn hàng', 'order của tôi', 'check order', 'my orders',
         'đơn hàng của mình', 'có đơn hàng nào', 'đơn đặt hàng'
     ]
-    is_checking_order = any(kw in message_lower for kw in check_order_keywords)
+    # Also check for specific order number patterns: "don hang 30", "đơn hàng #30", "order 30"
+    import re
+    order_pattern = re.compile(r'(don\s*hang|đơn\s*hàng|order)\s*#?\s*\d+', re.IGNORECASE)
+    is_checking_order = any(kw in message_lower for kw in check_order_keywords) or bool(order_pattern.search(message_lower))
     
     if is_checking_order:
         actions.append({
@@ -672,15 +675,27 @@ async def chat(
             'kiem tra don hang', 'don hang cua toi', 'tra cuu don',
             'xem don hang', 'don hang cua minh', 'co don hang nao'
         ]
-        is_checking_order = any(kw in request.message.lower() for kw in check_order_keywords)
+        # Also check for specific order number patterns: "don hang 30", "đơn hàng #30", "order 30"
+        import re
+        order_pattern = re.compile(r'(don\s*hang|đơn\s*hàng|order)\s*#?\s*(\d+)', re.IGNORECASE)
+        order_match = order_pattern.search(request.message.lower())
+        is_checking_order = any(kw in request.message.lower() for kw in check_order_keywords) or bool(order_match)
         
         if is_checking_order:
-            orders_context = chroma_service.get_user_orders(user_id, max_orders=10)
-            if orders_context:
-                combined_context += orders_context
-                print(f"[CHAT] Added orders context for user {user_id}")
+            # Nếu hỏi về đơn hàng CỤ THỂ (có số) → query trực tiếp từ DB
+            if order_match:
+                specific_order_id = order_match.group(2)  # Extract order number
+                order_detail = chroma_service.get_order_by_id(specific_order_id, user_id)
+                combined_context += order_detail
+                print(f"[CHAT] Added specific order #{specific_order_id} detail for user {user_id}")
             else:
-                print(f"[CHAT] No orders found for user {user_id}")
+                # Hỏi chung về đơn hàng → lấy list compact
+                orders_context = chroma_service.get_user_orders(user_id, max_orders=3)
+                if orders_context:
+                    combined_context += orders_context
+                    print(f"[CHAT] Added orders context for user {user_id} (compact: 3 orders)")
+                else:
+                    print(f"[CHAT] No orders found for user {user_id}")
         
         # SMART TRUNCATE: Keep discounts and user info, truncate product details if needed
         MAX_CONTEXT_CHARS = 6000  # Increased to preserve image URLs
@@ -724,7 +739,7 @@ async def chat(
         print(f"[CHAT] Combined context preview: {combined_context[:200] if combined_context else 'None'}")
         
         # Build enhanced system prompt with comprehensive context
-        base_system_prompt = """BẠN LÀ AI TƯ VẤN SẢN PHẨM THÔNG MINH.
+        base_system_prompt = """BẠN LÀ AI TƯ VẤN SẢN PHẨM THÔNG MINH CỦA BIZOPS AGENT
 
 ═══════════════════════════════════════════════════════════════════
 🚨 QUY TẮC TUYỆT ĐỐI - VI PHẠM = RESPONSE BỊ TỪ CHỐI
@@ -950,6 +965,26 @@ Khi khách nói: "có", "thanh toán", "đồng ý", hoặc click nút "💳 Tha
 - KHÔNG BAO GIỜ tự bịa ra sản phẩm đang có trong giỏ.
 
 ═══════════════════════════════════════════════════════════════════
+📦 XEM CHI TIẾT ĐƠN HÀNG
+═══════════════════════════════════════════════════════════════════
+
+🔴 KHI KHÁCH HỎI "đơn hàng #X", "xem đơn X", "kiểm tra đơn X":
+✅ CHỈ HIỂN THỊ thông tin đơn hàng, KHÔNG đề xuất sản phẩm khác
+✅ CHỈ HIỂN THỊ trạng thái, sản phẩm, tổng tiền, ngày đặt
+**Format ngắn gọn:**
+```
+📦 Đơn hàng #[ID]
+- Trạng thái: [Status emoji + text]
+- Sản phẩm: [Tên] (x[SL])
+- Tổng tiền: [Amount]đ
+- Ngày đặt: [Date]
+
+[Nếu PENDING/SHIPPING]: Đơn đang được xử lý, bạn cần hỗ trợ gì thêm?
+[Nếu DELIVERED]: Đơn đã giao thành công!
+[Nếu CANCELLED]: Đơn đã bị hủy.
+```
+
+═══════════════════════════════════════════════════════════════════
 ⚠️ EDGE CASES CẦN XỬ LÝ
 ═══════════════════════════════════════════════════════════════════
 
@@ -1005,7 +1040,7 @@ DỮ LIỆU:
 {combined_context}
 
 QUY TẮC BẮT BUỘC:
-1. LUÔN BẮT ĐẦU bằng: "Xin chào {user_name}! 👋"
+1. LUÔN BẮT ĐẦU bằng: "Xin chào {user_name}! 👋 Giới thiểụ bản thân và nhiệm vụ"
 2. LUÔN GỌI TÊN "{user_name}" trong mọi tin nhắn, KHÔNG dùng từ "bạn"
 3. Đề xuất 2-3 sản phẩm PHÙ HỢP NHẤT từ danh sách đã được sort
 4. Hiển thị ảnh: ![Tên](URL) - CHỈ dùng URL có trong dữ liệu

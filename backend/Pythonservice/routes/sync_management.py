@@ -326,6 +326,7 @@ async def sync_order(chroma_service, data: Dict):
     try:
         order_id = data.get('id')
         user_id = data.get('userId', data.get('user_id'))
+        customer_id = data.get('customerId', data.get('customer_id', user_id))
         
         # Get or create orders collection
         collection = chroma_service._get_or_create_orders_collection()
@@ -339,9 +340,10 @@ async def sync_order(chroma_service, data: Dict):
             quantity = item.get('quantity', 0)
             items_text.append(f"{product_name} x{quantity}")
         
-        # Prepare metadata
+        # Prepare metadata - BẮT BUỘC CÓ customer_id để AI query được
         metadata = {
             "order_id": str(order_id),
+            "customer_id": str(customer_id),  # QUAN TRỌNG: Dùng để query orders của user
             "user_id": str(user_id),
             "status": data.get('status', 'PENDING'),
             "total_amount": float(data.get('totalAmount', data.get('total_amount', 0))),
@@ -361,7 +363,7 @@ async def sync_order(chroma_service, data: Dict):
             metadatas=[metadata]
         )
         
-        print(f"[SYNC SUCCESS] Order {order_id}: {metadata['status']}")
+        print(f"[SYNC SUCCESS] Order {order_id} for customer {customer_id}: {metadata['status']}")
     except Exception as e:
         print(f"[SYNC ERROR] Order {data.get('id')}: {str(e)}")
         raise
