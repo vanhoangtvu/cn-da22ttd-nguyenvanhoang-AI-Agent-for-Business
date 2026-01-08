@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -21,6 +22,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/admin/dashboard")
 @RequiredArgsConstructor
+@Slf4j
 @Tag(name = "Dashboard", description = "Dashboard statistics APIs (ADMIN and BUSINESS only)")
 public class DashboardController {
     
@@ -35,7 +37,12 @@ public class DashboardController {
         @ApiResponse(responseCode = "403", description = "Access denied - Admin only")
     })
     public ResponseEntity<DashboardStatsDTO> getAdminDashboard() {
-        return ResponseEntity.ok(dashboardService.getAdminDashboardStats());
+        log.info("[Dashboard] Getting ADMIN stats - full system statistics");
+        DashboardStatsDTO stats = dashboardService.getAdminDashboardStats();
+        log.info("[Dashboard] ADMIN stats: products={}, orders={}, revenue={}, users={}, categories={}", 
+                 stats.getTotalProducts(), stats.getTotalOrders(), stats.getTotalRevenue(), 
+                 stats.getTotalUsers(), stats.getTotalCategories());
+        return ResponseEntity.ok(stats);
     }
     
     @GetMapping("/business-stats")
@@ -48,7 +55,11 @@ public class DashboardController {
     })
     public ResponseEntity<BusinessDashboardDTO> getMyBusinessDashboard(HttpServletRequest request) {
         Long businessId = (Long) request.getAttribute("userId");
-        return ResponseEntity.ok(dashboardService.getBusinessDashboardStats(businessId));
+        log.info("[Dashboard] Getting BUSINESS stats for businessId={}", businessId);
+        BusinessDashboardDTO stats = dashboardService.getBusinessDashboardStats(businessId);
+        log.info("[Dashboard] BUSINESS stats for id={}: products={}, orders={}, revenue={}", 
+                 businessId, stats.getTotalProducts(), stats.getTotalOrders(), stats.getTotalRevenue());
+        return ResponseEntity.ok(stats);
     }
     
     @GetMapping("/revenue/daily")

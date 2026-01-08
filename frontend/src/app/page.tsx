@@ -157,11 +157,17 @@ export default function HomePage() {
     })));
   }, []);
 
-  // Load user data
+  // Load user data and check authorization
   useEffect(() => {
     if (apiClient.isAuthenticated()) {
       const userData = apiClient.getUserData();
       if (userData) {
+        // Redirect ADMIN and BUSINESS users to admin dashboard
+        if (userData.role === 'ADMIN' || userData.role === 'BUSINESS') {
+          router.push('/admin');
+          return;
+        }
+        
         setCurrentUser({
           username: userData.username,
           fullName: userData.fullName,
@@ -169,7 +175,7 @@ export default function HomePage() {
         });
       }
     }
-  }, []);
+  }, [router]);
 
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -365,20 +371,6 @@ export default function HomePage() {
 
               {isClient && apiClient.isAuthenticated() ? (
                 <>
-                  {(() => {
-                    const userData = apiClient.getUserData();
-                    const isAdminOrBusiness = userData && (userData.role === 'ADMIN' || userData.role === 'BUSINESS');
-                    return isAdminOrBusiness ? (
-                      <Link
-                        href="/admin"
-                        className="hidden sm:flex px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-lg transition-all font-medium items-center gap-2 text-sm"
-                      >
-                        <Settings className="w-4 h-4" />
-                        <span className="hidden lg:inline">Console</span>
-                      </Link>
-                    ) : null;
-                  })()}
-
                   <div className="flex items-center gap-1 bg-white/[0.03] border border-white/5 rounded-lg p-1">
                     <Link
                       href="/ai-chat"

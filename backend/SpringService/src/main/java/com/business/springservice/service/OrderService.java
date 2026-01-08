@@ -126,6 +126,19 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
+    public List<OrderDTO> getOrdersForBusiness(Long businessId) {
+        // Get all orders
+        List<Order> allOrders = orderRepository.findAllByOrderByCreatedAtDesc();
+        
+        // Filter orders that contain at least one product from this business
+        return allOrders.stream()
+                .filter(order -> order.getOrderItems().stream()
+                        .anyMatch(item -> item.getProduct().getSeller().getId().equals(businessId)))
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
     public OrderDTO getOrderById(Long id) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Order not found with id: " + id));

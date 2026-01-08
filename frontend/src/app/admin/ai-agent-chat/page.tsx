@@ -42,7 +42,10 @@ interface CollectionDocument {
 
 interface ModalConfig {
   modal_name: string;
-  config: any;
+  model: string;
+  temperature: number;
+  max_tokens: number;
+  system_prompt: string;
   timestamp: string;
   is_active: boolean;
 }
@@ -1088,20 +1091,20 @@ export default function AIAgentChatManagementPage() {
                       <div className="mt-3 space-y-2">
                         <div className="text-sm">
                           <span className="font-medium text-gray-600 dark:text-gray-400">Model:</span>
-                          <span className="ml-2 text-gray-800 dark:text-white">{config.config?.model || 'N/A'}</span>
+                          <span className="ml-2 text-gray-800 dark:text-white">{config.model || 'N/A'}</span>
                         </div>
                         <div className="text-sm">
                           <span className="font-medium text-gray-600 dark:text-gray-400">Temperature:</span>
-                          <span className="ml-2 text-gray-800 dark:text-white">{config.config?.temperature || 'N/A'}</span>
+                          <span className="ml-2 text-gray-800 dark:text-white">{config.temperature || 'N/A'}</span>
                         </div>
                         <div className="text-sm">
                           <span className="font-medium text-gray-600 dark:text-gray-400">Max Tokens:</span>
-                          <span className="ml-2 text-gray-800 dark:text-white">{config.config?.max_tokens || 'N/A'}</span>
+                          <span className="ml-2 text-gray-800 dark:text-white">{config.max_tokens || 'N/A'}</span>
                         </div>
                         <div className="text-sm">
                           <span className="font-medium text-gray-600 dark:text-gray-400">System Prompt:</span>
                           <p className="ml-2 mt-1 text-gray-700 dark:text-gray-300 text-xs italic">
-                            {config.config?.system_prompt?.substring(0, 100)}...
+                            {config.system_prompt ? `${config.system_prompt.substring(0, 100)}...` : 'N/A'}
                           </p>
                         </div>
                       </div>

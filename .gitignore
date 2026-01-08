@@ -1,0 +1,29 @@
+# AI-Agent-for-Business - Root .gitignore
+
+# Environment variables - IMPORTANT: Never commit sensitive data
+.env
+.env.local
+.env.*.local
+*.env
+
+# IDE and Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# OS generated files
+Thumbs.db
+.DS_Store
+
+# Documentation build artifacts
+docs/_build/

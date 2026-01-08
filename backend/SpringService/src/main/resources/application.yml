@@ -4,9 +4,9 @@ spring:
 
   # MySQL Configuration
   datasource:
-    url: jdbc:mysql://localhost:3306/AI_Agent_db?allowPublicKeyRetrieval=true&useSSL=false
-    username: root
-    password: 1111
+    url: ${DATABASE_URL:jdbc:mysql://localhost:3306/AI_Agent_db?allowPublicKeyRetrieval=true&useSSL=false}
+    username: ${DATABASE_USERNAME:root}
+    password: ${DATABASE_PASSWORD:1111}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       read-only: false
@@ -60,4 +60,4 @@ file:
 # Python Service Configuration (AI Chat Sync)
 python:
   service:
-    url: http://localhost:5000
+    url: ${PYTHON_SERVICE_URL:http://14.160.195.30:5000}

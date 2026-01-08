@@ -53,6 +53,8 @@ class ChatAIRAGChromaService:
         self.modal_config_collection = None
         self.users_collection = None  # Only users collection now
         self.carts_collection = None  # Cart data collection
+        self.orders_collection = None  # Orders collection
+        self.discounts_collection = None  # Discounts collection
         
         # Remove automatic initialization
         # self._initialize_collections()
@@ -110,6 +112,26 @@ class ChatAIRAGChromaService:
                 metadata={"description": "Cart data for AI Chat context"},
             )
         return self.carts_collection
+    
+    def _get_or_create_orders_collection(self):
+        """Lazy initialization của orders collection"""
+        if not hasattr(self, 'orders_collection') or self.orders_collection is None:
+            self.orders_collection = self.client.get_or_create_collection(
+                name="chat_ai_orders",
+                metadata={"description": "Order data for AI Chat context"},
+            )
+        return self.orders_collection
+    
+    def _get_or_create_discounts_collection(self):
+        """Lazy initialization của discounts collection"""
+        if not hasattr(self, 'discounts_collection') or self.discounts_collection is None:
+            self.discounts_collection = self.client.get_or_create_collection(
+                name="chat_ai_discounts",
+                metadata={"description": "Discount/promotion data for AI Chat"},
+            )
+        return self.discounts_collection
+    
+    def _initialize_collections(self):
         """Khởi tạo các collections cho Chat AI RAG"""
         try:
             # Collection cho product data
@@ -260,26 +282,21 @@ class ChatAIRAGChromaService:
             doc_id = f"modal_config_{modal_name}"
             collection = self._get_or_create_modal_config_collection()
             
-            # Delete existing document first
-            try:
-                collection.delete(ids=[doc_id])
-                print(f"[ChatAIRAGChromaService] Deleted existing modal config {modal_name}")
-            except:
-                pass  # Ignore if document doesn't exist
-            
+            # Prepare config data
             config_data = {
                 "modal_name": modal_name,
                 "model": modal_config.get("model", ""),
-                "temperature": modal_config.get("temperature", 0.7),
-                "max_tokens": modal_config.get("max_tokens", 1000),
+                "temperature": float(modal_config.get("temperature", 0.7)),
+                "max_tokens": int(modal_config.get("max_tokens", 1000)),
                 "system_prompt": modal_config.get("system_prompt", ""),
                 "timestamp": datetime.now().isoformat(),
-                "is_active": modal_config.get("is_active", False)
+                "is_active": bool(modal_config.get("is_active", False))
             }
             
-            collection.add(
+            # Use upsert to handle both insert and update
+            collection.upsert(
                 ids=[doc_id],
-                documents=[f"Modal config for {modal_name}: {json.dumps(modal_config)}"],
+                documents=[f"Modal config for {modal_name}: Model={config_data['model']}, Temp={config_data['temperature']}, MaxTokens={config_data['max_tokens']}"],
                 metadatas=[config_data]
             )
             
@@ -297,25 +314,26 @@ class ChatAIRAGChromaService:
             Modal config hoặc None nếu không có
         """
         try:
-            results = self._get_or_create_modal_config_collection().query(
-                query_texts=["active modal config"],
-                where={"is_active": True},
-                n_results=1
-            )
+            collection = self._get_or_create_modal_config_collection()
+            # Get all configs and filter for active one
+            results = collection.get()
             
-            if results and results["documents"] and len(results["documents"]) > 0:
-                metadata = results["metadatas"][0][0] if results["metadatas"] else {}
-                return {
-                    "modal_name": metadata.get("modal_name", "Default Config"),
-                    "model": metadata.get("model", "openai/gpt-oss-20b"),
-                    "temperature": metadata.get("temperature", 0.7),
-                    "max_tokens": metadata.get("max_tokens", 1000),
-                    "system_prompt": metadata.get("system_prompt", ""),
-                    "is_active": metadata.get("is_active", False)
-                }
+            if results and results["metadatas"]:
+                for metadata in results["metadatas"]:
+                    if metadata.get("is_active") is True:
+                        return {
+                            "modal_name": metadata.get("modal_name", "Default Config"),
+                            "model": metadata.get("model", "openai/gpt-oss-20b"),
+                            "temperature": metadata.get("temperature", 0.7),
+                            "max_tokens": metadata.get("max_tokens", 1000),
+                            "system_prompt": metadata.get("system_prompt", ""),
+                            "is_active": metadata.get("is_active", False)
+                        }
             return None
         except Exception as e:
             print(f"[ChatAIRAGChromaService] Error getting active modal config: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def get_all_modal_configs(self) -> List[Dict[str, Any]]:
@@ -326,14 +344,12 @@ class ChatAIRAGChromaService:
             List of modal configs
         """
         try:
-            results = self._get_or_create_modal_config_collection().query(
-                query_texts=["modal config"],
-                n_results=100
-            )
+            collection = self._get_or_create_modal_config_collection()
+            results = collection.get()
             
             configs = []
             if results and results["metadatas"]:
-                for metadata in results["metadatas"][0]:
+                for metadata in results["metadatas"]:
                     configs.append({
                         "modal_name": metadata.get("modal_name"),
                         "model": metadata.get("model", ""),
@@ -346,6 +362,8 @@ class ChatAIRAGChromaService:
             return configs
         except Exception as e:
             print(f"[ChatAIRAGChromaService] Error getting all modal configs: {e}")
+            import traceback
+            traceback.print_exc()
             return []
     
     def delete_modal_config(self, modal_name: str) -> bool:
@@ -560,7 +578,10 @@ class ChatAIRAGChromaService:
             # Detect comparison query (so sánh nhiều sản phẩm)
             is_comparison = any(kw in query_lower for kw in [
                 'so sánh', 'so sanh', 'so với', 'so voi', 'với', 'voi', 
-                'hay', 'hoặc', 'hoac', 'vs', 'versus', 'compare'
+                'hay', 'hoặc', 'hoac', 'vs', 'versus', 'compare',
+                'khác nhau', 'khác biệt', 'giống', 'tương tự',
+                'nào tốt hơn', 'nào hơn', 'chọn nào', 'lựa chọn',
+                'đâu tốt', 'đâu hơn', 'phân biệt', 'phân tích'
             ])
             
             # Filter sản phẩm theo sản phẩm/thương hiệu cụ thể
@@ -688,6 +709,23 @@ class ChatAIRAGChromaService:
                     # Format compact: số. Tên - Giá [tags] | Brand | Stock
                     context_text += f"{idx}. {prod['name']} - {price_str} VNĐ{tag_str}{brand_str}{stock_str}\n"
                     
+                    # ⚡ THÊM THÔNG SỐ KỸ THUẬT CHI TIẾT từ document content
+                    doc_content = prod.get('content', '')
+                    if doc_content and 'THÔNG SỐ KỸ THUẬT:' in doc_content:
+                        # Extract phần thông số kỹ thuật từ document
+                        specs_start = doc_content.find('THÔNG SỐ KỸ THUẬT:')
+                        specs_end = doc_content.find('\nHình ảnh:', specs_start)
+                        if specs_end == -1:
+                            specs_end = doc_content.find('\n\n', specs_start + 100)
+                        if specs_end > specs_start:
+                            specs_section = doc_content[specs_start:specs_end].strip()
+                            # Format lại cho gọn: chỉ lấy các dòng specs quan trọng
+                            specs_lines = [line.strip() for line in specs_section.split('\n') if line.strip() and line.strip().startswith('-')]
+                            if specs_lines:
+                                # Hiển thị tối đa 8 specs quan trọng nhất
+                                for spec_line in specs_lines[:8]:
+                                    context_text += f"   {spec_line}\n"
+                    
                     # Hiển thị ảnh cho TẤT CẢ sản phẩm
                     if prod['img_url'] and prod['img_url'] != "N/A":
                         context_text += f"   🖼️ {prod['img_url']}\n"
@@ -715,7 +753,33 @@ class ChatAIRAGChromaService:
                 in_range = [p for p in all_products if p['price'] and price_range[0] <= p['price'] <= price_range[1]]
                 context_text += f"📌 Trong khoảng giá {price_range[0]:,}-{price_range[1]:,}: {len(in_range)} sản phẩm phù hợp\n"
             
-            context_text += "\n📌 Luôn so sánh 2-3 sản phẩm, nêu ưu/nhược điểm, và đưa ra đề xuất cuối cùng!"
+            # Thêm hướng dẫn so sánh nếu phát hiện comparison query
+            if is_comparison:
+                context_text += "\n⚡ KHÁCH ĐANG MUỐN SO SÁNH - HƯỚNG DẪN CHI TIẾT:\n"
+                context_text += "1️⃣ Tạo BẢNG SO SÁNH với format (CHỈ 4 CỘT, KHÔNG thêm cột thừa \"-\"):\n"
+                context_text += "   | Tiêu chí | Sản phẩm 1 | Sản phẩm 2 | Sản phẩm 3 |\n"
+                context_text += "   |----------|-----------|-----------|-----------|\n"
+                context_text += "   | 💰 Giá | ... | ... | ... |\n"
+                context_text += "   | 🖼️ Ảnh | ![](URL1) | ![](URL2) | ![](URL3) |\n"
+                context_text += "   | 💻 CPU/Chip | ... | ... | ... |\n"
+                context_text += "   | 🧠 RAM | ... (N/A nếu không có) | ... | ... |\n"
+                context_text += "   | 💾 Bộ nhớ | ... | ... | ... |\n"
+                context_text += "   | 📱 Màn hình | ... | ... | ... |\n"
+                context_text += "   | 📷 Camera | ... | ... | ... |\n"
+                context_text += "   | 🔋 Pin | ... | ... | ... |\n"
+                context_text += "   | ✅ Ưu điểm | ... | ... | ... |\n"
+                context_text += "   | ❌ Nhược điểm | ... | ... | ... |\n"
+                context_text += "\n2️⃣ SỬ DỤNG THÔNG SỐ KỸ THUẬT từ dữ liệu (các dòng có dấu '-')\n"
+                context_text += "   ⚠️ Nếu specs KHÔNG CÓ → Viết 'N/A' THAY VÌ 'Không có thông tin'\n"
+                context_text += "\n3️⃣ PHÂN TÍCH TỪNG TIÊU CHÍ: Giá, hiệu năng, camera, pin, màn hình...\n"
+                context_text += "\n4️⃣ ƯU/NHƯỢC ĐIỂM THỰC SỰ - QUAN TRỌNG:\n"
+                context_text += "   ✅ Ưu điểm: Tính năng MẠNH (camera tốt, pin lâu, chip mạnh, thiết kế đẹp...)\n"
+                context_text += "   ❌ Nhược điểm: Hạn chế THỰC (giá cao, pin nhỏ, không mở rộng, nặng...)\n"
+                context_text += "   🚫 TUYỆT ĐỐI KHÔNG viết: \"Không có thông tin RAM\", \"Thiếu dữ liệu\"\n"
+                context_text += "   → Đây KHÔNG phải nhược điểm! Nếu không có specs → ghi N/A trong bảng\n"
+                context_text += "\n5️⃣ KẾT LUẬN: Đề xuất sản phẩm PHÙ HỢP NHẤT dựa trên nhu cầu khách\n"
+            else:
+                context_text += "\n📌 Luôn so sánh 2-3 sản phẩm, nêu ưu/nhược điểm, và đưa ra đề xuất cuối cùng!"
             
             print(f"[ChatAIRAGChromaService] Formatted {total_count} products with smart recommendations, context length: {len(context_text)}")
             return context_text
@@ -915,30 +979,153 @@ class ChatAIRAGChromaService:
         """
         Retrieve kết hợp product + knowledge context để dùng cho AI response
         
-        QUAN TRỌNG: Giờ đây sẽ lấy TOÀN BỘ sản phẩm của shop để AI biết hết
+        CÂN BẰNG: Đủ thông tin để AI trả lời ĐẦY ĐỦ, nhưng tối ưu token
         
         Args:
             query: User query
-            top_k_products: IGNORED - giờ lấy tất cả sản phẩm
+            top_k_products: Số sản phẩm liên quan nhất
             top_k_knowledge: Max knowledge items
             
         Returns:
-            Formatted context string với TOÀN BỘ sản phẩm
+            Formatted context string với thông tin ĐẦY ĐỦ
         """
-        # Lấy TOÀN BỘ sản phẩm của shop
-        all_products_context = self.get_all_products_for_ai(query)
+        # Phân tích yêu cầu khách hàng
+        query_lower = query.lower()
+        
+        # Detect category
+        category_keywords = {
+            'điện thoại': ['điện thoại', 'phone', 'smartphone', 'iphone', 'samsung'],
+            'laptop': ['laptop', 'macbook', 'thinkpad'],
+            'tai nghe': ['tai nghe', 'headphone', 'airpods', 'earbuds'],
+        }
+        detected_category = None
+        for cat, keywords in category_keywords.items():
+            if any(kw in query_lower for kw in keywords):
+                detected_category = cat
+                break
+        
+        # Detect price preference
+        is_cheap = any(kw in query_lower for kw in ['giá rẻ', 'rẻ', 'tiết kiệm', 'budget'])
+        is_premium = any(kw in query_lower for kw in ['cao cấp', 'premium', 'flagship', 'xịn'])
+        
+        # Lấy sản phẩm LIÊN QUAN với query
+        product_context = self.retrieve_product_context(query, top_k_products)
         
         # Lấy knowledge context
         knowledge_context = self.retrieve_knowledge_context(query, top_k_knowledge)
         
-        context_text = all_products_context + "\n"
+        context_text = ""
         
-        # Add knowledge context
+        # THÊM PHÂN TÍCH YÊU CẦU
+        if detected_category or is_cheap or is_premium:
+            context_text += "🎯 PHÂN TÍCH YÊU CẦU:\n"
+            if detected_category:
+                context_text += f"- Danh mục: {detected_category.upper()}\n"
+            if is_cheap:
+                context_text += "- Ngân sách: GIÁ RẺ → Đề xuất sản phẩm RẺ NHẤT\n"
+            elif is_premium:
+                context_text += "- Ngân sách: CAO CẤP → Đề xuất sản phẩm ĐẮT/MẠNH NHẤT\n"
+            context_text += "\n"
+        
+        # Add product context - CÂN BẰNG: Đầy đủ nhưng gọn gàng
+        if product_context:
+            context_text += "=== SẢN PHẨM ==="
+            for prod in product_context:
+                # Lấy thông tin ĐẦY ĐỦ: Tên, Giá, Danh mục, Mô tả, Ảnh, Specs, Brand, Stock
+                content = prod.get('content', '')
+                metadata = prod.get('metadata', {})
+                
+                # Trích xuất thông tin chính
+                lines = content.split('\n')
+                name = ""
+                price = ""
+                category = ""
+                image = ""
+                description = ""
+                brand = ""
+                stock = ""
+                status = ""
+                specs = []
+                
+                for line in lines:
+                    if line.startswith('Tên:'):
+                        name = line.replace('Tên:', '').strip()
+                    elif line.startswith('Giá:'):
+                        price = line.replace('Giá:', '').strip()
+                    elif line.startswith('Danh mục:'):
+                        category = line.replace('Danh mục:', '').strip()
+                    elif line.startswith('Mô tả:'):
+                        description = line.replace('Mô tả:', '').strip()[:300]  # Tăng lên 300 ký tự
+                    elif line.startswith('Thương hiệu:'):
+                        brand = line.replace('Thương hiệu:', '').strip()
+                    elif line.startswith('Số lượng tồn kho:'):
+                        stock = line.replace('Số lượng tồn kho:', '').strip()
+                    elif line.startswith('Trạng thái:'):
+                        status = line.replace('Trạng thái:', '').strip()
+                    elif '🖼️' in line:
+                        # Format: 🖼️ URL
+                        image = line.replace('🖼️', '').strip()
+                    elif line.startswith('Hình ảnh:') or line.startswith('URL ảnh chính:'):
+                        # Format: Hình ảnh: URL hoặc URL ảnh chính: URL
+                        image = line.split(':', 1)[1].strip() if ':' in line else ''
+                    elif any(x in line for x in ['CPU:', 'RAM:', 'Màn hình:', 'Pin:', 'Camera:', 'Bộ nhớ:', 'Card:', 'Hệ điều hành:', 'Trọng lượng:', 'Kết nối:', 'Cổng:']):
+                        specs.append(line.strip())
+                
+                # Nếu không tìm thấy ảnh trong content, thử extract bằng helper function
+                if not image:
+                    image = self._extract_field_from_content(content, "URL ảnh chính:")
+                
+                # Nếu vẫn không có, lấy từ metadata
+                if not image:
+                    image = metadata.get('img_url', '') or metadata.get('image_url', '')
+                
+                # Lấy thêm từ metadata nếu chưa có
+                if not brand:
+                    brand = metadata.get('brand', '')
+                if not status:
+                    status = metadata.get('status', 'ACTIVE')
+                
+                # Format cân bằng: gọn nhưng đầy đủ
+                context_text += f"\n\n{name}"
+                # Thêm brand nếu có
+                if brand and brand != 'N/A':
+                    context_text += f" ({brand})"
+                context_text += f"\n{price} | {category}"
+                # Thêm stock nếu có
+                if stock and stock != '0':
+                    context_text += f" | Còn {stock} sản phẩm"
+                if description:
+                    context_text += f"\n{description}"
+                # ⚠️ BẮT BUỘC hiển thị ảnh
+                if image and image != 'N/A':
+                    context_text += f"\n🖼️ {image}"
+                else:
+                    # Debug: thông báo nếu thiếu ảnh
+                    print(f"[ChatAIRAGChromaService] WARNING: Product '{name}' missing image URL")
+                # Lấy TẤT CẢ specs để AI có đủ thông tin trả lời
+                if specs:
+                    context_text += "\n" + "\n".join(specs)
+            context_text += "\n"
+        
+        # Add knowledge context - CÂN BẰNG
         if knowledge_context:
-            context_text += "\n=== KIẾN THỨC LIÊN QUAN ===\n"
+            context_text += "\n=== KIẾN THỨC ==="
             for item in knowledge_context:
-                context_text += f"📚 Kiến thức (Độ liên quan: {item['score']:.2f})\n"
-                context_text += f"   {item['content'][:300]}...\n\n"
+                # Tăng lên 500 ký tự để đầy đủ thông tin
+                content = item['content'][:500].strip()
+                context_text += f"\n{content}..."
+            context_text += "\n"
+        
+        # THÊM HƯỚNG DẪN TƯ VẤN CHO AI
+        if product_context:
+            context_text += "\n🤖 HƯỚNG DẪN TƯ VẤN:\n"
+            if is_cheap:
+                context_text += "- Đề xuất sản phẩm CÓ GIÁ THẤP NHẤT trong danh sách\n"
+            elif is_premium:
+                context_text += "- Đề xuất sản phẩm CAO CẤP NHẤT (giá cao, cấu hình mạnh)\n"
+            context_text += "- GIẢI THÍCH chi tiết tại sao sản phẩm phù hợp\n"
+            context_text += "- SO SÁNH cụ thể điểm mạnh/yếu giữa các lựa chọn\n"
+            context_text += "- Hiển thị ẢNH với format ![Tên](🖼️ URL)\n"
         
         return context_text if context_text else "Không tìm thấy thông tin liên quan."
     
@@ -1170,41 +1357,36 @@ class ChatAIRAGChromaService:
             if not results or not results["documents"] or len(results["documents"]) == 0:
                 return ""
             
-            context_text = "=== CHƯƠNG TRÌNH KHUYẾN MÃI HIỆN CÓ ===\n"
+            context_text = "=== KHUYẾN MÃI ==="
             
             for i, doc in enumerate(results["documents"][0]):
                 metadata = results["metadatas"][0][i] if results["metadatas"] else {}
-                score = results["distances"][0][i] if results["distances"] else 0
                 
                 discount_code = metadata.get("discount_code", "N/A")
                 discount_value = metadata.get("discount_value", 0)
                 discount_type = metadata.get("discount_type", "PERCENTAGE")
                 min_order = metadata.get("min_order_value", 0)
                 max_discount = metadata.get("max_discount_amount", 0)
-                usage_limit = metadata.get("usage_limit", 0)
-                used_count = metadata.get("used_count", 0)
                 
-                context_text += f"🎫 MÃ: {discount_code} (Độ liên quan: {1-score:.2f})\n"
+                # Format cân bằng - thêm mô tả
+                context_text += f"\n\n🎫 Mã: {discount_code}\n"
                 
                 if discount_type == "PERCENTAGE":
-                    context_text += f"   Giảm: {discount_value}%"
+                    discount_text = f"Giảm {discount_value}%"
                     if max_discount > 0:
-                        context_text += f" (tối đa {max_discount:,.0f} VNĐ)"
+                        discount_text += f" (max {max_discount:,.0f}đ)"
                 else:
-                    context_text += f"   Giảm: {discount_value:,.0f} VNĐ"
+                    discount_text = f"Giảm {discount_value:,.0f}đ"
                 
-                context_text += f"\n   Đơn tối thiểu: {min_order:,.0f} VNĐ\n"
-                context_text += f"   Còn lại: {usage_limit - used_count}/{usage_limit} lượt\n"
+                context_text += f"{discount_text} | Đơn tối thiểu {min_order:,.0f}đ"
                 
-                # Extract description from document
+                # Thêm mô tả nếu có
                 if "Mô tả:" in doc:
                     desc_start = doc.find("Mô tả:") + 7
                     desc_end = doc.find("\n", desc_start)
                     if desc_end > desc_start:
                         desc = doc[desc_start:desc_end].strip()
-                        context_text += f"   Mô tả: {desc}\n"
-                
-                context_text += "\n"
+                        context_text += f"\n{desc}"
             
             return context_text
             
@@ -1220,6 +1402,8 @@ class ChatAIRAGChromaService:
         """
         Retrieve kết hợp tất cả context: products + knowledge + user data + discounts
         
+        TỐI ƯU: RÚt gọn format, chỉ lấy thông tin cần thiết
+        
         Args:
             user_id: User ID để lấy user-specific data
             query: User query
@@ -1231,23 +1415,54 @@ class ChatAIRAGChromaService:
         Returns:
             Formatted context string với bảo mật user data
         """
-        # Get general context
+        # Get general context - ĐÃ RÚT GỌN
         general_context = self.retrieve_combined_context(query, top_k_products, top_k_knowledge)
         
-        # Get discount context
+        # Get discount context - ĐÃ RÚT GỌN
         discount_context = self.retrieve_discount_context(query, top_k_discounts)
         
-        # Get user-specific context (bảo mật - chỉ data của user hiện tại)
-        user_context = self.retrieve_user_context(user_id, query, top_k_user, 1)
+        # Get user-specific context - RÚT GỌN HƠN NỮA
+        user_context = self._get_user_context_compact(user_id)
         
         # Combine contexts
         full_context = general_context
         if discount_context:
-            full_context += "\n\n" + discount_context
-        if user_context and user_context != "No user-specific context found.":
-            full_context += "\n\n" + user_context
+            full_context += "\n" + discount_context
+        if user_context:
+            full_context += "\n" + user_context
         
         return full_context
+    
+    def _get_user_context_compact(self, user_id: str) -> str:
+        """
+        Lấy thông tin user RÚT GỌN - chỉ tên và thông tin cơ bản
+        """
+        try:
+            users_collection = self.client.get_or_create_collection(
+                name="chat_ai_users",
+                metadata={"description": "User data for AI Chat"}
+            )
+            
+            # Tìm user
+            results = users_collection.get(
+                where={"user_id": user_id},
+                limit=1
+            )
+            
+            if not results or not results["documents"] or len(results["documents"]) == 0:
+                return ""
+            
+            doc = results["documents"][0]
+            metadata = results["metadatas"][0] if results["metadatas"] else {}
+            
+            # Chỉ lấy TÊN
+            user_name = metadata.get("user_name", "Khách hàng")
+            
+            return f"\n=== NGƯỜI DÙNG ===\nTên: {user_name}"
+            
+        except Exception as e:
+            print(f"[ChatAIRAGChromaService] Error getting user context: {e}")
+            return ""
     
     # === UTILITY METHODS ===
     
@@ -1389,7 +1604,7 @@ class ChatAIRAGChromaService:
         import httpx
         
         try:
-            spring_url = os.getenv("SPRING_SERVICE_URL", "http://14.164.29.11:8089/api/v1")
+            spring_url = os.getenv("SPRING_SERVICE_URL", "http://localhost:8089/api/v1")
             
             with httpx.Client(timeout=30.0) as client:
                 response = client.get(

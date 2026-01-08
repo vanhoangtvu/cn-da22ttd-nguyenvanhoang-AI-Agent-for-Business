@@ -437,7 +437,7 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
               ) : (
                 <div className="space-y-6">
                   {/* Key Specs */}
-                  {(details.brand || details.model || details.color) && (
+                  {(details.brand || details.model || details.color || details.type) && (
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       {details.brand && (
                         <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/30">
@@ -451,38 +451,100 @@ export default function ProductDetailPanel({ productId, onClose }: ProductDetail
                           <div className="font-semibold text-gray-900 dark:text-white">{details.model}</div>
                         </div>
                       )}
+                      {details.type && (
+                        <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/30">
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Loại</div>
+                          <div className="font-semibold text-gray-900 dark:text-white">{details.type}</div>
+                        </div>
+                      )}
                       {details.color && (
                         <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/30">
                           <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Màu sắc</div>
                           <div className="font-semibold text-gray-900 dark:text-white">{details.color}</div>
                         </div>
                       )}
+                      {details.weight && (
+                        <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/30">
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Trọng lượng</div>
+                          <div className="font-semibold text-gray-900 dark:text-white">{details.weight}</div>
+                        </div>
+                      )}
+                      {details.origin && (
+                        <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-800/30">
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Xuất xứ</div>
+                          <div className="font-semibold text-gray-900 dark:text-white">{details.origin}</div>
+                        </div>
+                      )}
                     </div>
                   )}
 
-                  {/* Detailed Specs Table */}
-                  {details.specifications && Object.keys(details.specifications).length > 0 ? (
-                    <div className="border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden">
-                      <table className="w-full text-sm text-left">
-                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                          {Object.entries(details.specifications).map(([key, value], idx) => (
-                            <tr key={idx} className="bg-white dark:bg-gray-900 even:bg-gray-50 dark:even:bg-gray-800/30">
-                              <td className="px-6 py-4 font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap w-1/3">
-                                {key}
-                              </td>
-                              <td className="px-6 py-4 text-gray-900 dark:text-white">
-                                {value}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                      Chưa có thông số kỹ thuật chi tiết
-                    </div>
-                  )}
+                  {/* All Details as Table */}
+                  <div className="border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden">
+                    <table className="w-full text-sm text-left">
+                      <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                        {/* Display all details from JSON */}
+                        {Object.entries(details)
+                          .filter(([key]) => !['rating', 'reviews', 'discount', 'originalPrice', 'deliveryTime', 'returnPolicy', 'isFeatured'].includes(key))
+                          .map(([key, value], idx) => {
+                            // Format key name
+                            const keyMap: Record<string, string> = {
+                              'brand': 'Thương hiệu',
+                              'model': 'Model',
+                              'type': 'Loại',
+                              'color': 'Màu sắc',
+                              'weight': 'Trọng lượng',
+                              'warranty': 'Bảo hành',
+                              'origin': 'Xuất xứ',
+                              'anc': 'Chống ồn',
+                              'drivers': 'Driver',
+                              'foldable': 'Có thể gập',
+                              'frequency_response': 'Dải tần',
+                              'battery': 'Pin',
+                              'connectivity': 'Kết nối',
+                              'controls': 'Điều khiển',
+                              'features': 'Tính năng',
+                              'accessories': 'Phụ kiện',
+                              'specifications': 'Thông số kỹ thuật'
+                            };
+
+                            const formattedKey = keyMap[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                            
+                            // Format value display
+                            let displayValue = value;
+                            if (typeof value === 'object' && value !== null) {
+                              if (Array.isArray(value)) {
+                                displayValue = value.join(', ');
+                              } else {
+                                // For nested objects like battery
+                                displayValue = Object.entries(value)
+                                  .map(([k, v]) => {
+                                    const subKeyMap: Record<string, string> = {
+                                      'anc_on': 'Bật ANC',
+                                      'anc_off': 'Tắt ANC',
+                                      'quick_charge': 'Sạc nhanh'
+                                    };
+                                    return `${subKeyMap[k] || k}: ${v}`;
+                                  })
+                                  .join(', ');
+                              }
+                            } else if (typeof value === 'boolean') {
+                              displayValue = value ? 'Có' : 'Không';
+                            }
+
+                            return (
+                              <tr key={idx} className="bg-white dark:bg-gray-900 even:bg-gray-50 dark:even:bg-gray-800/30">
+                                <td className="px-6 py-4 font-medium text-gray-600 dark:text-gray-400 whitespace-nowrap w-1/3">
+                                  {formattedKey}
+                                </td>
+                                <td className="px-6 py-4 text-gray-900 dark:text-white">
+                                  {String(displayValue)}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>

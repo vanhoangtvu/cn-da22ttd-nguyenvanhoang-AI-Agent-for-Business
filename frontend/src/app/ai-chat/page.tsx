@@ -721,6 +721,54 @@ export default function AIChatPage() {
           window.location.href = '/checkout?from=ai-chat';
           return;
 
+        case 'CHECKOUT_WITH_ITEMS':
+          // Checkout with specific items from AI chat (not entire cart)
+          try {
+            if (!action.items || action.items.length === 0) {
+              showToast('Không có sản phẩm để thanh toán', 'warning');
+              return;
+            }
+
+            // Fetch user info from Spring
+            const userResponse = await fetch(`${API_CONFIG.API_URL}/users/me`, {
+              headers: { 'Authorization': `Bearer ${authToken}` }
+            });
+            if (userResponse.ok) {
+              const userData = await userResponse.json();
+              setUserInfo(userData);
+              setShippingAddress(userData.address || '');
+            }
+
+            // Set order details with ONLY AI-selected items (not full cart)
+            setOrderDetails({
+              items: action.items.map((item: any) => ({
+                product: {
+                  id: item.productId,
+                  name: item.productName,
+                  price: item.price
+                },
+                productId: item.productId,
+                quantity: item.quantity
+              })),
+              totalAmount: action.total || action.items.reduce((sum: number, item: any) => 
+                sum + (item.price * item.quantity), 0
+              ),
+              discountCode: action.discountCode || '',
+              shippingAddress: ''
+            });
+            setPaymentMethod('COD');
+            setShowOrderConfirm(true);
+            
+            // Clear actions after opening checkout
+            setActions([]);
+            
+            showToast('Đã chuẩn bị đơn hàng. Vui lòng xác nhận.', 'success');
+          } catch (err) {
+            console.error('Failed to prepare checkout:', err);
+            showToast('Không thể chuẩn bị thanh toán', 'error');
+          }
+          return;
+
         case 'CREATE_ORDER':
           // Fetch cart and show confirmation popup
           try {

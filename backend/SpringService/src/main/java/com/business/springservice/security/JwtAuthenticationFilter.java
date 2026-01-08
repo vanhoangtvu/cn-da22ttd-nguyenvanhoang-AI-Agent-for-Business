@@ -65,6 +65,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             request.setAttribute("userId", userId);
             request.setAttribute("username", username);
             request.setAttribute("role", role);
+            request.setAttribute("userRole", role); // For backward compatibility with controllers using "userRole"
         }
         
         filterChain.doFilter(request, response);

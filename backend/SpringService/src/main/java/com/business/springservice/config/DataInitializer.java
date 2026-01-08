@@ -53,8 +53,8 @@ public class DataInitializer implements CommandLineRunner {
             userRepository.save(business1);
             
             User business2 = new User();
-            business2.setUsername("techstore");
-            business2.setEmail("techstore@ai.com");
+            business2.setUsername("business1");
+            business2.setEmail("business1@ai.com");
             business2.setPassword(passwordEncoder.encode("hoang123"));
             business2.setRole(Role.BUSINESS);
             business2.setAddress("789 Trần Hưng Đạo, Q5, TP.HCM");
@@ -62,8 +62,8 @@ public class DataInitializer implements CommandLineRunner {
             userRepository.save(business2);
             
             User business3 = new User();
-            business3.setUsername("gadgetshop");
-            business3.setEmail("gadgetshop@ai.com");
+            business3.setUsername("business2");
+            business3.setEmail("business2@ai.com");
             business3.setPassword(passwordEncoder.encode("hoang123"));
             business3.setRole(Role.BUSINESS);
             business3.setAddress("321 Lý Thường Kiệt, Q10, TP.HCM");
@@ -112,8 +112,8 @@ public class DataInitializer implements CommandLineRunner {
             log.info("Admin - username: admin, email: admin@ai.com, password: hoang123");
             log.info("=== BUSINESS ACCOUNTS ===");
             log.info("Business 1 - username: business, email: business@ai.com, password: hoang123");
-            log.info("Business 2 - username: techstore, email: techstore@ai.com, password: hoang123");
-            log.info("Business 3 - username: gadgetshop, email: gadgetshop@ai.com, password: hoang123");
+            log.info("Business 2 - username: business1, email: business1@ai.com, password: hoang123");
+            log.info("Business 3 - username: business2, email: business2@ai.com, password: hoang123");
             log.info("=== CUSTOMER ACCOUNTS ===");
             log.info("Customer 1 - username: customer, email: customer@ai.com, password: hoang123");
             log.info("Customer 2 - username: nguyenvana, email: nguyenvana@gmail.com, password: hoang123");
@@ -601,8 +601,9 @@ public class DataInitializer implements CommandLineRunner {
     }
     
     private void initializeSampleOrders(User customer1, User customer2, User customer3, User customer4, Product[] products) {
-        log.info("Initializing sample orders distributed across November 2025...");
+        log.info("Initializing sample orders from December 2025 to January 2026...");
         
+        // Products từ business (id=2) - products 1-7
         Product iphone = products[0];
         Product samsung = products[1];
         Product macbook = products[2];
@@ -610,119 +611,190 @@ public class DataInitializer implements CommandLineRunner {
         Product airpods = products[4];
         Product sony = products[5];
         
+        // Products từ business1 (id=3) - products 8-18
+        Product xiaomi = productRepository.findById(8L).orElse(null);
+        Product oppo = productRepository.findById(9L).orElse(null);
+        Product asusRog = productRepository.findById(12L).orElse(null);
+        Product jbl = productRepository.findById(16L).orElse(null);
+        
+        // Products từ business2 (id=4) - products 19-31
+        Product vivo = productRepository.findById(19L).orElse(null);
+        Product realme = productRepository.findById(20L).orElse(null);
+        Product hpPavilion = productRepository.findById(24L).orElse(null);
+        Product bose = productRepository.findById(28L).orElse(null);
+        
         int orderCount = 0;
         BigDecimal totalRevenue = BigDecimal.ZERO;
         
-        // TUẦN 1 THÁNG 11
-        // 05/11/2025
+        // TUẦN 1 THÁNG 12/2025
+        // 02/12/2025 - business
         orderCount++;
         totalRevenue = totalRevenue.add(createOrder(customer1, iphone, airpods, 1, 1, 
-            LocalDateTime.of(2025, 11, 5, 10, 30), OrderStatus.DELIVERED));
+            LocalDateTime.of(2025, 12, 2, 10, 30), OrderStatus.DELIVERED));
         
-        // 07/11/2025
+        // 03/12/2025 - business1
+        if (xiaomi != null && jbl != null) {
+            orderCount++;
+            totalRevenue = totalRevenue.add(createOrder(customer2, xiaomi, jbl, 1, 1, 
+                LocalDateTime.of(2025, 12, 3, 11, 20), OrderStatus.DELIVERED));
+        }
+        
+        // 04/12/2025 - business2
+        if (vivo != null && bose != null) {
+            orderCount++;
+            totalRevenue = totalRevenue.add(createOrder(customer3, vivo, bose, 1, 1, 
+                LocalDateTime.of(2025, 12, 4, 14, 20), OrderStatus.DELIVERED));
+        }
+        
+        // 06/12/2025 - business
         orderCount++;
-        totalRevenue = totalRevenue.add(createOrder(customer2, samsung, null, 1, 0, 
-            LocalDateTime.of(2025, 11, 7, 14, 20), OrderStatus.DELIVERED));
+        totalRevenue = totalRevenue.add(createOrder(customer4, airpods, sony, 2, 1, 
+            LocalDateTime.of(2025, 12, 6, 16, 45), OrderStatus.DELIVERED));
         
-        // 09/11/2025
+        // TUẦN 2 THÁNG 12/2025
+        // 09/12/2025 - business
         orderCount++;
-        totalRevenue = totalRevenue.add(createOrder(customer3, airpods, sony, 2, 1, 
-            LocalDateTime.of(2025, 11, 9, 16, 45), OrderStatus.DELIVERED));
+        totalRevenue = totalRevenue.add(createOrder(customer1, macbook, null, 1, 0, 
+            LocalDateTime.of(2025, 12, 9, 9, 15), OrderStatus.DELIVERED));
         
-        // TUẦN 2 THÁNG 11
-        // 11/11/2025
+        // 10/12/2025 - business1
+        if (oppo != null && asusRog != null) {
+            orderCount++;
+            totalRevenue = totalRevenue.add(createOrder(customer2, oppo, null, 1, 0, 
+                LocalDateTime.of(2025, 12, 10, 10, 30), OrderStatus.DELIVERED));
+        }
+        
+        // 11/12/2025 - business2
+        if (realme != null && hpPavilion != null) {
+            orderCount++;
+            totalRevenue = totalRevenue.add(createOrder(customer3, realme, null, 1, 0, 
+                LocalDateTime.of(2025, 12, 11, 11, 30), OrderStatus.DELIVERED));
+        }
+        
+        // 13/12/2025 - business
         orderCount++;
-        totalRevenue = totalRevenue.add(createOrder(customer4, macbook, null, 1, 0, 
-            LocalDateTime.of(2025, 11, 11, 9, 15), OrderStatus.DELIVERED));
+        totalRevenue = totalRevenue.add(createOrder(customer4, iphone, null, 1, 0, 
+            LocalDateTime.of(2025, 12, 13, 13, 45), OrderStatus.DELIVERED));
         
-        // 13/11/2025
+        // TUẦN 3 THÁNG 12/2025
+        // 16/12/2025 - business
         orderCount++;
-        totalRevenue = totalRevenue.add(createOrder(customer1, samsung, airpods, 1, 1, 
-            LocalDateTime.of(2025, 11, 13, 11, 30), OrderStatus.DELIVERED));
+        totalRevenue = totalRevenue.add(createOrder(customer1, dell, sony, 1, 1, 
+            LocalDateTime.of(2025, 12, 16, 15, 20), OrderStatus.DELIVERED));
         
-        // 15/11/2025
+        // 17/12/2025 - business1
+        if (asusRog != null && jbl != null) {
+            orderCount++;
+            totalRevenue = totalRevenue.add(createOrder(customer2, asusRog, jbl, 1, 2, 
+                LocalDateTime.of(2025, 12, 17, 10, 10), OrderStatus.DELIVERED));
+        }
+        
+        // 18/12/2025 - business2
+        if (hpPavilion != null && bose != null) {
+            orderCount++;
+            totalRevenue = totalRevenue.add(createOrder(customer3, hpPavilion, bose, 1, 1, 
+                LocalDateTime.of(2025, 12, 18, 10, 10), OrderStatus.DELIVERED));
+        }
+        
+        // 20/12/2025 - business
         orderCount++;
-        totalRevenue = totalRevenue.add(createOrder(customer2, iphone, null, 1, 0, 
-            LocalDateTime.of(2025, 11, 15, 13, 45), OrderStatus.DELIVERED));
+        totalRevenue = totalRevenue.add(createOrder(customer4, macbook, airpods, 1, 2, 
+            LocalDateTime.of(2025, 12, 20, 14, 30), OrderStatus.DELIVERED));
         
-        // TUẦN 3 THÁNG 11
-        // 17/11/2025
+        // TUẦN 4 THÁNG 12/2025
+        // 23/12/2025 - business
         orderCount++;
-        totalRevenue = totalRevenue.add(createOrder(customer3, dell, sony, 1, 1, 
-            LocalDateTime.of(2025, 11, 17, 15, 20), OrderStatus.DELIVERED));
+        totalRevenue = totalRevenue.add(createOrder(customer1, samsung, sony, 1, 1, 
+            LocalDateTime.of(2025, 12, 23, 9, 40), OrderStatus.DELIVERED));
         
-        // 19/11/2025
-        orderCount++;
-        totalRevenue = totalRevenue.add(createOrder(customer4, airpods, null, 3, 0, 
-            LocalDateTime.of(2025, 11, 19, 10, 10), OrderStatus.DELIVERED));
+        // 24/12/2025 - business1
+        if (xiaomi != null && oppo != null) {
+            orderCount++;
+            totalRevenue = totalRevenue.add(createOrder(customer2, xiaomi, oppo, 1, 1, 
+                LocalDateTime.of(2025, 12, 24, 15, 30), OrderStatus.DELIVERED));
+        }
         
-        // 21/11/2025
-        orderCount++;
-        totalRevenue = totalRevenue.add(createOrder(customer1, macbook, airpods, 1, 2, 
-            LocalDateTime.of(2025, 11, 21, 14, 30), OrderStatus.DELIVERED));
+        // 25/12/2025 - business2 (Giáng sinh)
+        if (vivo != null && realme != null) {
+            orderCount++;
+            totalRevenue = totalRevenue.add(createOrder(customer3, vivo, realme, 1, 1, 
+                LocalDateTime.of(2025, 12, 25, 16, 15), OrderStatus.DELIVERED));
+        }
         
-        // TUẦN 4 THÁNG 11
-        // 23/11/2025
-        orderCount++;
-        totalRevenue = totalRevenue.add(createOrder(customer2, samsung, sony, 1, 1, 
-            LocalDateTime.of(2025, 11, 23, 9, 40), OrderStatus.DELIVERED));
-        
-        // 25/11/2025
-        orderCount++;
-        totalRevenue = totalRevenue.add(createOrder(customer3, iphone, airpods, 1, 1, 
-            LocalDateTime.of(2025, 11, 25, 16, 15), OrderStatus.DELIVERED));
-        
-        // 27/11/2025
+        // 27/12/2025 - business
         orderCount++;
         totalRevenue = totalRevenue.add(createOrder(customer4, dell, null, 1, 0, 
-            LocalDateTime.of(2025, 11, 27, 11, 50), OrderStatus.DELIVERED));
+            LocalDateTime.of(2025, 12, 27, 11, 50), OrderStatus.DELIVERED));
         
-        // 28/11/2025
+        // 29/12/2025 - business
         orderCount++;
         totalRevenue = totalRevenue.add(createOrder(customer1, samsung, null, 1, 0, 
-            LocalDateTime.of(2025, 11, 28, 13, 25), OrderStatus.DELIVERED));
+            LocalDateTime.of(2025, 12, 29, 13, 25), OrderStatus.DELIVERED));
         
-        // 29/11/2025
+        // 31/12/2025 - business (Cuối năm)
         orderCount++;
         totalRevenue = totalRevenue.add(createOrder(customer2, airpods, sony, 2, 1, 
-            LocalDateTime.of(2025, 11, 29, 15, 35), OrderStatus.DELIVERED));
+            LocalDateTime.of(2025, 12, 31, 15, 35), OrderStatus.DELIVERED));
         
-        // THÁNG 12 (hiện tại)
-        // 30/11/2025
+        // THÁNG 1/2026 (hiện tại)
+        // 02/01/2026 - business
         orderCount++;
         totalRevenue = totalRevenue.add(createOrder(customer3, iphone, null, 1, 0, 
-            LocalDateTime.of(2025, 11, 30, 10, 20), OrderStatus.DELIVERED));
+            LocalDateTime.of(2026, 1, 2, 10, 20), OrderStatus.DELIVERED));
         
-        // 01/12/2025
+        // 03/01/2026 - business1
+        if (asusRog != null && jbl != null) {
+            orderCount++;
+            totalRevenue = totalRevenue.add(createOrder(customer4, asusRog, jbl, 1, 1, 
+                LocalDateTime.of(2026, 1, 3, 9, 10), OrderStatus.DELIVERED));
+        }
+        
+        // 04/01/2026 - business2
+        if (hpPavilion != null && bose != null) {
+            orderCount++;
+            totalRevenue = totalRevenue.add(createOrder(customer1, hpPavilion, bose, 1, 1, 
+                LocalDateTime.of(2026, 1, 4, 14, 30), OrderStatus.DELIVERED));
+        }
+        
+        // 05/01/2026 - business - Đã giao
         orderCount++;
-        totalRevenue = totalRevenue.add(createOrder(customer4, macbook, sony, 1, 1, 
-            LocalDateTime.of(2025, 12, 1, 9, 10), OrderStatus.DELIVERED));
+        totalRevenue = totalRevenue.add(createOrder(customer2, samsung, sony, 1, 1, 
+            LocalDateTime.of(2026, 1, 5, 11, 15), OrderStatus.DELIVERED));
         
-        // 02/12/2025 - Đang xử lý
-        orderCount++;
-        createOrder(customer1, dell, airpods, 1, 1, 
-            LocalDateTime.of(2025, 12, 2, 8, 30), OrderStatus.PROCESSING);
-        
-        // 02/12/2025 - Đang giao
-        orderCount++;
-        createOrder(customer2, samsung, sony, 1, 1, 
-            LocalDateTime.of(2025, 12, 2, 10, 45), OrderStatus.SHIPPING);
-        
-        // 02/12/2025 - Đang giao
+        // 06/01/2026 - business - Đang xử lý
         orderCount++;
         createOrder(customer3, iphone, airpods, 1, 2, 
-            LocalDateTime.of(2025, 12, 2, 14, 20), OrderStatus.SHIPPING);
+            LocalDateTime.of(2026, 1, 6, 8, 30), OrderStatus.PROCESSING);
+        
+        // 06/01/2026 - business1 - Đã xác nhận
+        if (xiaomi != null) {
+            orderCount++;
+            createOrder(customer4, xiaomi, null, 1, 0, 
+                LocalDateTime.of(2026, 1, 6, 10, 45), OrderStatus.CONFIRMED);
+        }
+        
+        // 07/01/2026 - business2 - Đang giao (hôm nay)
+        if (vivo != null && bose != null) {
+            orderCount++;
+            createOrder(customer1, vivo, bose, 1, 1, 
+                LocalDateTime.of(2026, 1, 7, 9, 20), OrderStatus.SHIPPING);
+        }
         
         log.info("========================================");
         log.info("Sample orders created successfully!");
         log.info("Total orders: " + orderCount);
-        log.info("- 16 DELIVERED orders (đã giao - có doanh thu)");
+        log.info("- Orders distributed among 3 businesses:");
+        log.info("  * business (id=2): ~10 orders");
+        log.info("  * business1 (id=3): ~7 orders");
+        log.info("  * business2 (id=4): ~7 orders");
+        log.info("- 21 DELIVERED orders (đã giao - có doanh thu)");
         log.info("- 1 PROCESSING order (đang xử lý)");
-        log.info("- 2 SHIPPING orders (đang giao)");
+        log.info("- 1 CONFIRMED order (đã xác nhận)");
+        log.info("- 1 SHIPPING order (đang giao)");
         log.info("Total revenue (DELIVERED only): " + String.format("%,.0f VNĐ", totalRevenue));
-        log.info("Orders from November to December 2025!");
-        log.info("- November: 15 orders (5/11 -> 30/11)");
-        log.info("- December: 4 orders (1/12 -> 2/12)");
+        log.info("Orders period: December 2025 to January 7, 2026");
+        log.info("- December 2025: 17 orders (2/12 -> 31/12)");
+        log.info("- January 2026: 7 orders (2/1 -> 7/1)");
         log.info("========================================");
     }
     

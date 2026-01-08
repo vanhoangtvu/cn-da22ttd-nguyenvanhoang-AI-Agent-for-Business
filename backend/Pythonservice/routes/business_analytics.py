@@ -13,6 +13,7 @@ from typing import Optional, Dict, Any, List
 import chromadb
 from groq import Groq
 import requests
+import base64
 
 # Import services
 from services.document_processing_service import get_document_processor
@@ -68,6 +69,45 @@ def sanitize_metadata(metadata_dict):
             # Convert other types to string
             sanitized[key] = str(value)
     return sanitized
+
+def parse_jwt_token(token: str) -> Optional[Dict[str, Any]]:
+    """
+    Parse JWT token để lấy payload (không verify signature - server sẽ verify)
+    
+    Args:
+        token: JWT token string
+        
+    Returns:
+        Dict chứa payload hoặc None nếu parse failed
+    """
+    try:
+        # JWT structure: header.payload.signature
+        parts = token.split('.')
+        if len(parts) != 3:
+            print(f"[JWT Parser] Invalid token format - expected 3 parts, got {len(parts)}")
+            return None
+        
+        # Decode base64url payload (part 1)
+        payload = parts[1]
+        # Add padding if needed
+        padding = 4 - len(payload) % 4
+        if padding != 4:
+            payload += '=' * padding
+        
+        # base64url decode: replace - with + and _ with /
+        payload = payload.replace('-', '+').replace('_', '/')
+        decoded_bytes = base64.b64decode(payload)
+        decoded_str = decoded_bytes.decode('utf-8')
+        
+        # Parse JSON
+        payload_dict = json.loads(decoded_str)
+        
+        print(f"[JWT Parser] Successfully parsed token - userId: {payload_dict.get('userId')}, role: {payload_dict.get('role')}")
+        return payload_dict
+        
+    except Exception as e:
+        print(f"[JWT Parser] Error parsing token: {e}")
+        return None
 
 # Configure Gemini API
 GEMINI_API_KEY = os.getenv('GOOGLE_API_KEY')
@@ -1852,13 +1892,33 @@ async def sync_data_from_spring(request: SyncDataRequest):
         if not spring_base_url:
             raise HTTPException(status_code=400, detail="SPRING_SERVICE_URL không được cấu hình")
         
+        # Parse JWT token để lấy user info
+        payload = parse_jwt_token(request.auth_token)
+        if not payload:
+            raise HTTPException(status_code=401, detail="Invalid JWT token")
+        
+        user_role = payload.get('role')
+        user_id = payload.get('userId')
+        
+        # Determine endpoint based on user role
+        if user_role == 'ADMIN':
+            spring_url = f"{spring_base_url}/admin/analytics/system-data"
+            print(f"[Sync] ADMIN user - fetching ALL system data from: {spring_url}")
+        elif user_role == 'BUSINESS' and user_id:
+            spring_url = f"{spring_base_url}/admin/analytics/business-data/{user_id}"
+            print(f"[Sync] BUSINESS user (id={user_id}) - fetching filtered business data from: {spring_url}")
+        else:
+            raise HTTPException(
+                status_code=403, 
+                detail=f"User role '{user_role}' not authorized for analytics sync"
+            )
+        
         # Lấy dữ liệu từ Spring Service
         headers = {
             "Authorization": f"Bearer {request.auth_token}",
             "Content-Type": "application/json"
         }
         
-        spring_url = f"{spring_base_url}/admin/analytics/system-data"
         print(f"[Sync] Fetching data from: {spring_url}")
         
         response = requests.get(spring_url, headers=headers, timeout=30)

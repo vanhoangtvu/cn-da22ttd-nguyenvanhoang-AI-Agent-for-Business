@@ -238,16 +238,27 @@ export default function RevenueManagement() {
               </svg>
               Biểu đồ cột doanh thu
             </h2>
-            <div className="relative">
+            <div className="relative overflow-x-auto pb-2">
               {/* Chart Area */}
-              <div className="h-80 flex items-end justify-around gap-2 px-4 pb-2 border-b-2 border-gray-300 dark:border-gray-600">
+              <div 
+                className="h-80 flex items-end gap-2 px-4 pb-2 border-b-2 border-gray-300 dark:border-gray-600"
+                style={{ minWidth: `${Math.max(revenueData.length * 60, 100)}px` }}
+              >
                 {revenueData.map((item, index) => {
                   const percentage = maxRevenue > 0 ? (item.revenue / maxRevenue) * 100 : 0;
                   // Ensure minimum height of 5% for visibility
                   const heightPercentage = Math.max(percentage, 5);
                   const heightPx = (heightPercentage / 100) * 300; // 300px = h-80 - padding
                   return (
-                    <div key={index} className="flex-1 flex flex-col-reverse items-center group max-w-[80px]">
+                    <div 
+                      key={index} 
+                      className="flex flex-col-reverse items-center group"
+                      style={{ 
+                        flex: revenueData.length <= 15 ? '1 1 0%' : 'none',
+                        minWidth: revenueData.length > 15 ? '50px' : '40px',
+                        maxWidth: revenueData.length <= 7 ? '80px' : revenueData.length <= 15 ? '60px' : '50px'
+                      }}
+                    >
                       {/* Column */}
                       <div
                         className="w-full bg-gradient-to-t from-blue-500 via-blue-600 to-purple-600 rounded-t-lg transition-all duration-1000 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 cursor-pointer shadow-lg hover:shadow-2xl relative overflow-hidden"
@@ -258,7 +269,7 @@ export default function RevenueManagement() {
                       >
                         <div className="absolute inset-0 bg-gradient-to-t from-white/0 via-white/10 to-white/20 animate-shimmer"></div>
                         {/* Value Label */}
-                        {heightPercentage > 20 && (
+                        {heightPercentage > 20 && revenueData.length <= 15 && (
                           <div className="absolute top-2 left-0 right-0 text-center">
                             <span className="text-xs font-bold text-white drop-shadow-lg">
                               {new Intl.NumberFormat('vi-VN', { notation: 'compact', compactDisplay: 'short' }).format(item.revenue)}
@@ -282,11 +293,24 @@ export default function RevenueManagement() {
                 })}
               </div>
               {/* Labels */}
-              <div className="flex items-start justify-around gap-2 px-4 pt-2">
+              <div 
+                className="flex items-start gap-2 px-4 pt-2"
+                style={{ minWidth: `${Math.max(revenueData.length * 60, 100)}px` }}
+              >
                 {revenueData.map((item, index) => (
-                  <div key={index} className="flex-1 max-w-[80px]">
-                    <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 text-center hover:text-purple-600 dark:hover:text-purple-400 transition-colors line-clamp-2">
-                      {item.period.length > 10 ? item.period.substring(0, 10) + '...' : item.period}
+                  <div 
+                    key={index}
+                    style={{ 
+                      flex: revenueData.length <= 15 ? '1 1 0%' : 'none',
+                      minWidth: revenueData.length > 15 ? '50px' : '40px',
+                      maxWidth: revenueData.length <= 7 ? '80px' : revenueData.length <= 15 ? '60px' : '50px'
+                    }}
+                  >
+                    <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 text-center hover:text-purple-600 dark:hover:text-purple-400 transition-colors break-words">
+                      {revenueData.length > 15 
+                        ? item.period.split('-').pop() || item.period.substring(item.period.length - 2)
+                        : item.period.length > 10 ? item.period.substring(0, 10) + '...' : item.period
+                      }
                     </div>
                   </div>
                 ))}

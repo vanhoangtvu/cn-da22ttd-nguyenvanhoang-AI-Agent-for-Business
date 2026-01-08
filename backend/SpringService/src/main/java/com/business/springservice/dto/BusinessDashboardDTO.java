@@ -56,4 +56,13 @@ public class BusinessDashboardDTO {
     
     @Schema(description = "Total number of uploaded documents")
     private Long totalDocuments;
+    
+    @Schema(description = "Product growth percentage compared to last month")
+    private Double productGrowthPercent;
+    
+    @Schema(description = "Order growth percentage compared to last month")
+    private Double orderGrowthPercent;
+    
+    @Schema(description = "Revenue growth percentage compared to last month")
+    private Double revenueGrowthPercent;
 }

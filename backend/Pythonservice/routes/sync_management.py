@@ -225,7 +225,7 @@ async def sync_user(chroma_service, data: Dict):
         username = data.get('username', '')
         
         # Get or create users collection
-        collection = chroma_service._get_or_create_user_collection()
+        collection = chroma_service._get_or_create_users_collection()
         
         # Prepare metadata
         metadata = {
@@ -266,20 +266,44 @@ async def sync_cart(chroma_service, data: Dict):
         items = data.get('items', [])
         items_text = []
         total_items = 0
+        items_for_json = []
         
         for item in items:
-            product_name = item.get('productName', item.get('product', {}).get('name', 'Unknown'))
-            quantity = item.get('quantity', 0)
+            # Handle both formats: CartItemDTO from Spring and dict
+            if isinstance(item, dict):
+                product = item.get('product', {})
+                product_id = product.get('id', item.get('productId', 0))
+                product_name = product.get('name', item.get('productName', 'Unknown'))
+                product_price = product.get('price', item.get('productPrice', 0))
+                quantity = item.get('quantity', 0)
+                
+                # Create structured item for JSON storage
+                items_for_json.append({
+                    'productId': product_id,
+                    'productName': product_name,
+                    'productPrice': float(product_price),
+                    'quantity': quantity,
+                    'subtotal': float(product_price) * quantity
+                })
+            else:
+                product_name = 'Unknown'
+                quantity = 0
+            
             items_text.append(f"{product_name} x{quantity}")
             total_items += quantity
         
-        # Prepare metadata
+        # Calculate total value
+        total_value = sum(item['subtotal'] for item in items_for_json)
+        
+        # Prepare metadata with items_json for AI context
         metadata = {
             "cart_id": f"cart_user_{user_id}",
             "user_id": str(user_id),
-            "total_price": float(data.get('totalPrice', data.get('total_price', 0))),
+            "total_price": float(data.get('totalAmount', data.get('totalPrice', data.get('total_price', total_value)))),
+            "total_value": str(total_value),
             "total_items": total_items,
-            "items_count": len(items)
+            "items_count": len(items),
+            "items_json": json.dumps(items_for_json, ensure_ascii=False)  # Store items as JSON for AI
         }
         
         # Create document text
@@ -292,7 +316,7 @@ async def sync_cart(chroma_service, data: Dict):
             metadatas=[metadata]
         )
         
-        print(f"[SYNC SUCCESS] Cart for user {user_id}: {total_items} items")
+        print(f"[SYNC SUCCESS] Cart for user {user_id}: {total_items} items, Total: {total_value:,.0f}đ")
     except Exception as e:
         print(f"[SYNC ERROR] Cart {data.get('id')}: {str(e)}")
         raise
@@ -304,7 +328,7 @@ async def sync_order(chroma_service, data: Dict):
         user_id = data.get('userId', data.get('user_id'))
         
         # Get or create orders collection
-        collection = chroma_service._get_or_create_order_collection()
+        collection = chroma_service._get_or_create_orders_collection()
         
         # Prepare order items
         items = data.get('orderItems', data.get('items', []))
@@ -349,7 +373,7 @@ async def sync_discount(chroma_service, data: Dict):
         code = data.get('code', '')
         
         # Get or create discounts collection
-        collection = chroma_service._get_or_create_discount_collection()
+        collection = chroma_service._get_or_create_discounts_collection()
         
         # Prepare metadata
         metadata = {
@@ -384,17 +408,17 @@ async def delete_from_chroma(chroma_service, table: str, item_id: int):
             collection = chroma_service._get_or_create_product_collection()
             collection.delete(ids=[f"product_{item_id}"])
         elif table == "users":
-            collection = chroma_service._get_or_create_user_collection()
+            collection = chroma_service._get_or_create_users_collection()
             collection.delete(ids=[f"user_{item_id}"])
         elif table == "carts":
             # Carts use user_id as identifier
             collection = chroma_service._get_or_create_carts_collection()
             collection.delete(ids=[f"cart_user_{item_id}"])
         elif table == "orders":
-            collection = chroma_service._get_or_create_order_collection()
+            collection = chroma_service._get_or_create_orders_collection()
             collection.delete(ids=[f"order_{item_id}"])
         elif table == "discounts":
-            collection = chroma_service._get_or_create_discount_collection()
+            collection = chroma_service._get_or_create_discounts_collection()
             # For discounts, item_id might be the code
             collection.delete(ids=[f"discount_{item_id}"])
         

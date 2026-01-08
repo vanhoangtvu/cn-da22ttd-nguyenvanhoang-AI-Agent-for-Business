@@ -20,17 +20,34 @@ public class AnalyticsController {
     
     @GetMapping("/system-data")
     @Operation(
-        summary = "Get complete system analytics data", 
-        description = "Retrieve comprehensive data including users, products, orders, revenue, and business performance. " +
-                     "This endpoint is designed for AI/RAG services to analyze business data, provide recommendations, " +
-                     "forecast revenue, and offer strategic insights. Requires ADMIN or BUSINESS role."
+        summary = "Get complete system analytics data (ADMIN only)", 
+        description = "Retrieve comprehensive data including ALL users, products, orders, revenue, and business performance. " +
+                     "This endpoint returns ALL data from the entire system. Only ADMIN can access this. " +
+                     "For BUSINESS users, use /business-data/{businessId} instead."
     )
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved system analytics data"),
         @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid or missing JWT token"),
-        @ApiResponse(responseCode = "403", description = "Access denied - Only ADMIN and BUSINESS roles allowed")
+        @ApiResponse(responseCode = "403", description = "Access denied - Only ADMIN role allowed")
     })
     public ResponseEntity<SystemAnalyticsDataDTO> getSystemAnalyticsData() {
         return ResponseEntity.ok(analyticsService.getSystemAnalyticsData());
+    }
+    
+    @GetMapping("/business-data/{businessId}")
+    @Operation(
+        summary = "Get business-specific analytics data", 
+        description = "Retrieve analytics data ONLY for the specified business. " +
+                     "Returns only products, orders, and revenue related to this business. " +
+                     "Business users can only access their own data."
+    )
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved business analytics data"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized - Invalid or missing JWT token"),
+        @ApiResponse(responseCode = "403", description = "Access denied"),
+        @ApiResponse(responseCode = "404", description = "Business not found")
+    })
+    public ResponseEntity<SystemAnalyticsDataDTO> getBusinessAnalyticsData(@PathVariable Long businessId) {
+        return ResponseEntity.ok(analyticsService.getBusinessAnalyticsData(businessId));
     }
 }

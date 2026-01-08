@@ -12,6 +12,7 @@ from groq import Groq
 from datetime import datetime
 import uuid
 import httpx
+import json
 from services.redis_chat_service import RedisChatService, get_redis_service, ChatMessage as RedisMessage
 from services.chat_ai_rag_chroma_service import get_chat_ai_rag_service
 from services.jwt_util import JwtUtil
@@ -56,6 +57,51 @@ def get_redis() -> RedisChatService:
     if _redis_service is None:
         _redis_service = get_redis_service()
     return _redis_service
+
+
+def save_shopping_context(redis_svc, user_id: str, session_id: str, product_info: Dict, quantity: int = 1, discount_code: str = None):
+    """
+    Lưu thông tin sản phẩm đang mua vào Redis để dùng cho checkout
+    
+    Args:
+        redis_svc: Redis service instance
+        user_id: User ID
+        session_id: Session ID  
+        product_info: Dict chứa id, name, price của sản phẩm
+        quantity: Số lượng
+        discount_code: Mã giảm giá (nếu có)
+    """
+    try:
+        shopping_key = f"shopping:user:{user_id}:session:{session_id}"
+        shopping_data = {
+            "productId": product_info.get('id'),
+            "productName": product_info.get('name'),
+            "price": product_info.get('price'),
+            "quantity": quantity,
+            "discountCode": discount_code,
+            "timestamp": datetime.now().isoformat()
+        }
+        redis_svc.client.setex(
+            shopping_key,
+            300,  # Expire sau 5 phút
+            json.dumps(shopping_data)
+        )
+        print(f"[SHOPPING] Saved shopping context for user {user_id}: {product_info.get('name')} x {quantity}")
+    except Exception as e:
+        print(f"[SHOPPING] Error saving shopping context: {e}")
+
+
+def get_shopping_context(redis_svc, user_id: str, session_id: str) -> Optional[Dict]:
+    """Lấy thông tin shopping context từ Redis"""
+    try:
+        shopping_key = f"shopping:user:{user_id}:session:{session_id}"
+        data = redis_svc.client.get(shopping_key)
+        if data:
+            return json.loads(data)
+        return None
+    except Exception as e:
+        print(f"[SHOPPING] Error getting shopping context: {e}")
+        return None
 
 
 def validate_price_filtering_response(response: str, context: str) -> Dict[str, Any]:
@@ -334,6 +380,85 @@ def detect_action_intent(message: str, products: List[Dict], discounts: List[Dic
                 "label": f"🎫 Áp mã {code}"
             })
     
+    # CHECKOUT_WITH_ITEMS intent - Thanh toán trực tiếp sản phẩm từ AI chat
+    # Detect khi AI suggest thanh toán sau khi khách chọn sản phẩm + số lượng + mã giảm giá
+    checkout_keywords = ['thanh toán ngay', 'đi tới.*thanh toán', 'hoàn tất.*hàng', 'click.*thanh toán', 'nhấn nút.*thanh toán']
+    ai_suggesting_checkout = any(kw in response_lower for kw in checkout_keywords)
+    
+    # Extract product info from AI response if suggesting checkout
+    if ai_suggesting_checkout:
+        # Try to extract product, quantity, and discount from AI response
+        import re
+        
+        checkout_items = []
+        checkout_discount = None
+        
+        # Strategy 1: Extract from "Sản phẩm: [Name] x [Qty]" pattern
+        product_pattern = r'sản phẩm:\s*([^x\n]+?)\s*x\s*(\d+)'
+        matches = re.findall(product_pattern, response_lower, re.IGNORECASE)
+        
+        if matches:
+            for product_text, qty_str in matches:
+                product_text = product_text.strip()
+                quantity = int(qty_str) if qty_str else 1
+                
+                # Find matching product from available products
+                for product in products:
+                    product_name = product.get('name', '').lower()
+                    if product_name and product_name in product_text:
+                        checkout_items.append({
+                            "productId": product.get('id'),
+                            "productName": product.get('name'),
+                            "price": product.get('price'),
+                            "quantity": quantity
+                        })
+                        break
+        
+        # Strategy 2: Fallback to current ADD_TO_CART actions with quantity extraction
+        if not checkout_items:
+            for action in actions:
+                if action.get('type') == 'ADD_TO_CART':
+                    # Extract quantity from AI response if mentioned
+                    quantity = 1
+                    qty_pattern = r'(\d+)\s*chiếc|(\d+)\s*cái|(\d+)\s*máy|số lượng:\s*(\d+)|x\s*(\d+)'
+                    qty_match = re.search(qty_pattern, response_lower)
+                    if qty_match:
+                        quantity = int([g for g in qty_match.groups() if g][0])
+                    
+                    checkout_items.append({
+                        "productId": action.get('productId'),
+                        "productName": action.get('productName'),
+                        "price": action.get('price'),
+                        "quantity": quantity
+                    })
+                    break
+        
+        # Extract discount code from AI response
+        if discounts:
+            # Check current response
+            for discount in discounts:
+                code = discount.get('code', '')
+                if code and code.lower() in response_lower:
+                    checkout_discount = code
+                    break
+        
+        # Add CHECKOUT_WITH_ITEMS action ONLY if we successfully extracted items
+        if checkout_items:
+            action_data = {
+                "type": "CHECKOUT_WITH_ITEMS",
+                "label": "💳 Đi tới trang thanh toán",
+                "items": checkout_items
+            }
+            
+            # Calculate total
+            total = sum(item['price'] * item['quantity'] for item in checkout_items)
+            action_data["total"] = total
+            
+            if checkout_discount:
+                action_data["discountCode"] = checkout_discount
+            
+            actions.append(action_data)
+    
     # CREATE_ORDER intent - Cả từ user và AI suggest
     order_keywords = [
         'đặt hàng', 'tạo đơn', 'checkout', 'thanh toán', 'mua luôn', 'order',
@@ -344,7 +469,7 @@ def detect_action_intent(message: str, products: List[Dict], discounts: List[Dic
     
     if is_ordering or ai_suggesting_order:
         # Avoid duplicate order buttons
-        if not any(a.get('type') == 'CREATE_ORDER' for a in actions):
+        if not any(a.get('type') in ['CREATE_ORDER', 'CHECKOUT_WITH_ITEMS'] for a in actions):
             actions.append({
                 "type": "CREATE_ORDER",
                 "label": "📦 Tạo đơn hàng ngay"
@@ -637,11 +762,11 @@ async def chat(
             timestamp=user_msg_time
         )
         
-        # Get conversation context (last 4 messages only to stay under 8000 token limit)
+        # Get conversation context (last 2 messages only to stay under 8000 token limit)
         context_messages = redis_svc.get_session_context(
             session_id=session_id,
             user_id=user_id,
-            limit=4  # Reduced to 4 to stay under 8000 token limit
+            limit=2  # Only 1 Q&A pair for context
         )
         
         # Get comprehensive context from ChromaDB (products + knowledge + user data + discounts)
@@ -649,9 +774,9 @@ async def chat(
         combined_context = chroma_service.retrieve_combined_context_with_user(
             user_id=user_id,
             query=request.message,  # Use current message as query for relevant context
-            top_k_products=3,
-            top_k_knowledge=2,
-            top_k_user=2,
+            top_k_products=3,  # 3 products for detailed comparison
+            top_k_knowledge=3,  # More knowledge for detailed answers
+            top_k_user=1,  # Only 1 user interaction history
             top_k_discounts=3  # Include discount context
         )
 
@@ -683,7 +808,7 @@ async def chat(
                 print(f"[CHAT] No orders found for user {user_id}")
         
         # SMART TRUNCATE: Keep discounts and user info, truncate product details if needed
-        MAX_CONTEXT_CHARS = 6000  # Increased to preserve image URLs
+        MAX_CONTEXT_CHARS = 5000  # Balanced: enough detail + within token limit
         if combined_context and len(combined_context) > MAX_CONTEXT_CHARS:
             print(f"[CHAT] Context too long ({len(combined_context)} chars), smart truncating...")
             
@@ -724,81 +849,55 @@ async def chat(
         print(f"[CHAT] Combined context preview: {combined_context[:200] if combined_context else 'None'}")
         
         # Build enhanced system prompt with comprehensive context
-        base_system_prompt = """BẠN LÀ AI TƯ VẤN SẢN PHẨM THÔNG MINH.
+        base_system_prompt = """BẠN LÀ AI TƯ VẤN SẢN PHẨM THÔNG MINH - TƯ VẤN CHI TIẾT VÀ CHUYÊN SÂU.
 
-═══════════════════════════════════════════════════════════════════
-🚨 QUY TẮC TUYỆT ĐỐI - VI PHẠM = RESPONSE BỊ TỪ CHỐI
-═══════════════════════════════════════════════════════════════════
+🎯 PHONG CÁCH TƯ VẤN:
+- Trả lời ĐẦY ĐỦ, CHI TIẾT về thông số kỹ thuật, ưu nhược điểm
+- GIẢI THÍCH tại sao sản phẩm phù hợp với nhu cầu khách
+- SO SÁNH CỤ THỂ từng điểm mạnh/yếu giữa các sản phẩm
+- ĐƯA RA LỜI KHUYÊN dựa trên ngân sách và mục đích sử dụng
 
-📋 BƯỚC 1: ĐỌC KỸ "🎯 PHÂN TÍCH YÊU CẦU KHÁCH HÀNG"
-- Xác định DANH MỤC khách cần (điện thoại, laptop, tai nghe...)
-- Xác định MỤC ĐÍCH sử dụng (gaming, văn phòng, chụp ảnh...)
-- Xác định NGÂN SÁCH (giá rẻ, cao cấp, tầm trung, khoảng giá cụ thể)
+🚨 QUY TẮC TUYỆT ĐỐI:
+1. ĐỌC phân tích yêu cầu: danh mục, mục đích, ngân sách
+2. TUÂN THEO hướng dẫn: giá rẻ→sản phẩm rẻ nhất, cao cấp→đắt nhất
+3. CHỌN 2-3 sản phẩm đầu từ danh sách đã sort
+4. CHỈ dùng sản phẩm CÓ TRONG context, KHÔNG bịa
+5. Hiển thị ảnh: ![](URL) - lấy từ 🖼️ trong context
+6. So sánh: Bảng | Sản phẩm | Giá | Đặc điểm nổi bật | Phù hợp | Ảnh |
 
-📋 BƯỚC 2: TUÂN THEO "🤖 HƯỚNG DẪN TƯ VẤN CHO AI"
-- Nếu có "📌 Khách muốn GIÁ RẺ" → ĐỀ XUẤT SẢN PHẨM CÓ GIÁ THẤP NHẤT trong danh sách
-- Nếu có "📌 Khách muốn CAO CẤP" → ĐỀ XUẤT SẢN PHẨM CÓ GIÁ CAO NHẤT trong danh sách
-- Nếu có "📌 Khoảng giá X-Y" → CHỈ ĐỀ XUẤT sản phẩm trong khoảng giá đó
-- Nếu có "📌 Mục đích: gaming" → Ưu tiên sản phẩm có cấu hình mạnh, hiệu năng cao
+💡 CẤU TRÚC TRẢ LỜI CHI TIẾT:
+1. MỞ ĐẦU: Chào + hiểu nhu cầu khách (1-2 câu)
+2. PHÂN TÍCH: Giải thích tiêu chí chọn sản phẩm (2-3 câu)
+3. ĐỀ XUẤT: Từng sản phẩm với:
+   - Thông số chính (CPU, RAM, màn hình, pin...)
+   - Điểm mạnh nổi bật (2-3 điểm)
+   - Phù hợp với ai/mục đích gì
+4. SO SÁNH: Bảng chi tiết + nhận xét khác biệt
+5. KẾT LUẬN: Lời khuyên cuối (1-2 câu)
 
-📋 BƯỚC 3: CHỌN SẢN PHẨM TỪ DANH SÁCH ĐÃ ĐƯỢC SORT
-- Danh sách sản phẩm đã được sắp xếp theo yêu cầu của khách
-- Sản phẩm đầu tiên thường là PHÙ HỢP NHẤT
-- Chọn 2-3 sản phẩm đầu để đề xuất
+🛒 HỖ TRỢ HÀNH ĐỘNG:
+- Thêm giỏ hàng → Hệ thống hiển thị nút
+- Mã giảm giá → Hệ thống hiển thị nút áp mã
+- Đặt hàng → Hệ thống hiển thị popup
 
-✅ VÍ DỤ ĐÚNG:
-Query: "điện thoại giá rẻ"
-→ Đề xuất: Redmi Note 13 Pro (7.99M), Samsung Galaxy A54 (9.99M) - đây là 2 điện thoại RẺ NHẤT
+⚠️ VỀ ĐẶT HÀNG:
+❌ KHÔNG nói: "Đơn hàng đã xác nhận", "Đang xử lý thanh toán"
+✅ CHỈ nói: "Nhấn nút 'Tạo đơn hàng' bên dưới"
 
-Query: "điện thoại cao cấp"  
-→ Đề xuất: iPhone 15 Pro Max (29.99M), Samsung S24 Ultra (27.99M) - đây là 2 điện thoại ĐẮT NHẤT
+⚠️ VỀ GIỎ HÀNG:
+- Chỉ trả lời dựa trên "=== GIỎ HÀNG THỰC TẾ ==="
+- Không có thông tin → Không thể xem giỏ hàng
+- KHÔNG bịa sản phẩm trong giỏ
 
-❌ VÍ DỤ SAI:
-Query: "điện thoại giá rẻ"
-→ SAI: Đề xuất iPhone 15 Pro Max (29.99M) - vì đây là điện thoại ĐẮT, không phải rẻ!
+🛍️ FLOW MUA HÀNG (6 BƯỚC):
+1. Khách: "mua X" → AI: Hỏi số lượng (📦 Sản phẩm: X | 💰 Giá | ❓ Bao nhiêu?)
+2. Khách: "2" → AI: Tính tổng, hỏi mã (🔢 SL:2 | 💵 Tổng | 🎁 Mã?)
+3. Khách: Chọn mã → AI: Tổng sau giảm (🎫 Mã | ✅ Tổng | 💳 Thanh toán?)
+4. Khách: "có" → AI: "📦 Sản phẩm: X x 2\n💵 Tổng\n👇 Nhấn nút thanh toán"
+5. Sau thanh toán → AI: "🎉 Cảm ơn! ✅ Đơn đang xử lý. 📱 Kiểm tra đơn?"
+6. Khách: "có" → AI: Hiển thị đơn hàng
 
-═══════════════════════════════════════════════════════════════════
-📌 CÁC QUY TẮC BỔ SUNG
-═══════════════════════════════════════════════════════════════════
-- CHỈ sử dụng sản phẩm có trong context, KHÔNG bịa ra sản phẩm
-- HIỂN THỊ HÌNH ẢNH sản phẩm bằng format: ![Tên](URL)
-- SO SÁNH 2-3 sản phẩm với bảng markdown, HEADER CỦA BẢNG PHẢI LÀ: "| Sản phẩm | Giá | Sẵn có | Khả năng | Ảnh |"
-- ⚠️ **BẮT BUỘC HIỂN THỊ ẢNH TRONG BẢNG**:
-  CÁCH LÀM (4 BƯỚC):
-  1. Tìm sản phẩm trong context
-  2. Tìm dòng có 🖼️ ngay bên dưới tên sản phẩm
-  3. COPY CHÍNH XÁC URL sau 🖼️
-  4. Dán vào cột Ảnh: ![](URL)
-  
-  VÍ DỤ: Context có "iPhone 15 Pro Max" và dòng "🖼️ https://storage.../iphone.jpg"
-  → Table: | iPhone 15 Pro Max | ... | ![](https://storage.../iphone.jpg) |
-  
-  LỖI: Bỏ qua ảnh hoặc dùng URL không có trong context
-- KẾT THÚC bằng đề xuất cuối cùng và lời hỏi thêm
-
-🛒 HỆ THỐNG HỖ TRỢ CÁC HÀNH ĐỘNG SAU:
-- Khi khách muốn THÊM VÀO GIỎ HÀNG → Hệ thống sẽ hiển thị nút action để thêm
-- Khi khách hỏi MÃ GIẢM GIÁ → Hệ thống sẽ hiển thị nút áp mã
-- Khi khách muốn ĐẶT HÀNG → Hệ thống sẽ hiển thị popup xác nhận
-
-⚠️ QUY TẮC TUYỆT ĐỐI VỀ ĐẶT HÀNG:
-❌ KHÔNG BAO GIỜ nói: "Đơn hàng đã được xác nhận", "Đang xử lý thanh toán", "Đã đặt hàng thành công"
-❌ KHÔNG BAO GIỜ nói: "Hệ thống đang tiến hành...", "Đơn hàng đã hoàn tất"
-✅ CHỈ ĐƯỢC nói: "Vui lòng nhấn nút 'Tạo đơn hàng' bên dưới để xác nhận"
-✅ CHỈ ĐƯỢC nói: "Hãy click vào nút đặt hàng xuất hiện bên dưới"
-
-VÍ DỤ ĐÚNG:
-User: "đặt hàng"
-AI: "Bạn có thể nhấn nút '📦 Tạo đơn hàng ngay' bên dưới để tiến hành đặt hàng nhé!"
-
-VÍ DỤ SAI:
-User: "đặt hàng"  
-AI: "Đơn hàng đã được xác nhận. Hệ thống đang xử lý..." ❌ SAI! Đơn hàng chưa được tạo!
-
-⚠️ ĐẶC BIỆT CHÚ Ý VỀ GIỎ HÀNG:
-- Chỉ trả lời về nội dung giỏ hàng DỰA TRÊN thông tin "=== GIỎ HÀNG THỰC TẾ CỦA KHÁCH ===".
-- Nếu không có thông tin này, nói rằng bạn không thể xem giỏ hàng của khách.
-- KHÔNG BAO GIỜ tự bịa ra sản phẩm đang có trong giỏ."""
+⚠️ BẮT BUỘC BƯỚC 4: Dòng "📦 Sản phẩm: [Tên] x [SL]" để hệ thống trích xuất!"""
 
         # Check if we have user-specific context
         has_user_context = combined_context and combined_context != "No relevant context found.No user-specific context found."
@@ -834,14 +933,20 @@ DỮ LIỆU:
 QUY TẮC BẮT BUỘC:
 1. LUÔN BẮT ĐẦU bằng: "Xin chào {user_name}! 👋"
 2. LUÔN GỌI TÊN "{user_name}" trong mọi tin nhắn, KHÔNG dùng từ "bạn"
-3. Đề xuất 2-3 sản phẩm PHÙ HỢP NHẤT từ danh sách đã được sort
+3. TƯ VẤN CHI TIẾT:
+   - Giải thích TẠI SAO sản phẩm phù hợp với nhu cầu {user_name}
+   - Liệt kê THÔNG SỐ KỸ THUẬT chính (CPU, RAM, màn hình, pin...)
+   - Nêu 2-3 ĐIỂM MẠNH nổi bật của từng sản phẩm
+   - SO SÁNH CỤ THỂ sự khác biệt giữa các lựa chọn
 4. Hiển thị ảnh: ![Tên](URL) - CHỈ dùng URL có trong dữ liệu
 5. ⚠️ **CHÍNH XÁC TÊN SẢN PHẨM**: Khi đề xuất, PHẢI COPY CHÍNH XÁC tên từ context
    - VÍ DỤ: Context có "Lenovo IdeaPad 3" → Viết "Lenovo IdeaPad 3" (KHÔNG viết "IdeaPad 15" hay thêm số khác)
    - TUYỆT ĐỐI KHÔNG được tự bịa, sửa, hay thêm bớt tên sản phẩm
-6. ⚠️ BẢNG PHẢI CÓ ẢNH: Format | Sản phẩm | Giá | Sẵn có | Khả năng | Ảnh | - Mỗi dòngl phải có ![](URL) ở cột Ảnh. Tìm URL trong context sau icon 🖼️
+6. ⚠️ BẢNG SO SÁNH CHI TIẾT: | Sản phẩm | Giá | Thông số | Điểm mạnh | Phù hợp | Ảnh |
+   - Mỗi dòng phải có ![](URL) ở cột Ảnh. Tìm URL trong context sau icon 🖼️
 7. KHÔNG bịa sản phẩm hoặc mã giảm giá
-8. Kết thúc ngắn gọn, KHÔNG gợi ý thêm (hệ thống tự động hiển thị gợi ý)"""
+8. KẾT LUẬN: Đưa ra lời khuyên cuối cùng dựa trên phân tích
+9. KHÔNG gợi ý thêm ở cuối (hệ thống tự động hiển thị)"""
         else:
             enhanced_system_prompt = f"""{base_system_prompt}
 
@@ -977,7 +1082,7 @@ Bạn đang tư vấn cho khách hàng chưa có thông tin cá nhân. Hãy tậ
             
             # Get products from ChromaDB
             product_collection = chroma_service._get_or_create_product_collection()
-            all_products = product_collection.get(limit=50, include=['metadatas'])
+            all_products = product_collection.get(limit=10, include=['metadatas'])  # Only need top 10 for actions
             if all_products and all_products.get('metadatas'):
                 for meta in all_products['metadatas']:
                     products_for_action.append({
@@ -987,7 +1092,7 @@ Bạn đang tư vấn cho khách hàng chưa có thông tin cá nhân. Hãy tậ
                     })
             
             # Get discounts mentioned in AI response
-            discount_context = chroma_service.retrieve_discount_context(request.message, top_k=5)
+            discount_context = chroma_service.retrieve_discount_context(request.message, top_k=3)  # Only 3 most relevant
             
             # Extract discount codes from AI response OR context
             discount_codes_in_response = re.findall(r'(?:GADGET|SAVE|BLACK|WELCOME|LOYAL|FLASH|HOT|VIP)\w*', response_message.upper())

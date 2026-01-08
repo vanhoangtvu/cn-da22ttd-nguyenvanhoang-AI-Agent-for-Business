@@ -26,13 +26,21 @@ public class OrderManagementController {
     private final ActivityLogService activityLogService;
     
     @GetMapping
-    @Operation(summary = "Get all orders", description = "Retrieve all orders. Requires ADMIN or BUSINESS role.")
+    @Operation(summary = "Get all orders", description = "Retrieve all orders (ADMIN) or business-specific orders (BUSINESS). Requires ADMIN or BUSINESS role.")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved list"),
         @ApiResponse(responseCode = "401", description = "Unauthorized"),
         @ApiResponse(responseCode = "403", description = "Access denied")
     })
-    public ResponseEntity<List<OrderDTO>> getAllOrders() {
+    public ResponseEntity<List<OrderDTO>> getAllOrders(HttpServletRequest request) {
+        String userRole = (String) request.getAttribute("userRole");
+        Long userId = (Long) request.getAttribute("userId");
+        
+        // ADMIN sees all orders, BUSINESS only sees orders containing their products
+        if ("BUSINESS".equals(userRole) && userId != null) {
+            return ResponseEntity.ok(orderService.getOrdersForBusiness(userId));
+        }
+        
         return ResponseEntity.ok(orderService.getAllOrders());
     }
     

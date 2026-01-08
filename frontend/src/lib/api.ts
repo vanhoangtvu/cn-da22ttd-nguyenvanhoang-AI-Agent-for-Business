@@ -454,11 +454,17 @@ class ApiClient {
 
   // Admin Dashboard Statistics API
   async getAdminStats() {
-    return this.fetch('/admin/dashboard/admin-stats');
+    console.log('[API] Calling getAdminStats (full system stats)...');
+    const result = await this.fetch('/admin/dashboard/admin-stats');
+    console.log('[API] getAdminStats response:', result);
+    return result;
   }
 
   async getBusinessStats() {
-    return this.fetch('/admin/dashboard/business-stats');
+    console.log('[API] Calling getBusinessStats (filtered by business)...');
+    const result = await this.fetch('/admin/dashboard/business-stats');
+    console.log('[API] getBusinessStats response:', result);
+    return result;
   }
 
   async getDailyRevenue(days: number) {

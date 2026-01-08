@@ -463,4 +463,367 @@ public class AnalyticsService {
 
                 return data;
         }
+        
+        @Transactional(readOnly = true)
+        public SystemAnalyticsDataDTO getBusinessAnalyticsData(Long businessId) {
+                // Verify business user exists
+                User businessUser = userRepository.findById(businessId)
+                                .orElseThrow(() -> new RuntimeException("Business not found with ID: " + businessId));
+                
+                if (businessUser.getRole() != Role.BUSINESS) {
+                        throw new RuntimeException("User is not a BUSINESS user");
+                }
+                
+                SystemAnalyticsDataDTO data = new SystemAnalyticsDataDTO();
+
+                // Only return this business user's info
+                data.setTotalUsers(1L);
+                data.setTotalBusinessUsers(1L);
+                data.setUsers(List.of(
+                        new SystemAnalyticsDataDTO.UserSummaryDTO(
+                                businessUser.getId(),
+                                businessUser.getUsername(),
+                                businessUser.getEmail(),
+                                businessUser.getRole().name(),
+                                businessUser.getAccountStatus().name(),
+                                businessUser.getAddress(),
+                                businessUser.getPhoneNumber()
+                        )
+                ));
+
+                // Only products of this business
+                List<Product> businessProducts = productRepository.findAll().stream()
+                                .filter(p -> p.getSeller().getId().equals(businessId))
+                                .collect(Collectors.toList());
+                
+                data.setTotalProducts((long) businessProducts.size());
+                data.setActiveProducts(businessProducts.stream()
+                                .filter(p -> p.getStatus() == Status.ACTIVE)
+                                .count());
+
+                // Calculate sales data ONLY for this business's products
+                List<Order> allOrders = orderRepository.findAll();
+                Map<Long, Integer> productSalesMap = new HashMap<>();
+                Map<Long, BigDecimal> productRevenueMap = new HashMap<>();
+
+                allOrders.stream()
+                                .filter(order -> order.getStatus() == OrderStatus.DELIVERED)
+                                .flatMap(order -> order.getOrderItems().stream())
+                                .filter(item -> item.getProduct().getSeller().getId().equals(businessId))
+                                .forEach(item -> {
+                                        Long productId = item.getProduct().getId();
+                                        productSalesMap.merge(productId, item.getQuantity(), Integer::sum);
+                                        productRevenueMap.merge(productId, item.getSubtotal(), BigDecimal::add);
+                                });
+
+                data.setProducts(businessProducts.stream()
+                                .map(p -> new SystemAnalyticsDataDTO.ProductAnalyticsDTO(
+                                                p.getId(),
+                                                p.getName(),
+                                                p.getDescription(),
+                                                p.getPrice(),
+                                                p.getQuantity(),
+                                                p.getStatus().name(),
+                                                p.getCategory().getName(),
+                                                p.getSeller().getUsername(),
+                                                p.getSeller().getId(),
+                                                productSalesMap.getOrDefault(p.getId(), 0),
+                                                productRevenueMap.getOrDefault(p.getId(), BigDecimal.ZERO),
+                                                p.getImageUrls(),
+                                                p.getDetails()
+                                ))
+                                .collect(Collectors.toList()));
+
+                // Categories - only those with business's products
+                Set<Long> businessCategoryIds = businessProducts.stream()
+                                .map(p -> p.getCategory().getId())
+                                .collect(Collectors.toSet());
+                
+                List<Category> businessCategories = categoryRepository.findAll().stream()
+                                .filter(c -> businessCategoryIds.contains(c.getId()))
+                                .collect(Collectors.toList());
+                
+                data.setCategories(businessCategories.stream()
+                                .map(c -> new SystemAnalyticsDataDTO.CategorySummaryDTO(
+                                                c.getId(),
+                                                c.getName(),
+                                                c.getDescription(),
+                                                c.getStatus().name(),
+                                                (int) businessProducts.stream()
+                                                                .filter(p -> p.getCategory().getId().equals(c.getId()))
+                                                                .count()))
+                                .collect(Collectors.toList()));
+
+                // Orders - only orders containing this business's products
+                List<Order> businessOrders = allOrders.stream()
+                                .filter(order -> order.getOrderItems().stream()
+                                                .anyMatch(item -> item.getProduct().getSeller().getId().equals(businessId)))
+                                .collect(Collectors.toList());
+                
+                data.setTotalOrders((long) businessOrders.size());
+                data.setDeliveredOrders(businessOrders.stream()
+                                .filter(o -> o.getStatus() == OrderStatus.DELIVERED)
+                                .count());
+                data.setPendingOrders(businessOrders.stream()
+                                .filter(o -> o.getStatus() == OrderStatus.PENDING)
+                                .count());
+
+                data.setOrders(businessOrders.stream()
+                                .map(o -> {
+                                        // Only include items of this business
+                                        List<SystemAnalyticsDataDTO.OrderItemSummaryDTO> items = o.getOrderItems()
+                                                        .stream()
+                                                        .filter(item -> item.getProduct().getSeller().getId().equals(businessId))
+                                                        .map(item -> new SystemAnalyticsDataDTO.OrderItemSummaryDTO(
+                                                                        item.getProduct().getId(),
+                                                                        item.getProductName(),
+                                                                        item.getQuantity(),
+                                                                        item.getProductPrice(),
+                                                                        item.getSubtotal()))
+                                                        .collect(Collectors.toList());
+
+                                        return new SystemAnalyticsDataDTO.OrderAnalyticsDTO(
+                                                        o.getId(),
+                                                        o.getCustomer().getId(),
+                                                        o.getCustomerName(),
+                                                        o.getStatus().name(),
+                                                        o.getTotalAmount(),
+                                                        items.size(),
+                                                        o.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+                                                        items);
+                                })
+                                .collect(Collectors.toList()));
+
+                // Revenue - ONLY for this business
+                List<Order> deliveredBusinessOrders = businessOrders.stream()
+                                .filter(o -> o.getStatus() == OrderStatus.DELIVERED)
+                                .collect(Collectors.toList());
+
+                BigDecimal totalRevenue = deliveredBusinessOrders.stream()
+                                .flatMap(order -> order.getOrderItems().stream())
+                                .filter(item -> item.getProduct().getSeller().getId().equals(businessId))
+                                .map(OrderItem::getSubtotal)
+                                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                
+                data.setTotalRevenue(totalRevenue);
+
+                // Monthly revenue
+                LocalDateTime monthAgo = LocalDateTime.now().minusDays(30);
+                data.setMonthlyRevenue(deliveredBusinessOrders.stream()
+                                .filter(o -> o.getCreatedAt().isAfter(monthAgo))
+                                .flatMap(order -> order.getOrderItems().stream())
+                                .filter(item -> item.getProduct().getSeller().getId().equals(businessId))
+                                .map(OrderItem::getSubtotal)
+                                .reduce(BigDecimal.ZERO, BigDecimal::add));
+
+                // Weekly revenue
+                LocalDateTime weekAgo = LocalDateTime.now().minusDays(7);
+                data.setWeeklyRevenue(deliveredBusinessOrders.stream()
+                                .filter(o -> o.getCreatedAt().isAfter(weekAgo))
+                                .flatMap(order -> order.getOrderItems().stream())
+                                .filter(item -> item.getProduct().getSeller().getId().equals(businessId))
+                                .map(OrderItem::getSubtotal)
+                                .reduce(BigDecimal.ZERO, BigDecimal::add));
+
+                // Daily revenue
+                LocalDate today = LocalDate.now();
+                data.setDailyRevenue(deliveredBusinessOrders.stream()
+                                .filter(o -> o.getCreatedAt().toLocalDate().equals(today))
+                                .flatMap(order -> order.getOrderItems().stream())
+                                .filter(item -> item.getProduct().getSeller().getId().equals(businessId))
+                                .map(OrderItem::getSubtotal)
+                                .reduce(BigDecimal.ZERO, BigDecimal::add));
+
+                // Revenue by business - only this business
+                long productsSold = deliveredBusinessOrders.stream()
+                                .flatMap(order -> order.getOrderItems().stream())
+                                .filter(item -> item.getProduct().getSeller().getId().equals(businessId))
+                                .mapToLong(OrderItem::getQuantity)
+                                .sum();
+
+                data.setRevenueByBusiness(List.of(
+                        new SystemAnalyticsDataDTO.RevenueByBusinessDTO(
+                                businessUser.getId(),
+                                businessUser.getUsername(),
+                                totalRevenue,
+                                (long) deliveredBusinessOrders.size(),
+                                productsSold
+                        )
+                ));
+
+                // Business performance - only this business
+                int totalProducts = businessProducts.size();
+                int activeProducts = (int) businessProducts.stream()
+                                .filter(p -> p.getStatus() == Status.ACTIVE)
+                                .count();
+
+                BigDecimal inventoryValue = businessProducts.stream()
+                                .map(p -> p.getPrice().multiply(BigDecimal.valueOf(p.getQuantity())))
+                                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                double averageOrderValue = deliveredBusinessOrders.size() > 0
+                                ? totalRevenue.divide(BigDecimal.valueOf(deliveredBusinessOrders.size()), 2, RoundingMode.HALF_UP).doubleValue()
+                                : 0.0;
+
+                data.setBusinessPerformance(List.of(
+                        new SystemAnalyticsDataDTO.BusinessPerformanceDTO(
+                                businessUser.getId(),
+                                businessUser.getUsername(),
+                                totalProducts,
+                                activeProducts,
+                                inventoryValue,
+                                (long) deliveredBusinessOrders.size(),
+                                totalRevenue,
+                                averageOrderValue
+                        )
+                ));
+
+                // Top selling products - only from this business
+                data.setTopSellingProducts(businessProducts.stream()
+                                .map(p -> new SystemAnalyticsDataDTO.ProductPerformanceDTO(
+                                                p.getId(),
+                                                p.getName(),
+                                                p.getQuantity(),
+                                                productSalesMap.getOrDefault(p.getId(), 0),
+                                                productRevenueMap.getOrDefault(p.getId(), BigDecimal.ZERO),
+                                                p.getCategory().getName(),
+                                                p.getSeller().getUsername()))
+                                .sorted((a, b) -> Integer.compare(b.getTotalSold(), a.getTotalSold()))
+                                .limit(20)
+                                .collect(Collectors.toList()));
+
+                // Low stock products - only from this business
+                data.setLowStockProducts(businessProducts.stream()
+                                .filter(p -> p.getStatus() == Status.ACTIVE && p.getQuantity() > 0 && p.getQuantity() < 10)
+                                .map(p -> new SystemAnalyticsDataDTO.ProductPerformanceDTO(
+                                                p.getId(),
+                                                p.getName(),
+                                                p.getQuantity(),
+                                                productSalesMap.getOrDefault(p.getId(), 0),
+                                                productRevenueMap.getOrDefault(p.getId(), BigDecimal.ZERO),
+                                                p.getCategory().getName(),
+                                                p.getSeller().getUsername()))
+                                .sorted(Comparator.comparingInt(SystemAnalyticsDataDTO.ProductPerformanceDTO::getQuantityInStock))
+                                .collect(Collectors.toList()));
+
+                // Business documents - only this business's documents
+                List<BusinessDocument> businessDocuments = businessDocumentRepository.findAll().stream()
+                                .filter(doc -> doc.getBusiness().getId().equals(businessId))
+                                .collect(Collectors.toList());
+                
+                data.setTotalDocuments((long) businessDocuments.size());
+                data.setBusinessDocuments(businessDocuments.stream()
+                                .map(doc -> new SystemAnalyticsDataDTO.BusinessDocumentSummaryDTO(
+                                                doc.getId(),
+                                                doc.getBusiness().getId(),
+                                                doc.getBusiness().getUsername(),
+                                                doc.getFileName(),
+                                                doc.getFileType(),
+                                                doc.getFilePath(),
+                                                doc.getFileSize(),
+                                                doc.getDescription(),
+                                                doc.getUploadedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)))
+                                .collect(Collectors.toList()));
+
+                // Discounts - only created by this business
+                List<Discount> businessDiscounts = discountRepository.findAll().stream()
+                                .filter(d -> d.getCreatedBy().getId().equals(businessId))
+                                .collect(Collectors.toList());
+                
+                data.setTotalDiscounts((long) businessDiscounts.size());
+                data.setActiveDiscounts(businessDiscounts.stream()
+                                .filter(d -> d.getStatus() == Status.ACTIVE &&
+                                                (d.getEndDate() == null || d.getEndDate().isAfter(LocalDateTime.now())))
+                                .count());
+                data.setTotalDiscountUsage(businessDiscounts.stream()
+                                .mapToLong(d -> d.getUsedCount() != null ? d.getUsedCount() : 0)
+                                .sum());
+
+                // Calculate discount savings for this business only
+                BigDecimal totalSavings = businessDiscounts.stream()
+                                .map(d -> {
+                                        if (d.getUsedCount() == null || d.getUsedCount() == 0)
+                                                return BigDecimal.ZERO;
+
+                                        switch (d.getDiscountType()) {
+                                                case FIXED_AMOUNT:
+                                                        return d.getDiscountValue().multiply(new BigDecimal(d.getUsedCount()));
+                                                case PERCENTAGE:
+                                                        BigDecimal avgOrderValue = BigDecimal.valueOf(1500000);
+                                                        BigDecimal discountAmount = avgOrderValue
+                                                                        .multiply(d.getDiscountValue().divide(BigDecimal.valueOf(100)));
+                                                        if (d.getMaxDiscountAmount() != null && discountAmount.compareTo(d.getMaxDiscountAmount()) > 0) {
+                                                                discountAmount = d.getMaxDiscountAmount();
+                                                        }
+                                                        return discountAmount.multiply(new BigDecimal(d.getUsedCount()));
+                                                case FREE_SHIPPING:
+                                                        return BigDecimal.valueOf(30000).multiply(new BigDecimal(d.getUsedCount()));
+                                                default:
+                                                        return BigDecimal.ZERO;
+                                        }
+                                })
+                                .reduce(BigDecimal.ZERO, BigDecimal::add);
+                data.setTotalDiscountSavings(totalSavings);
+
+                data.setDiscounts(businessDiscounts.stream()
+                                .map(d -> {
+                                        Double usagePercentage = null;
+                                        if (d.getUsageLimit() != null && d.getUsageLimit() > 0) {
+                                                usagePercentage = (d.getUsedCount() != null ? d.getUsedCount().doubleValue() : 0.0)
+                                                                / d.getUsageLimit().doubleValue() * 100.0;
+                                        }
+
+                                        BigDecimal individualSavings = BigDecimal.ZERO;
+                                        if (d.getUsedCount() != null && d.getUsedCount() > 0) {
+                                                switch (d.getDiscountType()) {
+                                                        case FIXED_AMOUNT:
+                                                                individualSavings = d.getDiscountValue().multiply(new BigDecimal(d.getUsedCount()));
+                                                                break;
+                                                        case PERCENTAGE:
+                                                                BigDecimal avgOrder = BigDecimal.valueOf(1500000);
+                                                                BigDecimal discountAmt = avgOrder.multiply(d.getDiscountValue().divide(BigDecimal.valueOf(100)));
+                                                                if (d.getMaxDiscountAmount() != null && discountAmt.compareTo(d.getMaxDiscountAmount()) > 0) {
+                                                                        discountAmt = d.getMaxDiscountAmount();
+                                                                }
+                                                                individualSavings = discountAmt.multiply(new BigDecimal(d.getUsedCount()));
+                                                                break;
+                                                        case FREE_SHIPPING:
+                                                                individualSavings = BigDecimal.valueOf(30000).multiply(new BigDecimal(d.getUsedCount()));
+                                                                break;
+                                                }
+                                        }
+
+                                        return new SystemAnalyticsDataDTO.DiscountAnalyticsDTO(
+                                                        d.getId(),
+                                                        d.getCode(),
+                                                        d.getName(),
+                                                        d.getDescription(),
+                                                        d.getDiscountType().name(),
+                                                        d.getDiscountValue(),
+                                                        d.getMinOrderValue(),
+                                                        d.getMaxDiscountAmount(),
+                                                        d.getUsageLimit(),
+                                                        d.getUsedCount() != null ? d.getUsedCount() : 0,
+                                                        d.getStatus().name(),
+                                                        d.getStartDate() != null ? d.getStartDate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : null,
+                                                        d.getEndDate() != null ? d.getEndDate().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : null,
+                                                        d.getCreatedBy().getUsername(),
+                                                        d.getCreatedBy().getId(),
+                                                        d.isValid(),
+                                                        d.isExpired(),
+                                                        d.isUsageLimitReached(),
+                                                        usagePercentage,
+                                                        individualSavings,
+                                                        d.getCreatedAt().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+                                })
+                                .collect(Collectors.toList()));
+
+                // Cart analytics - không áp dụng cho business (chỉ dành cho admin)
+                data.setTotalCarts(0L);
+                data.setCartsWithItems(0L);
+                data.setTotalCartValue(BigDecimal.ZERO);
+                data.setCarts(new ArrayList<>());
+
+                return data;
+        }
 }

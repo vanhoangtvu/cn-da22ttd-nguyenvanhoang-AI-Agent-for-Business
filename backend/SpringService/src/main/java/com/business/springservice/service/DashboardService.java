@@ -84,7 +84,88 @@ public class DashboardService {
         // Document statistics
         stats.setTotalDocuments(documentRepository.count());
         
+        // Calculate growth percentages compared to last month
+        calculateAdminGrowth(stats, allOrders);
+        
         return stats;
+    }
+    
+    /**
+     * Calculate growth percentages for admin stats by comparing with last month
+     */
+    private void calculateAdminGrowth(DashboardStatsDTO stats, List<Order> allOrders) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime startOfLastMonth = now.minusMonths(1).with(TemporalAdjusters.firstDayOfMonth()).toLocalDate().atStartOfDay();
+        LocalDateTime endOfLastMonth = now.minusMonths(1).with(TemporalAdjusters.lastDayOfMonth()).toLocalDate().atTime(23, 59, 59);
+        LocalDateTime startOfCurrentMonth = now.with(TemporalAdjusters.firstDayOfMonth()).toLocalDate().atStartOfDay();
+        
+        // Product growth
+        List<com.business.springservice.entity.Product> allProducts = productRepository.findAll();
+        long lastMonthProducts = allProducts.stream()
+                .filter(p -> p.getCreatedAt() != null && p.getCreatedAt().isBefore(startOfCurrentMonth))
+                .count();
+        
+        if (lastMonthProducts > 0) {
+            double productGrowth = ((double) (stats.getTotalProducts() - lastMonthProducts) / lastMonthProducts) * 100;
+            stats.setProductGrowthPercent(Math.round(productGrowth * 10.0) / 10.0);
+        } else {
+            stats.setProductGrowthPercent(stats.getTotalProducts() > 0 ? 100.0 : 0.0);
+        }
+        
+        // Order growth
+        long lastMonthOrders = allOrders.stream()
+                .filter(o -> o.getCreatedAt() != null && 
+                           o.getCreatedAt().isAfter(startOfLastMonth) && 
+                           o.getCreatedAt().isBefore(endOfLastMonth))
+                .count();
+        
+        long currentMonthOrders = allOrders.stream()
+                .filter(o -> o.getCreatedAt() != null && o.getCreatedAt().isAfter(startOfCurrentMonth))
+                .count();
+        
+        if (lastMonthOrders > 0) {
+            double orderGrowth = ((double) (currentMonthOrders - lastMonthOrders) / lastMonthOrders) * 100;
+            stats.setOrderGrowthPercent(Math.round(orderGrowth * 10.0) / 10.0);
+        } else {
+            stats.setOrderGrowthPercent(currentMonthOrders > 0 ? 100.0 : 0.0);
+        }
+        
+        // Revenue growth
+        BigDecimal lastMonthRevenue = allOrders.stream()
+                .filter(o -> o.getStatus() == OrderStatus.DELIVERED)
+                .filter(o -> o.getCreatedAt() != null && 
+                           o.getCreatedAt().isAfter(startOfLastMonth) && 
+                           o.getCreatedAt().isBefore(endOfLastMonth))
+                .map(Order::getTotalAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        BigDecimal currentMonthRevenue = allOrders.stream()
+                .filter(o -> o.getStatus() == OrderStatus.DELIVERED)
+                .filter(o -> o.getCreatedAt() != null && o.getCreatedAt().isAfter(startOfCurrentMonth))
+                .map(Order::getTotalAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        if (lastMonthRevenue.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal revenueGrowth = currentMonthRevenue.subtract(lastMonthRevenue)
+                    .divide(lastMonthRevenue, 4, RoundingMode.HALF_UP)
+                    .multiply(new BigDecimal("100"));
+            stats.setRevenueGrowthPercent(revenueGrowth.setScale(1, RoundingMode.HALF_UP).doubleValue());
+        } else {
+            stats.setRevenueGrowthPercent(currentMonthRevenue.compareTo(BigDecimal.ZERO) > 0 ? 100.0 : 0.0);
+        }
+        
+        // User growth
+        List<User> allUsers = userRepository.findAll();
+        long lastMonthUsers = allUsers.stream()
+                .filter(u -> u.getCreatedAt() != null && u.getCreatedAt().isBefore(startOfCurrentMonth))
+                .count();
+        
+        if (lastMonthUsers > 0) {
+            double userGrowth = ((double) (stats.getTotalUsers() - lastMonthUsers) / lastMonthUsers) * 100;
+            stats.setUserGrowthPercent(Math.round(userGrowth * 10.0) / 10.0);
+        } else {
+            stats.setUserGrowthPercent(stats.getTotalUsers() > 0 ? 100.0 : 0.0);
+        }
     }
     
     @Transactional(readOnly = true)
@@ -161,7 +242,80 @@ public class DashboardService {
         // Document statistics
         stats.setTotalDocuments((long) documentRepository.findByBusinessId(businessId).size());
         
+        // Calculate growth percentages compared to last month
+        calculateBusinessGrowth(stats, businessId, products, businessOrders);
+        
         return stats;
+    }
+    
+    /**
+     * Calculate growth percentages for business stats by comparing with last month
+     */
+    private void calculateBusinessGrowth(BusinessDashboardDTO stats, Long businessId, 
+                                        List<com.business.springservice.entity.Product> currentProducts,
+                                        List<Order> currentOrders) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime startOfLastMonth = now.minusMonths(1).with(TemporalAdjusters.firstDayOfMonth()).toLocalDate().atStartOfDay();
+        LocalDateTime endOfLastMonth = now.minusMonths(1).with(TemporalAdjusters.lastDayOfMonth()).toLocalDate().atTime(23, 59, 59);
+        
+        // Product growth: count products created before start of current month
+        long lastMonthProducts = currentProducts.stream()
+                .filter(p -> p.getCreatedAt() != null && p.getCreatedAt().isBefore(now.with(TemporalAdjusters.firstDayOfMonth()).toLocalDate().atStartOfDay()))
+                .count();
+        
+        if (lastMonthProducts > 0) {
+            double productGrowth = ((double) (stats.getTotalProducts() - lastMonthProducts) / lastMonthProducts) * 100;
+            stats.setProductGrowthPercent(Math.round(productGrowth * 10.0) / 10.0); // Round to 1 decimal
+        } else {
+            stats.setProductGrowthPercent(stats.getTotalProducts() > 0 ? 100.0 : 0.0);
+        }
+        
+        // Order growth: compare orders from last month to current month
+        long lastMonthOrders = currentOrders.stream()
+                .filter(o -> o.getCreatedAt() != null && 
+                           o.getCreatedAt().isAfter(startOfLastMonth) && 
+                           o.getCreatedAt().isBefore(endOfLastMonth))
+                .count();
+        
+        LocalDateTime startOfCurrentMonth = now.with(TemporalAdjusters.firstDayOfMonth()).toLocalDate().atStartOfDay();
+        long currentMonthOrders = currentOrders.stream()
+                .filter(o -> o.getCreatedAt() != null && o.getCreatedAt().isAfter(startOfCurrentMonth))
+                .count();
+        
+        if (lastMonthOrders > 0) {
+            double orderGrowth = ((double) (currentMonthOrders - lastMonthOrders) / lastMonthOrders) * 100;
+            stats.setOrderGrowthPercent(Math.round(orderGrowth * 10.0) / 10.0);
+        } else {
+            stats.setOrderGrowthPercent(currentMonthOrders > 0 ? 100.0 : 0.0);
+        }
+        
+        // Revenue growth: compare delivered revenue from last month to current month
+        BigDecimal lastMonthRevenue = currentOrders.stream()
+                .filter(o -> o.getStatus() == OrderStatus.DELIVERED)
+                .filter(o -> o.getCreatedAt() != null && 
+                           o.getCreatedAt().isAfter(startOfLastMonth) && 
+                           o.getCreatedAt().isBefore(endOfLastMonth))
+                .flatMap(order -> order.getOrderItems().stream())
+                .filter(item -> item.getProduct().getSeller().getId().equals(businessId))
+                .map(item -> item.getSubtotal())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        BigDecimal currentMonthRevenue = currentOrders.stream()
+                .filter(o -> o.getStatus() == OrderStatus.DELIVERED)
+                .filter(o -> o.getCreatedAt() != null && o.getCreatedAt().isAfter(startOfCurrentMonth))
+                .flatMap(order -> order.getOrderItems().stream())
+                .filter(item -> item.getProduct().getSeller().getId().equals(businessId))
+                .map(item -> item.getSubtotal())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        
+        if (lastMonthRevenue.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal revenueGrowth = currentMonthRevenue.subtract(lastMonthRevenue)
+                    .divide(lastMonthRevenue, 4, RoundingMode.HALF_UP)
+                    .multiply(new BigDecimal("100"));
+            stats.setRevenueGrowthPercent(revenueGrowth.setScale(1, RoundingMode.HALF_UP).doubleValue());
+        } else {
+            stats.setRevenueGrowthPercent(currentMonthRevenue.compareTo(BigDecimal.ZERO) > 0 ? 100.0 : 0.0);
+        }
     }
     
     private Long countUsersByRole(Role role) {
