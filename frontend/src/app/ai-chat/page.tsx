@@ -732,6 +732,22 @@ export default function AIChatPage() {
           if (action.pendingProductId && action.pendingQuantity) {
             console.log(`[APPLY_DISCOUNT] Clearing cart and adding pending product: ${action.pendingProductId} x ${action.pendingQuantity}`);
             
+            // If we have full product info from backend, use it directly
+            if (action.pendingProductInfo) {
+              console.log('[APPLY_DISCOUNT] Using product info from backend:', action.pendingProductInfo);
+              
+              // Store pending item immediately with full product info
+              const pendingItem = {
+                product: action.pendingProductInfo,
+                productId: action.pendingProductId,
+                quantity: action.pendingQuantity,
+                price: action.pendingProductInfo.price
+              };
+              
+              sessionStorage.setItem('pendingOrderItem', JSON.stringify(pendingItem));
+              console.log('[APPLY_DISCOUNT] Stored pending order item from action:', pendingItem);
+            }
+            
             try {
               // Step 1: Get current cart to backup
               const currentCartResponse = await fetch(`${API_CONFIG.AI_SERVICE_URL}/api/agent/cart`, {
@@ -785,14 +801,29 @@ export default function AIChatPage() {
 
               showToast(`Đã chuẩn bị ${action.pendingQuantity} sản phẩm cho đơn hàng`, 'success');
               
-              // Store pending product info for order creation (get from add result)
-              const addedItem = addResult.data?.cart?.items?.find((item: any) => 
+              // Update pendingOrderItem with the cart item we just added
+              // This ensures we have the correct item from the actual cart
+              const freshItem = addResult.data?.cart?.items?.find((item: any) => 
                 (item.productId || item.product?.id) === action.pendingProductId
               );
               
-              if (addedItem) {
-                sessionStorage.setItem('pendingOrderItem', JSON.stringify(addedItem));
-                console.log('[APPLY_DISCOUNT] Stored pending order item:', addedItem);
+              if (freshItem) {
+                // Enrich with product info from action if cart doesn't have full details
+                const enrichedItem = {
+                  ...freshItem,
+                  product: {
+                    ...(freshItem.product || {}),
+                    id: action.pendingProductInfo?.id || freshItem.product?.id || action.pendingProductId,
+                    name: action.pendingProductInfo?.name || freshItem.product?.name,
+                    price: action.pendingProductInfo?.price || freshItem.product?.price || freshItem.price,
+                    imageUrl: action.pendingProductInfo?.imageUrl || freshItem.product?.imageUrl
+                  }
+                };
+                
+                sessionStorage.setItem('pendingOrderItem', JSON.stringify(enrichedItem));
+                console.log('[APPLY_DISCOUNT] Updated pendingOrderItem with cart data + action info:', enrichedItem);
+              } else {
+                console.warn('[APPLY_DISCOUNT] Could not find added item in cart response');
               }
             } catch (err) {
               console.error('Failed to prepare cart:', err);
@@ -838,12 +869,16 @@ export default function AIChatPage() {
                 console.error('Failed to fetch user info:', err);
               }
 
-              // Set order details with discount code pre-filled
+              // Calculate total amount from items
+              console.log('[APPLY_DISCOUNT] Order items:', orderItems);
               const totalAmount = orderItems.reduce((sum: number, item: any) => {
                 const price = item.product?.price || item.price || 0;
                 const quantity = item.quantity || 1;
+                console.log(`[APPLY_DISCOUNT] Item: ${item.product?.name || 'Unknown'}, Price: ${price}, Quantity: ${quantity}`);
                 return sum + (price * quantity);
               }, 0);
+              
+              console.log('[APPLY_DISCOUNT] Total amount:', totalAmount);
               
               setOrderDetails({
                 items: orderItems,

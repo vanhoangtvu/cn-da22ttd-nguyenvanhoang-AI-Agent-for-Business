@@ -1262,6 +1262,7 @@ Bạn đang tư vấn cho khách hàng chưa có thông tin cá nhân. Hãy tậ
                 )
                 
                 pending_product_id = None
+                pending_product_info = None
                 pending_quantity = 1
                 
                 print(f"[CHAT] Discount detection - quantity_match: {quantity_match}, products: {len(products_for_action)}")
@@ -1277,13 +1278,15 @@ Bạn đang tư vấn cho khách hàng chưa có thông tin cá nhân. Hãy tậ
                         product_name_lower = product.get('name', '').lower()
                         if product_name_lower and product_name_lower in response_lower:
                             pending_product_id = product.get('id')
-                            print(f"[CHAT] Found pending product by name match: {product.get('name')} (ID: {pending_product_id})")
+                            pending_product_info = product  # Store full product info
+                            print(f"[CHAT] Found pending product by name match: {product.get('name')} (ID: {pending_product_id}, Price: {product.get('price')})")
                             break
                     
                     # Strategy 2: If only 1 product in context, use it
                     if not pending_product_id and len(products_for_action) == 1:
                         pending_product_id = products_for_action[0].get('id')
-                        print(f"[CHAT] Using single product in context: {products_for_action[0].get('name')} (ID: {pending_product_id})")
+                        pending_product_info = products_for_action[0]  # Store full product info
+                        print(f"[CHAT] Using single product in context: {products_for_action[0].get('name')} (ID: {pending_product_id}, Price: {products_for_action[0].get('price')})")
                 
                 for discount in discounts_for_action:
                     # Check if we already have this discount action
@@ -1296,10 +1299,16 @@ Bạn đang tư vấn cho khách hàng chưa có thông tin cá nhân. Hãy tậ
                             "label": f"🎫 Áp mã {discount.get('code')}"
                         }
                         # Add pending product context if detected
-                        if pending_product_id:
+                        if pending_product_id and pending_product_info:
                             discount_action["pendingProductId"] = pending_product_id
                             discount_action["pendingQuantity"] = pending_quantity
-                            print(f"[CHAT] Added pending context to discount button: productId={pending_product_id}, quantity={pending_quantity}")
+                            discount_action["pendingProductInfo"] = {
+                                "id": pending_product_info.get('id'),
+                                "name": pending_product_info.get('name'),
+                                "price": pending_product_info.get('price'),
+                                "imageUrl": pending_product_info.get('imageUrl')
+                            }
+                            print(f"[CHAT] Added pending context to discount button: productId={pending_product_id}, quantity={pending_quantity}, price={pending_product_info.get('price')}")
                         else:
                             print(f"[CHAT] No pending product detected for discount {discount.get('code')}")
                         actions.append(discount_action)
