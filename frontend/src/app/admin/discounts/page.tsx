@@ -270,120 +270,201 @@ export default function DiscountsPage() {
           </div>
         </div>
 
-        {/* Discounts Table */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-gray-700">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Mã / Tên</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Loại / Giá trị</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Sử dụng</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Thời hạn</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Trạng thái</th>
-                  <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredDiscounts.map(discount => (
-                  <tr key={discount.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                    <td className="px-6 py-4">
-                      <div>
-                        <p className="font-bold text-purple-600 dark:text-purple-400 text-lg">{discount.code}</p>
-                        <p className="font-semibold text-gray-800 dark:text-white">{discount.name}</p>
-                        {discount.description && (
-                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{discount.description}</p>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div>
-                        <span className={`px-3 py-1 rounded-full text-sm font-semibold ${discount.discountType === 'PERCENTAGE' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
-                          discount.discountType === 'FIXED_AMOUNT' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
-                            'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
-                          }`}>
-                          {discount.discountType === 'PERCENTAGE' ? 'Phần trăm' :
-                            discount.discountType === 'FIXED_AMOUNT' ? 'Cố định' : 'Miễn phí ship'}
-                        </span>
-                        <p className="font-bold text-gray-800 dark:text-white mt-2">{formatDiscountValue(discount)}</p>
-                        {discount.minOrderValue && (
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Tối thiểu: {discount.minOrderValue.toLocaleString('vi-VN')}đ
-                          </p>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div>
-                        <p className="font-semibold text-gray-800 dark:text-white">
-                          {discount.usedCount} {discount.usageLimit ? `/ ${discount.usageLimit}` : '/ ∞'}
-                        </p>
-                        {discount.usagePercentage !== undefined && (
-                          <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mt-2">
-                            <div
-                              className={`h-2 rounded-full ${discount.usagePercentage >= 90 ? 'bg-red-500' :
-                                discount.usagePercentage >= 70 ? 'bg-yellow-500' : 'bg-green-500'
-                                }`}
-                              style={{ width: `${Math.min(discount.usagePercentage, 100)}%` }}
-                            ></div>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
-                      {discount.startDate && (
-                        <p>Từ: {new Date(discount.startDate).toLocaleDateString('vi-VN')}</p>
-                      )}
-                      {discount.endDate && (
-                        <p>Đến: {new Date(discount.endDate).toLocaleDateString('vi-VN')}</p>
-                      )}
-                      {!discount.startDate && !discount.endDate && (
-                        <p className="text-gray-500">Không giới hạn</p>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => handleStatusChange(discount.id, discount.status)}
-                        className={`px-3 py-1 rounded-full text-sm font-semibold transition-colors ${getStatusColor(discount)}`}
-                      >
-                        {getStatusText(discount)}
-                      </button>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => openEditModal(discount)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg transition-colors"
-                          title="Chỉnh sửa"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleDelete(discount.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900 rounded-lg transition-colors"
-                          title="Xóa"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </td>
+        {/* Discounts List - Responsive */}
+        <div>
+          {/* Desktop Table View */}
+          <div className="hidden md:block bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Mã / Tên</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Loại / Giá trị</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Sử dụng</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Thời hạn</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Trạng thái</th>
+                    <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Thao tác</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {filteredDiscounts.length === 0 && (
-            <div className="text-center py-12">
-              <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-              </svg>
-              <p className="text-gray-500 dark:text-gray-400">Không tìm thấy mã giảm giá nào</p>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {filteredDiscounts.map(discount => (
+                    <tr key={discount.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      <td className="px-6 py-4">
+                        <div>
+                          <p className="font-bold text-purple-600 dark:text-purple-400 text-lg">{discount.code}</p>
+                          <p className="font-semibold text-gray-800 dark:text-white">{discount.name}</p>
+                          {discount.description && (
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{discount.description}</p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div>
+                          <span className={`px-3 py-1 rounded-full text-sm font-semibold ${discount.discountType === 'PERCENTAGE' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' :
+                            discount.discountType === 'FIXED_AMOUNT' ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
+                              'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300'
+                            }`}>
+                            {discount.discountType === 'PERCENTAGE' ? 'Phần trăm' :
+                              discount.discountType === 'FIXED_AMOUNT' ? 'Cố định' : 'Miễn phí ship'}
+                          </span>
+                          <p className="font-bold text-gray-800 dark:text-white mt-2">{formatDiscountValue(discount)}</p>
+                          {discount.minOrderValue && (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              Tối thiểu: {discount.minOrderValue.toLocaleString('vi-VN')}đ
+                            </p>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div>
+                          <p className="font-semibold text-gray-800 dark:text-white">
+                            {discount.usedCount} {discount.usageLimit ? `/ ${discount.usageLimit}` : '/ ∞'}
+                          </p>
+                          {discount.usagePercentage !== undefined && (
+                            <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mt-2">
+                              <div
+                                className={`h-2 rounded-full ${discount.usagePercentage >= 90 ? 'bg-red-500' :
+                                  discount.usagePercentage >= 70 ? 'bg-yellow-500' : 'bg-green-500'
+                                  }`}
+                                style={{ width: `${Math.min(discount.usagePercentage, 100)}%` }}
+                              ></div>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
+                        {discount.startDate && (
+                          <p>Từ: {new Date(discount.startDate).toLocaleDateString('vi-VN')}</p>
+                        )}
+                        {discount.endDate && (
+                          <p>Đến: {new Date(discount.endDate).toLocaleDateString('vi-VN')}</p>
+                        )}
+                        {!discount.startDate && !discount.endDate && (
+                          <p className="text-gray-500">Không giới hạn</p>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={() => handleStatusChange(discount.id, discount.status)}
+                          className={`px-3 py-1 rounded-full text-sm font-semibold transition-colors ${getStatusColor(discount)}`}
+                        >
+                          {getStatusText(discount)}
+                        </button>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => openEditModal(discount)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg transition-colors"
+                            title="Chỉnh sửa"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDelete(discount.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900 rounded-lg transition-colors"
+                            title="Xóa"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
+            {filteredDiscounts.length === 0 && (
+              <div className="text-center py-12">
+                <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                </svg>
+                <p className="text-gray-500 dark:text-gray-400">Không tìm thấy mã giảm giá nào</p>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-4">
+            {filteredDiscounts.map(discount => (
+              <div key={discount.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 className="font-bold text-lg text-purple-600 dark:text-purple-400">{discount.code}</h3>
+                    <p className="text-gray-800 dark:text-white font-medium">{discount.name}</p>
+                  </div>
+                  <button
+                    onClick={() => handleStatusChange(discount.id, discount.status)}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(discount)}`}
+                  >
+                    {getStatusText(discount)}
+                  </button>
+                </div>
+
+                <div className="mb-4 text-sm text-gray-500 dark:text-gray-400">
+                  {discount.description && <p className="mb-2 line-clamp-2">{discount.description}</p>}
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${discount.discountType === 'PERCENTAGE' ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
+                      discount.discountType === 'FIXED_AMOUNT' ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+                        'bg-orange-50 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
+                      }`}>
+                      {discount.discountType === 'PERCENTAGE' ? 'Phần trăm' :
+                        discount.discountType === 'FIXED_AMOUNT' ? 'Cố định' : 'Free Ship'}
+                    </span>
+                    <span className="font-bold text-gray-700 dark:text-gray-300">{formatDiscountValue(discount)}</span>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg mb-4 text-sm">
+                  <div className="flex justify-between mb-1">
+                    <span className="text-gray-500 dark:text-gray-400">Đã dùng:</span>
+                    <span className="font-medium text-gray-800 dark:text-white">
+                      {discount.usedCount} {discount.usageLimit ? `/ ${discount.usageLimit}` : ''}
+                    </span>
+                  </div>
+                  {discount.usagePercentage !== undefined && (
+                    <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1.5 mb-2">
+                      <div
+                        className={`h-1.5 rounded-full ${discount.usagePercentage >= 90 ? 'bg-red-500' :
+                          discount.usagePercentage >= 70 ? 'bg-yellow-500' : 'bg-green-500'
+                          }`}
+                        style={{ width: `${Math.min(discount.usagePercentage, 100)}%` }}
+                      ></div>
+                    </div>
+                  )}
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 space-y-1">
+                    {discount.startDate && <p>Từ: {new Date(discount.startDate).toLocaleDateString('vi-VN')}</p>}
+                    {discount.endDate && <p>Đến: {new Date(discount.endDate).toLocaleDateString('vi-VN')}</p>}
+                    {!discount.startDate && !discount.endDate && <p>Không giới hạn thời gian</p>}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                  <button
+                    onClick={() => openEditModal(discount)}
+                    className="flex-1 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors text-sm font-semibold"
+                  >
+                    Chỉnh sửa
+                  </button>
+                  <button
+                    onClick={() => handleDelete(discount.id)}
+                    className="flex-1 px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors text-sm font-semibold"
+                  >
+                    Xóa
+                  </button>
+                </div>
+              </div>
+            ))}
+            {filteredDiscounts.length === 0 && (
+              <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+                <p className="text-gray-500 dark:text-gray-400">Không tìm thấy mã giảm giá nào</p>
+              </div>
+            )}
+          </div>
         </div>
       </main>
 

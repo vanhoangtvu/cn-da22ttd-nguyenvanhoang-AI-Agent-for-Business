@@ -18,6 +18,7 @@ import base64
 # Import services
 from services.document_processing_service import get_document_processor
 from services.analytics_rag_service import AnalyticsRAGService
+from services.forecasting_service import get_forecasting_service
 
 router = APIRouter()
 
@@ -55,19 +56,54 @@ def safe_str(value):
     return str(value)
 
 def sanitize_metadata(metadata_dict):
-    """Sanitize metadata dictionary for ChromaDB compatibility"""
+    """
+    Sanitize metadata dictionary for ChromaDB compatibility
+    Enhanced version with better validation and type handling
+    """
     sanitized = {}
     for key, value in metadata_dict.items():
-        if isinstance(value, (str, int, float, bool)):
-            # Ensure strings are not too long and don't contain null bytes
-            if isinstance(value, str):
-                value = value.replace('\x00', '').replace('\r', '').replace('\n', ' ')
-                if len(value) > 10000:  # Limit string length
-                    value = value[:10000] + '...'
+        # Skip None values
+        if value is None:
+            continue
+            
+        # Handle different data types
+        if isinstance(value, bool):
             sanitized[key] = value
+        elif isinstance(value, (int, float)):
+            # Ensure numeric values are valid
+            if not (value != value):  # Check for NaN
+                # Limit numeric range to prevent overflow
+                if isinstance(value, float):
+                    sanitized[key] = max(-1e10, min(1e10, value))
+                else:
+                    sanitized[key] = max(-2147483648, min(2147483647, value))
+        elif isinstance(value, str):
+            # Clean and truncate strings
+            cleaned = value.replace('\x00', '').replace('\r', ' ').replace('\n', ' ')
+            # Remove excessive whitespace
+            cleaned = ' '.join(cleaned.split())
+            # Limit string length (ChromaDB metadata limit)
+            if len(cleaned) > 5000:  # Reduced from 10000 for safety
+                cleaned = cleaned[:4997] + '...'
+            sanitized[key] = cleaned
+        elif isinstance(value, (list, tuple)):
+            # Convert lists to comma-separated string
+            str_list = [str(item) for item in value if item is not None]
+            sanitized[key] = ', '.join(str_list)[:5000]
+        elif isinstance(value, dict):
+            # Convert dict to JSON string (limited length)
+            try:
+                import json
+                json_str = json.dumps(value, ensure_ascii=False)
+                if len(json_str) > 5000:
+                    json_str = json_str[:4997] + '...'
+                sanitized[key] = json_str
+            except:
+                sanitized[key] = str(value)[:5000]
         else:
-            # Convert other types to string
-            sanitized[key] = str(value)
+            # Fallback: convert to string
+            sanitized[key] = str(value)[:5000]
+    
     return sanitized
 
 def parse_jwt_token(token: str) -> Optional[Dict[str, Any]]:
@@ -323,6 +359,26 @@ def get_business_data():
                     product['quantity'] = int(product['quantity'])
                 except:
                     product['quantity'] = 0
+            if 'total_sold' in product and isinstance(product['total_sold'], str):
+                try:
+                    product['total_sold'] = int(product['total_sold'])
+                except:
+                    product['total_sold'] = 0
+            if 'totalSold' in product and isinstance(product['totalSold'], str):
+                try:
+                    product['totalSold'] = int(product['totalSold'])
+                except:
+                    product['totalSold'] = 0
+            if 'total_revenue' in product and isinstance(product['total_revenue'], str):
+                try:
+                    product['total_revenue'] = float(product['total_revenue'])
+                except:
+                    product['total_revenue'] = 0
+            if 'totalRevenue' in product and isinstance(product['totalRevenue'], str):
+                try:
+                    product['totalRevenue'] = float(product['totalRevenue'])
+                except:
+                    product['totalRevenue'] = 0
             if 'id' in product and isinstance(product['id'], str):
                 try:
                     product['id'] = int(product['id'])
@@ -369,11 +425,17 @@ def get_business_data():
         }
 
 def calculate_statistics(data):
-    """Tính toán các chỉ số thống kê"""
+    """
+    Tính toán các chỉ số thống kê với forecasting dựa trên kỹ thuật thống kê
+    Sử dụng: Linear Regression, Exponential Smoothing, Moving Average
+    """
     products = data.get('products', [])
     orders = data.get('orders', [])
     categories = data.get('categories', [])
     revenue_overview = data.get('revenue_overview', [])
+    
+    # Initialize forecasting service
+    forecasting = get_forecasting_service()
     
     # Thống kê tổng quan
     total_products = len(products)
@@ -419,7 +481,8 @@ def calculate_statistics(data):
     # Note: ChromaDB orders không chứa chi tiết items, nên dùng totalSold từ product metadata
     enriched_products = []
     for product in products:
-        total_sold = product.get('totalSold', 0)
+        # Hỗ trợ cả 2 format: totalSold (camelCase) và total_sold (snake_case)
+        total_sold = product.get('totalSold', product.get('total_sold', 0))
         if isinstance(total_sold, str):
             try:
                 total_sold = int(total_sold)
@@ -427,7 +490,23 @@ def calculate_statistics(data):
                 total_sold = 0
         
         price = product.get('price', 0)
-        revenue = total_sold * price
+        if isinstance(price, str):
+            try:
+                price = float(price)
+            except:
+                price = 0
+        
+        # Tính revenue từ total_sold * price (nếu chưa có totalRevenue)
+        revenue = product.get('totalRevenue', product.get('total_revenue', 0))
+        if isinstance(revenue, str):
+            try:
+                revenue = float(revenue)
+            except:
+                revenue = 0
+        
+        # Nếu không có revenue sẵn, tính từ total_sold * price
+        if revenue == 0 and total_sold > 0:
+            revenue = total_sold * price
         
         enriched_product = {
             **product,
@@ -490,10 +569,18 @@ def calculate_statistics(data):
                 pass
     
     # Tính available_stock cho từng sản phẩm
+    # NOTE: 'quantity' trong CSDL đã là số lượng tồn kho HIỆN TẠI (available stock)
+    # Không cần trừ totalSold vì quantity đã được cập nhật mỗi khi có đơn hàng
     for product in enriched_products:
-        initial_quantity = product.get('quantity', 0)
-        total_sold = product.get('totalSold', 0)
-        product['available_stock'] = max(0, initial_quantity - total_sold)
+        quantity = product.get('quantity', 0)
+        if isinstance(quantity, str):
+            try:
+                quantity = int(quantity)
+            except:
+                quantity = 0
+        
+        # available_stock chính là quantity hiện tại
+        product['available_stock'] = max(0, quantity)
     
     # Phân tích tồn kho chi tiết theo yêu cầu: ≥30, 10-29, 1-9, 0
     total_inventory_value = sum([p.get('price', 0) * p.get('available_stock', 0) for p in enriched_products])
@@ -532,6 +619,116 @@ def calculate_statistics(data):
     inventory_turnover_ratio = total_revenue / total_inventory_value if total_inventory_value > 0 else 0
     out_of_stock_products = len(stock_out)
     
+    # === PHÂN TÍCH TĂNG TRƯỞNG BÁN HÀNG ===
+    growth_analysis = {}
+    
+    # Tính tăng trưởng theo thời gian
+    if len(revenue_by_day) >= 14:  # Cần ít nhất 14 ngày để so sánh 2 tuần
+        sorted_dates = sorted(revenue_by_day.keys())
+        
+        # Chia thành 2 nửa để so sánh
+        mid_point = len(sorted_dates) // 2
+        first_half_dates = sorted_dates[:mid_point]
+        second_half_dates = sorted_dates[mid_point:]
+        
+        revenue_first_half = sum([revenue_by_day[d] for d in first_half_dates])
+        revenue_second_half = sum([revenue_by_day[d] for d in second_half_dates])
+        
+        orders_first_half = sum([orders_by_day.get(d, 0) for d in first_half_dates])
+        orders_second_half = sum([orders_by_day.get(d, 0) for d in second_half_dates])
+        
+        # Tính % tăng trưởng
+        revenue_growth_rate = ((revenue_second_half - revenue_first_half) / revenue_first_half * 100) if revenue_first_half > 0 else 0
+        orders_growth_rate = ((orders_second_half - orders_first_half) / orders_first_half * 100) if orders_first_half > 0 else 0
+        
+        growth_analysis['revenue_growth'] = {
+            'rate': revenue_growth_rate,
+            'previous_period': revenue_first_half,
+            'current_period': revenue_second_half,
+            'trend': 'increasing' if revenue_growth_rate > 0 else 'decreasing' if revenue_growth_rate < 0 else 'stable'
+        }
+        
+        growth_analysis['orders_growth'] = {
+            'rate': orders_growth_rate,
+            'previous_period': orders_first_half,
+            'current_period': orders_second_half,
+            'trend': 'increasing' if orders_growth_rate > 0 else 'decreasing' if orders_growth_rate < 0 else 'stable'
+        }
+        
+        # AOV trend
+        aov_first = revenue_first_half / orders_first_half if orders_first_half > 0 else 0
+        aov_second = revenue_second_half / orders_second_half if orders_second_half > 0 else 0
+        aov_growth = ((aov_second - aov_first) / aov_first * 100) if aov_first > 0 else 0
+        
+        growth_analysis['aov_growth'] = {
+            'rate': aov_growth,
+            'previous_period': aov_first,
+            'current_period': aov_second,
+            'trend': 'increasing' if aov_growth > 0 else 'decreasing' if aov_growth < 0 else 'stable'
+        }
+    
+    # === PHÂN KHÚC KHÁCH HÀNG ===
+    customer_segments = {}
+    
+    # Phân tích theo khách hàng từ orders
+    customer_data = {}
+    for order in orders:
+        customer_id = order.get('customer_id', order.get('customerId'))
+        customer_name = order.get('customer_name', order.get('customerName', 'Unknown'))
+        
+        if customer_id not in customer_data:
+            customer_data[customer_id] = {
+                'name': customer_name,
+                'total_orders': 0,
+                'total_spent': 0,
+                'orders': []
+            }
+        
+        customer_data[customer_id]['total_orders'] += 1
+        customer_data[customer_id]['total_spent'] += order.get('totalAmount', order.get('total_amount', 0))
+        customer_data[customer_id]['orders'].append(order)
+    
+    if customer_data:
+        # Phân loại khách hàng theo RFM (đơn giản hóa)
+        customer_list = list(customer_data.values())
+        
+        # Tính ngưỡng phân khúc
+        avg_orders = sum([c['total_orders'] for c in customer_list]) / len(customer_list)
+        avg_spent = sum([c['total_spent'] for c in customer_list]) / len(customer_list)
+        
+        vip_customers = [c for c in customer_list if c['total_spent'] >= avg_spent * 2]
+        loyal_customers = [c for c in customer_list if c['total_orders'] >= avg_orders * 1.5 and c not in vip_customers]
+        regular_customers = [c for c in customer_list if c not in vip_customers and c not in loyal_customers and c['total_orders'] > 1]
+        one_time_customers = [c for c in customer_list if c['total_orders'] == 1]
+        
+        customer_segments = {
+            'total_customers': len(customer_list),
+            'vip': {
+                'count': len(vip_customers),
+                'total_revenue': sum([c['total_spent'] for c in vip_customers]),
+                'avg_order_value': sum([c['total_spent'] for c in vip_customers]) / sum([c['total_orders'] for c in vip_customers]) if vip_customers else 0,
+                'revenue_contribution': (sum([c['total_spent'] for c in vip_customers]) / total_revenue * 100) if total_revenue > 0 else 0
+            },
+            'loyal': {
+                'count': len(loyal_customers),
+                'total_revenue': sum([c['total_spent'] for c in loyal_customers]),
+                'avg_order_value': sum([c['total_spent'] for c in loyal_customers]) / sum([c['total_orders'] for c in loyal_customers]) if loyal_customers else 0,
+                'revenue_contribution': (sum([c['total_spent'] for c in loyal_customers]) / total_revenue * 100) if total_revenue > 0 else 0
+            },
+            'regular': {
+                'count': len(regular_customers),
+                'total_revenue': sum([c['total_spent'] for c in regular_customers]),
+                'avg_order_value': sum([c['total_spent'] for c in regular_customers]) / sum([c['total_orders'] for c in regular_customers]) if regular_customers else 0,
+                'revenue_contribution': (sum([c['total_spent'] for c in regular_customers]) / total_revenue * 100) if total_revenue > 0 else 0
+            },
+            'one_time': {
+                'count': len(one_time_customers),
+                'total_revenue': sum([c['total_spent'] for c in one_time_customers]),
+                'avg_order_value': sum([c['total_spent'] for c in one_time_customers]) / len(one_time_customers) if one_time_customers else 0,
+                'revenue_contribution': (sum([c['total_spent'] for c in one_time_customers]) / total_revenue * 100) if total_revenue > 0 else 0
+            }
+        }
+    
     inventory_analysis = {
         'critical_stock_products': stock_low,  # Tồn kho thấp (1-9)
         'warning_stock_products': stock_avg,   # Tồn kho trung bình (10-29)
@@ -544,6 +741,152 @@ def calculate_statistics(data):
         },
         'table_data': inventory_table_data
     }
+    
+    # === FORECASTING DỰA TRÊN KỸ THUẬT THỐNG KÊ ===
+    forecast_data = {}
+    
+    # 1. Revenue Forecasting (7 ngày tiếp theo)
+    if revenue_by_day and len(revenue_by_day) >= 3:
+        try:
+            revenue_forecast = forecasting.revenue_forecast(
+                revenue_by_day=revenue_by_day,
+                periods_ahead=7
+            )
+            forecast_data['revenue'] = {
+                'next_7_days_total': revenue_forecast['total_forecast'],
+                'daily_average': revenue_forecast['daily_average'],
+                'forecast_by_day': revenue_forecast['forecast_by_day'],
+                'trend': revenue_forecast['trend'],
+                'confidence': revenue_forecast['confidence'],
+                'method': revenue_forecast['method'],
+                'historical_daily_avg': revenue_forecast['historical_average']
+            }
+        except Exception as e:
+            print(f"[Forecasting] Revenue forecast error: {e}")
+            forecast_data['revenue'] = None
+    
+    # 2. Inventory Reorder Points (cho sản phẩm low stock)
+    reorder_recommendations = []
+    for product in stock_low + stock_out:
+        try:
+            product_id = product.get('id', product.get('product_id'))
+            
+            # Trích xuất lịch sử bán hàng THỰC TẾ từ orders (30 ngày)
+            sales_history = extract_product_sales_history(orders, product_id, days=30)
+            
+            # Kiểm tra có dữ liệu bán hàng không
+            total_sales = sum(sales_history)
+            if total_sales > 0 and len(sales_history) >= 7:
+                reorder_calc = forecasting.inventory_reorder_point(
+                    sales_history=sales_history,
+                    lead_time_days=7,
+                    service_level=0.95
+                )
+                
+                current_stock = product.get('available_stock', 0)
+                reorder_point = reorder_calc['reorder_point']
+                
+                reorder_recommendations.append({
+                    'product_id': product_id,
+                    'product_name': product.get('name'),
+                    'current_stock': current_stock,
+                    'reorder_point': reorder_point,
+                    'safety_stock': reorder_calc['safety_stock'],
+                    'avg_daily_sales': round(reorder_calc['average_daily_sales'], 2),
+                    'recommended_order_quantity': max(0, reorder_point - current_stock),
+                    'urgency': 'high' if current_stock == 0 else 'medium',
+                    'days_of_data': len([s for s in sales_history if s > 0])  # Số ngày có bán hàng
+                })
+            else:
+                # Không đủ dữ liệu, dùng total_sold làm fallback
+                print(f"[Reorder] Not enough sales data for {product.get('name')} (total_sales={total_sales})")
+                
+        except Exception as e:
+            print(f"[Forecasting] Reorder calc error for product {product.get('name')}: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    forecast_data['inventory_reorder'] = reorder_recommendations
+    
+    # 3. Sales Trend Analysis với Linear Regression
+    if revenue_by_day and len(revenue_by_day) >= 7:
+        try:
+            sorted_dates = sorted(revenue_by_day.keys())
+            revenue_values = [revenue_by_day[date] for date in sorted_dates]
+            
+            trend_analysis = forecasting.linear_regression_forecast(
+                data=revenue_values,
+                periods_ahead=7
+            )
+            
+            forecast_data['trend_analysis'] = {
+                'trend_direction': trend_analysis['trend'],
+                'growth_rate': trend_analysis['slope'],
+                'confidence': trend_analysis['confidence'],
+                'next_period_forecast': trend_analysis['forecast'],
+                'method': 'linear_regression',
+                'interpretation': _interpret_trend(trend_analysis)
+            }
+        except Exception as e:
+            print(f"[Forecasting] Trend analysis error: {e}")
+            forecast_data['trend_analysis'] = None
+    
+    # 4. Product-specific forecasts (top 10 products)
+    product_forecasts = []
+    for product in top_products[:10]:
+        try:
+            product_id = product.get('id', product.get('product_id'))
+            
+            # Trích xuất lịch sử bán hàng THỰC TẾ từ orders (30 ngày)
+            sales_history = extract_product_sales_history(orders, product_id, days=30)
+            
+            # Kiểm tra có dữ liệu bán hàng không
+            total_sales = sum(sales_history)
+            if total_sales > 0 and len(sales_history) >= 7:
+                # Dự báo daily sales cho 1 ngày dựa trên dữ liệu thực
+                ensemble_forecast = forecasting.ensemble_forecast(
+                    data=sales_history,
+                    periods_ahead=1  # Dự báo 1 ngày
+                )
+                
+                daily_forecast = ensemble_forecast['forecast']
+                
+                # Tính dự báo 7 ngày = daily_forecast * 7
+                forecast_7days = daily_forecast * 7
+                
+                # Tính số ngày tồn kho đủ dùng
+                available_stock = product.get('available_stock', 0)
+                if daily_forecast > 0:
+                    stock_coverage_days = int(available_stock / daily_forecast)
+                else:
+                    # Nếu không có dự báo bán hàng, tồn kho đủ dùng rất lâu
+                    stock_coverage_days = 365 if available_stock > 0 else 0
+                
+                product_forecasts.append({
+                    'product_id': product_id,
+                    'product_name': product.get('name'),
+                    'current_stock': available_stock,
+                    'forecast_7day_sales': int(forecast_7days),
+                    'daily_forecast': round(daily_forecast, 2),
+                    'confidence': ensemble_forecast['confidence'],
+                    'stock_coverage_days': stock_coverage_days,
+                    'needs_restock': available_stock < forecast_7days,
+                    'actual_30day_sales': int(total_sales),  # Tổng bán thực tế 30 ngày
+                    'days_of_data': len([s for s in sales_history if s > 0])  # Số ngày có bán hàng
+                })
+            else:
+                # Không đủ dữ liệu thực tế
+                print(f"[Forecast] Not enough sales data for {product.get('name')} (total_sales={total_sales}, history_length={len(sales_history)})")
+                
+        except Exception as e:
+            print(f"[Forecasting] Product forecast error for {product.get('name')}: {e}")
+            import traceback
+            traceback.print_exc()
+    
+    forecast_data['product_forecasts'] = sorted(
+        product_forecasts, 
+        key=lambda x: x['stock_coverage_days']
+    )
     
     return {
         'overview': {
@@ -566,8 +909,100 @@ def calculate_statistics(data):
         'category_stats': category_stats,
         'inventory_analysis': inventory_analysis,
         'revenue_by_day': revenue_by_day,
-        'orders_by_day': orders_by_day
+        'orders_by_day': orders_by_day,
+        'growth_analysis': growth_analysis,  # THÊM PHÂN TÍCH TĂNG TRƯỞNG
+        'customer_segments': customer_segments,  # THÊM PHÂN KHÚC KHÁCH HÀNG
+        'forecasts': forecast_data  # THÊM DỰ BÁO THỐNG KÊ
     }
+
+def _interpret_trend(trend_result: Dict[str, Any]) -> str:
+    """Interpret trend analysis results"""
+    trend = trend_result['trend']
+    slope = trend_result['slope']
+    confidence = trend_result['confidence']
+    
+    if confidence < 0.5:
+        return f"Xu hướng {trend} nhưng độ tin cậy thấp ({confidence:.1%}). Cần thêm dữ liệu."
+    elif trend == 'increasing':
+        growth_pct = abs(slope) * 30  # 30 days
+        return f"Xu hướng tăng trưởng {growth_pct:.1f}% dự kiến trong 30 ngày tới (độ tin cậy: {confidence:.1%})"
+    elif trend == 'decreasing':
+        decline_pct = abs(slope) * 30
+        return f"Xu hướng giảm {decline_pct:.1f}% dự kiến trong 30 ngày tới (độ tin cậy: {confidence:.1%})"
+    else:
+        return f"Xu hướng ổn định, biến động < 5% (độ tin cậy: {confidence:.1%})"
+
+def extract_product_sales_history(orders: List[Dict], product_id: Any, days: int = 30) -> List[float]:
+    """
+    Trích xuất lịch sử bán hàng THỰC TẾ của sản phẩm từ orders
+    
+    Args:
+        orders: Danh sách đơn hàng
+        product_id: ID sản phẩm cần trích xuất
+        days: Số ngày lịch sử (mặc định 30 ngày)
+    
+    Returns:
+        List số lượng bán theo ngày (từ cũ đến mới)
+    """
+    from datetime import datetime, timedelta
+    import json
+    
+    # Tạo dict lưu số lượng bán theo ngày
+    sales_by_date = {}
+    now = datetime.now()
+    
+    # Khởi tạo tất cả các ngày với 0
+    for i in range(days):
+        date = (now - timedelta(days=days-i-1)).strftime('%Y-%m-%d')
+        sales_by_date[date] = 0
+    
+    # Duyệt qua tất cả orders
+    for order in orders:
+        # Chỉ tính orders đã DELIVERED
+        if order.get('status') != 'DELIVERED':
+            continue
+        
+        created_at = order.get('createdAt', order.get('created_at', ''))
+        if not created_at:
+            continue
+        
+        try:
+            # Parse order date
+            order_date = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+            date_key = order_date.strftime('%Y-%m-%d')
+            
+            # Chỉ lấy orders trong khoảng thời gian
+            if date_key not in sales_by_date:
+                continue
+            
+            # Lấy items từ order
+            items_json = order.get('items_json', '')
+            if items_json:
+                try:
+                    items = json.loads(items_json) if isinstance(items_json, str) else items_json
+                    
+                    # Tìm sản phẩm trong order items
+                    for item in items:
+                        item_product_id = item.get('product_id')
+                        # So sánh ID (convert về string để đảm bảo)
+                        if str(item_product_id) == str(product_id):
+                            quantity = item.get('quantity', 0)
+                            if isinstance(quantity, str):
+                                quantity = int(quantity)
+                            sales_by_date[date_key] += quantity
+                            
+                except (json.JSONDecodeError, ValueError, TypeError) as e:
+                    print(f"[Sales History] Error parsing items_json: {e}")
+                    continue
+        except Exception as e:
+            print(f"[Sales History] Error processing order: {e}")
+            continue
+    
+    # Convert dict to list (sorted by date)
+    sorted_dates = sorted(sales_by_date.keys())
+    sales_history = [sales_by_date[date] for date in sorted_dates]
+    
+    return sales_history
 
 @router.get('/data')
 async def get_analytics_data():
@@ -698,6 +1133,8 @@ def create_analysis_prompt(analysis_type, statistics, business_data, document_co
     category_stats = statistics.get('category_stats', {})
     low_stock_products = statistics.get('low_stock_products', [])
     top_products = statistics.get('top_products', [])
+    growth_analysis = statistics.get('growth_analysis', {})
+    customer_segments = statistics.get('customer_segments', {})
     
     # Lấy dữ liệu bảng phân tích tồn kho pre-calculated
     inventory_analysis = statistics.get('inventory_analysis', {})
@@ -777,6 +1214,12 @@ QUAN TRỌNG: TUYỆT ĐỐI KHÔNG TỰ TÍNH TOÁN LẠI SỐ LIỆU. HÃY S�
 🏢 HIỆU SUẤT NGƯỜI BÁN:
    • Tổng số người bán: {len(business_performance)}
    • Tổng doanh thu tất cả: {sum([bp.get('revenue', 0) for bp in business_performance]):,.0f} VNĐ
+
+📈 PHÂN TÍCH TĂNG TRƯỞNG BÁN HÀNG:
+{json.dumps(growth_analysis, indent=2, ensure_ascii=False, default=str)}
+
+👥 PHÂN KHÚC KHÁCH HÀNG (Customer Segmentation):
+{json.dumps(customer_segments, indent=2, ensure_ascii=False, default=str)}
 
 {document_context}
 """
@@ -1063,14 +1506,51 @@ Tạo bảng markdown:
 |-------------------|--------------|---------|----------|-------------|
 
 ## 4️⃣ CHIẾN LƯỢC COMBO & BUNDLE 🎁
-### Combo đề xuất:
-1. **[Tên combo]**: [Sản phẩm A] + [Sản phẩm B] khác danh mục (vd 1 điện thoại +1 đồng hồ)
-   - Giá lẻ: [X] VNĐ
-   - Giá combo: [Y] VNĐ (Tiết kiệm [Z]%)
-   - Lý do combo này hấp dẫn: [...]
-   - Mục tiêu: tăng AOV lên [X]%
 
-[Đề xuất 3-5 combo]
+🚨 **QUY TẮC BẮT BUỘC KHI ĐỀ XUẤT COMBO:**
+
+### ❌ CẤM TUYỆT ĐỐI:
+1. **KHÔNG được đề xuất sản phẩm KHÔNG CÓ trong danh sách TOP 5 sản phẩm hoặc danh mục đã cung cấp**
+   - CHỈ sử dụng sản phẩm từ dữ liệu thực tế phía trên
+   - KHÔNG tự nghĩ ra tên sản phẩm (VD: "Chuột Logitech", "Balo laptop")
+   - Nếu không có phụ kiện → KHÔNG đề xuất combo
+
+2. **KHÔNG combo 2 sản phẩm CÙNG CHỨC NĂNG**
+   - VD SAI: MacBook + Laptop Dell (2 laptop)
+   - VD SAI: iPhone + Samsung Galaxy (2 điện thoại)
+   - VD SAI: Tai nghe Sony + Tai nghe AirPods
+
+### ✅ CHỈ ĐỀ XUẤT KHI:
+1. **Có SẢN PHẨM THỰC TẾ trong dữ liệu:**
+   - Kiểm tra danh sách TOP 5 sản phẩm
+   - Kiểm tra danh mục sản phẩm
+   - Chỉ ghép những sản phẩm ĐÃ TỒN TẠI
+
+2. **Logic hợp lý - Bổ sung/Hỗ trợ:**
+   - Sản phẩm chính + Phụ kiện (nếu có trong data)
+   - Thiết bị + Bảo vệ (nếu có trong data)
+   - Complementary products (nếu có trong data)
+
+### Combo đề xuất (DỰA VÀO DỮ LIỆU THỰC TẾ):
+
+⚠️ **TRƯỚC KHI ĐỀ XUẤT - KIỂM TRA:**
+- [ ] Tất cả sản phẩm trong combo có trong TOP 5 hoặc danh mục?
+- [ ] Không phải 2 sản phẩm cùng chức năng?
+- [ ] Logic hợp lý cho khách hàng?
+
+**NẾU KHÔNG ĐỦ DỮ LIỆU PHỤ KIỆN → VIẾT:**
+"⚠️ Hiện tại không đủ dữ liệu về phụ kiện/sản phẩm bổ sung để đề xuất combo hợp lý. 
+Khuyến nghị: Bổ sung thêm sản phẩm phụ kiện (chuột, balo, ốp lưng, tai nghe...) để tăng AOV qua combo."
+
+**NẾU CÓ ĐỦ DỮ LIỆU → ĐỀ XUẤT:**
+1. **[Tên combo từ DATA]**: [Sản phẩm A từ TOP 5] + [Sản phẩm B từ danh mục]
+   - Sản phẩm: [Tên CHÍNH XÁC từ dữ liệu]
+   - Giá lẻ: [X] VNĐ (tính từ giá thực tế)
+   - Giá combo: [Y] VNĐ (giảm 10-15%)
+   - Lý do hợp lý: [Giải thích use case]
+   - Ví dụ: "Khách mua [sản phẩm A] thường cần [sản phẩm B] để..."
+
+[Đề xuất tối đa 3-5 combo - CHỈ TỪ DỮ LIỆU CÓ SẴN]
 
 ## 5️⃣ LỊCH KHUYẾN MÃI ĐỀ XUẤT 📅
 Tạo bảng markdown:
@@ -1309,16 +1789,26 @@ Tính toán và đánh giá:
 
 #### A. Product Bundling Strategy
 
-| Bundle Name | Products | Giá lẻ | Giá bundle | Tiết kiệm | Target Sales |
-|-------------|----------|--------|------------|-----------|--------------|
-| [Bundle 1] | [A + B + C] | [X] VNĐ | [Y] VNĐ | [Z]% | [W] bundles/tháng |
-| [Bundle 2] | [A + B] | [X] VNĐ | [Y] VNĐ | [Z]% | [W] bundles/tháng |
+🚨 **QUY TẮC NGHIÊM NGẶT: CHỈ SỬ DỤNG SẢN PHẨM CÓ TRONG DỮ LIỆU**
 
-**Đề xuất 5-7 bundles cụ thể dựa trên:**
-- Sản phẩm thường mua cùng nhau
-- Complementary products
-- Seasonal bundles
-- Gift sets
+**KIỂM TRA TRƯỚC KHI ĐỀ XUẤT:**
+1. ✅ Sản phẩm có trong TOP 5 sản phẩm nổi bật?
+2. ✅ Sản phẩm có trong danh mục đã cung cấp?
+3. ✅ Không phải 2 sản phẩm cùng loại (2 laptop, 2 điện thoại)?
+4. ✅ Logic bổ sung/hỗ trợ hợp lý?
+
+**NẾU KHÔNG ĐỦ ĐIỀU KIỆN → GHI:**
+"⚠️ **Không thể đề xuất combo**: 
+- Lý do: Dữ liệu hiện tại không có sản phẩm phụ kiện/bổ sung
+- Khuyến nghị: Nhập thêm phụ kiện (chuột, balo, ốp lưng, tai nghe, sạc dự phòng...) để tạo combo tăng AOV"
+
+**NẾU ĐỦ ĐIỀU KIỆN → TẠO BẢNG:**
+
+| Bundle Name | Sản phẩm (TỪ DATA) | Giá lẻ | Giá bundle | Tiết kiệm | Logic |
+|-------------|---------------------|--------|------------|-----------|-------|
+| [Tên combo] | [SP A - tên chính xác] + [SP B - tên chính xác] | [X] VNĐ | [Y] VNĐ | [Z]% | [Tại sao khách cần combo này] |
+
+**Số lượng combo:** Tối đa 3-5 combo - DỰA HOÀN TOÀN VÀO DỮ LIỆU CÓ SẴN
 
 #### B. Upselling Tactics
 1. **Product Page Upsells**:

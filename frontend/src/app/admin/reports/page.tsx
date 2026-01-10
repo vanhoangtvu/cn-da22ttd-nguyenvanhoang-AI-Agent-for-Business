@@ -72,31 +72,28 @@ function RevenueAnalysis({ userData }: { userData: any }) {
           <div className="flex gap-2 flex-wrap">
             <button
               onClick={() => setPeriod('daily')}
-              className={`px-6 py-2.5 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 ${
-                period === 'daily' 
-                  ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/50' 
+              className={`px-6 py-2.5 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 ${period === 'daily'
+                  ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/50'
                   : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-              }`}
+                }`}
             >
               Theo ngày
             </button>
             <button
               onClick={() => setPeriod('weekly')}
-              className={`px-6 py-2.5 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 ${
-                period === 'weekly' 
-                  ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/50' 
+              className={`px-6 py-2.5 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 ${period === 'weekly'
+                  ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/50'
                   : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-              }`}
+                }`}
             >
               Theo tuần
             </button>
             <button
               onClick={() => setPeriod('monthly')}
-              className={`px-6 py-2.5 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 ${
-                period === 'monthly' 
-                  ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/50' 
+              className={`px-6 py-2.5 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 ${period === 'monthly'
+                  ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/50'
                   : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-              }`}
+                }`}
             >
               Theo tháng
             </button>
@@ -150,14 +147,14 @@ function RevenueAnalysis({ userData }: { userData: any }) {
               </svg>
               Biểu đồ cột
             </h4>
-            <div className="relative">
-              <div className="h-64 flex items-end justify-around gap-2 px-2 pb-2 border-b-2 border-gray-300 dark:border-gray-600">
+            <div className="relative overflow-x-auto pb-4">
+              <div className="h-64 flex items-end justify-around gap-2 px-2 pb-2 border-b-2 border-gray-300 dark:border-gray-600 min-w-[500px]">
                 {revenueData.map((item, index) => {
                   const percentage = maxRevenue > 0 ? (item.revenue / maxRevenue) * 100 : 0;
                   const heightPx = Math.max((percentage / 100) * 240, 10);
                   return (
                     <div key={index} className="flex-1 flex flex-col-reverse items-center group max-w-[60px]">
-                      <div 
+                      <div
                         className="w-full bg-gradient-to-t from-blue-500 via-blue-600 to-purple-600 rounded-t-lg transition-all duration-1000 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 cursor-pointer shadow-lg relative overflow-hidden"
                         style={{ height: `${heightPx}px` }}
                       >
@@ -611,16 +608,16 @@ export default function SystemReports() {
               </svg>
               Doanh thu 7 ngày gần nhất
             </h3>
-            <div className="relative">
-              <div className="h-64 flex items-end justify-around gap-2 px-2 pb-2 border-b-2 border-gray-300 dark:border-gray-600">
+            <div className="relative overflow-x-auto pb-4">
+              <div className="h-64 flex items-end justify-around gap-2 px-2 pb-2 border-b-2 border-gray-300 dark:border-gray-600 min-w-[500px]">
                 {report.dailyRevenue.map((day, index) => {
                   const percentage = maxDailyRevenue > 0 ? (day.revenue / maxDailyRevenue) * 100 : 0;
                   const heightPx = Math.max((percentage / 100) * 240, 10);
                   return (
                     <div key={index} className="flex-1 flex flex-col-reverse items-center group max-w-[80px]">
-                      <div 
+                      <div
                         className="w-full bg-gradient-to-t from-green-500 via-green-600 to-emerald-600 rounded-t-lg transition-all duration-1000 hover:from-green-600 hover:via-emerald-600 hover:to-teal-600 cursor-pointer shadow-lg hover:shadow-2xl relative overflow-hidden"
-                        style={{ 
+                        style={{
                           height: `${heightPx}px`,
                           animation: `growUp 1s ease-out ${index * 0.1}s both`
                         }}
@@ -669,8 +666,8 @@ export default function SystemReports() {
             </h3>
             <div className="space-y-2 max-h-80 overflow-y-auto">
               {report.topSellingProducts.map((product, index) => (
-                <div 
-                  key={product.productId} 
+                <div
+                  key={product.productId}
                   className="flex items-center gap-3 p-3 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 rounded-lg hover:from-yellow-50 hover:to-orange-50 dark:hover:from-yellow-900/20 dark:hover:to-orange-900/20 transition-all group"
                   style={{ animation: `slideIn 0.5s ease-out ${index * 0.05}s both` }}
                 >

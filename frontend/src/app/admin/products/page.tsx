@@ -105,8 +105,8 @@ export default function ProductManagement() {
     try {
       setLoading(true);
       const [productsData, categoriesData] = await Promise.all([
-        user.role === 'ADMIN' 
-          ? apiClient.getAdminProducts() 
+        user.role === 'ADMIN'
+          ? apiClient.getAdminProducts()
           : apiClient.getProductsBySeller(user.userId),
         apiClient.getAdminCategories(),
       ]);
@@ -160,7 +160,7 @@ export default function ProductManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!formData.name || !formData.description || formData.price <= 0 || formData.categoryId === 0) {
       alert('Vui lòng điền đầy đủ thông tin!');
       return;
@@ -207,7 +207,7 @@ export default function ProductManagement() {
 
   const handleStatusChange = async (id: number, currentStatus: string) => {
     const newStatus = currentStatus === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-    
+
     try {
       await apiClient.updateProductStatus(id, newStatus);
       alert('Cập nhật trạng thái thành công!');
@@ -220,7 +220,7 @@ export default function ProductManagement() {
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         product.description.toLowerCase().includes(searchTerm.toLowerCase());
+      product.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = !filterCategory || product.categoryId === filterCategory;
     const matchesStatus = filterStatus === 'ALL' || product.status === filterStatus;
     return matchesSearch && matchesCategory && matchesStatus;
@@ -242,8 +242,8 @@ export default function ProductManagement() {
       <main className="container mx-auto px-4 py-8">
         {/* Filters and Actions */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6">
-          <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-            <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+          <div className="flex flex-col lg:flex-row gap-4 justify-between">
+            <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto flex-1">
               <input
                 type="text"
                 placeholder="Tìm kiếm sản phẩm..."
@@ -271,83 +271,86 @@ export default function ProductManagement() {
                 <option value="INACTIVE">Vô hiệu hóa</option>
               </select>
             </div>
-            <button
-              onClick={openCreateModal}
-              className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg transition-all font-semibold flex items-center gap-2 whitespace-nowrap"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Thêm sản phẩm mới
-            </button>
+            <div className="w-full lg:w-auto mt-2 lg:mt-0">
+              <button
+                onClick={openCreateModal}
+                className="w-full lg:w-auto px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg transition-all font-semibold flex items-center justify-center gap-2 whitespace-nowrap"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                </svg>
+                Thêm sản phẩm mới
+              </button>
+            </div>
           </div>
           <div className="mt-4 text-gray-600 dark:text-gray-400">
             Tổng số: <span className="font-semibold text-purple-600">{filteredProducts.length}</span> sản phẩm
           </div>
         </div>
 
-        {/* Products Table */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-gray-700">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Sản phẩm</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Danh mục</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Giá</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Kho</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Chi tiết</th>
-                  {userData.role === 'ADMIN' && (
-                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Người bán</th>
-                  )}
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Trạng thái</th>
-                  <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredProducts.map(product => (
-                  <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-4">
-                        <img src={product.imageUrls?.[0] || '/placeholder.png'} alt={product.name} className="w-16 h-16 object-cover rounded-lg" />
-                        <div>
-                          <p className="font-semibold text-gray-800 dark:text-white">{product.name}</p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">{product.description}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-gray-700 dark:text-gray-300">{product.categoryName}</td>
-                    <td className="px-6 py-4 font-semibold text-gray-800 dark:text-white">
-                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.price)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                        product.quantity > 10 ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 
-                        product.quantity > 0 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' : 
-                        'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
-                      }`}>
-                        {product.quantity}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      {product.details && product.details.trim() ? (
-                        <div className="flex items-center gap-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                            <span className="px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 text-xs font-medium rounded-md">
-                              Có thông tin
-                            </span>
+        {/* Products List - Responsive */}
+        <div>
+          {/* Desktop Table View */}
+          <div className="hidden md:block bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Sản phẩm</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Danh mục</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Giá</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Kho</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Chi tiết</th>
+                    {userData.role === 'ADMIN' && (
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Người bán</th>
+                    )}
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Trạng thái</th>
+                    <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {filteredProducts.map(product => (
+                    <tr key={product.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-4">
+                          <img src={product.imageUrls?.[0] || '/placeholder.png'} alt={product.name} className="w-16 h-16 object-cover rounded-lg" />
+                          <div>
+                            <p className="font-semibold text-gray-800 dark:text-white">{product.name}</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-1">{product.description}</p>
                           </div>
-                          <button
-                            onClick={() => {
-                              try {
-                                const parsedDetails = JSON.parse(product.details!);
-                                const formattedDetails = JSON.stringify(parsedDetails, null, 2);
-                                
-                                // Tạo modal để hiển thị chi tiết
-                                const modal = document.createElement('div');
-                                modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
-                                modal.innerHTML = `
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-gray-700 dark:text-gray-300">{product.categoryName}</td>
+                      <td className="px-6 py-4 font-semibold text-gray-800 dark:text-white">
+                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.price)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 rounded-full text-sm font-semibold ${product.quantity > 10 ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
+                          product.quantity > 0 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' :
+                            'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+                          }`}>
+                          {product.quantity}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {product.details && product.details.trim() ? (
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                              <span className="px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 text-xs font-medium rounded-md">
+                                Có thông tin
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => {
+                                try {
+                                  const parsedDetails = JSON.parse(product.details!);
+                                  const formattedDetails = JSON.stringify(parsedDetails, null, 2);
+
+                                  // Tạo modal để hiển thị chi tiết
+                                  const modal = document.createElement('div');
+                                  modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4';
+                                  modal.innerHTML = `
                                   <div class="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full max-h-[80vh] overflow-hidden">
                                     <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
                                       <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Chi tiết sản phẩm: ${product.name}</h3>
@@ -362,91 +365,164 @@ export default function ProductManagement() {
                                     </div>
                                   </div>
                                 `;
-                                document.body.appendChild(modal);
-                              } catch {
-                                alert('Không thể hiển thị dữ liệu chi tiết - định dạng JSON không hợp lệ');
-                              }
-                            }}
-                            className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200 underline font-medium transition-colors"
+                                  document.body.appendChild(modal);
+                                } catch {
+                                  alert('Không thể hiển thị dữ liệu chi tiết - định dạng JSON không hợp lệ');
+                                }
+                              }}
+                              className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-200 underline font-medium transition-colors"
+                            >
+                              Xem chi tiết
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
+                            <span className="px-2 py-1 bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 text-xs font-medium rounded-md">
+                              Chưa có thông tin
+                            </span>
+                          </div>
+                        )}
+                      </td>
+                      {userData.role === 'ADMIN' && (
+                        <td className="px-6 py-4 text-gray-700 dark:text-gray-300">{product.sellerUsername}</td>
+                      )}
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={() => handleStatusChange(product.id, product.status)}
+                          className={`px-3 py-1 rounded-full text-sm font-semibold transition-colors ${product.status === 'ACTIVE'
+                            ? 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900 dark:text-green-300'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
+                            }`}
+                        >
+                          {product.status === 'ACTIVE' ? 'Hoạt động' : 'Vô hiệu'}
+                        </button>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            onClick={() => openPreviewModal(product)}
+                            className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900 rounded-lg transition-colors"
+                            title="Xem trước"
                           >
-                            Xem chi tiết
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => openEditModal(product)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg transition-colors"
+                            title="Chỉnh sửa"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDelete(product.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900 rounded-lg transition-colors"
+                            title="Xóa"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
                           </button>
                         </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
-                          <span className="px-2 py-1 bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 text-xs font-medium rounded-md">
-                            Chưa có thông tin
-                          </span>
-                        </div>
-                      )}
-                    </td>
-                    {userData.role === 'ADMIN' && (
-                      <td className="px-6 py-4 text-gray-700 dark:text-gray-300">{product.sellerUsername}</td>
-                    )}
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => handleStatusChange(product.id, product.status)}
-                        className={`px-3 py-1 rounded-full text-sm font-semibold transition-colors ${
-                          product.status === 'ACTIVE' 
-                            ? 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900 dark:text-green-300' 
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
-                        }`}
-                      >
-                        {product.status === 'ACTIVE' ? 'Hoạt động' : 'Vô hiệu'}
-                      </button>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => openPreviewModal(product)}
-                          className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900 rounded-lg transition-colors"
-                          title="Xem trước"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => openEditModal(product)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg transition-colors"
-                          title="Chỉnh sửa"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleDelete(product.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900 rounded-lg transition-colors"
-                          title="Xóa"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {filteredProducts.length === 0 && (
-            <div className="text-center py-12">
-              <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-              </svg>
-              <p className="text-gray-500 dark:text-gray-400">Không tìm thấy sản phẩm nào</p>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
+            {filteredProducts.length === 0 && (
+              <div className="text-center py-12">
+                <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                </svg>
+                <p className="text-gray-500 dark:text-gray-400">Không tìm thấy sản phẩm nào</p>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="grid grid-cols-1 gap-4 md:hidden">
+            {filteredProducts.map(product => (
+              <div key={product.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700">
+                <div className="flex gap-4 mb-4">
+                  <img src={product.imageUrls?.[0] || '/placeholder.png'} alt={product.name} className="w-20 h-20 object-cover rounded-lg flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-gray-800 dark:text-white line-clamp-2 mb-1">{product.name}</h3>
+                    <p className="text-purple-600 font-bold text-lg">
+                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.price)}
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{product.categoryName}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
+                  <div className="bg-gray-50 dark:bg-gray-700/50 p-2 rounded-lg">
+                    <span className="text-gray-500 dark:text-gray-400 block text-xs">Kho hàng</span>
+                    <span className={`font-semibold ${product.quantity > 0 ? 'text-gray-800 dark:text-white' : 'text-red-500'}`}>
+                      {product.quantity} sp
+                    </span>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-700/50 p-2 rounded-lg">
+                    <span className="text-gray-500 dark:text-gray-400 block text-xs">Trạng thái</span>
+                    <button
+                      onClick={() => handleStatusChange(product.id, product.status)}
+                      className={`font-semibold text-xs px-2 py-0.5 rounded-full mt-0.5 ${product.status === 'ACTIVE'
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300'
+                        : 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300'
+                        }`}
+                    >
+                      {product.status === 'ACTIVE' ? 'Hoạt động' : 'Vô hiệu'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between border-t border-gray-100 dark:border-gray-700 pt-3">
+                  <button
+                    onClick={() => openPreviewModal(product)}
+                    className="flex-1 flex items-center justify-center gap-2 text-gray-600 dark:text-gray-300 py-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors text-sm font-medium"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                    Xem
+                  </button>
+                  <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-2"></div>
+                  <button
+                    onClick={() => openEditModal(product)}
+                    className="flex-1 flex items-center justify-center gap-2 text-blue-600 dark:text-blue-400 py-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors text-sm font-medium"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                    Sửa
+                  </button>
+                  <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-2"></div>
+                  <button
+                    onClick={() => handleDelete(product.id)}
+                    className="flex-1 flex items-center justify-center gap-2 text-red-600 dark:text-red-400 py-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors text-sm font-medium"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    Xóa
+                  </button>
+                </div>
+              </div>
+            ))}
+            {filteredProducts.length === 0 && (
+              <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+                <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                </svg>
+                <p className="text-gray-500 dark:text-gray-400">Không tìm thấy sản phẩm nào</p>
+              </div>
+            )}
+          </div>
         </div>
       </main>
 
       {/* Create/Edit Modal */}
       {showModal && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50 p-4 overflow-y-auto"
           onClick={(e) => {
             // Đóng modal khi click vào backdrop
@@ -457,8 +533,8 @@ export default function ProductManagement() {
         >
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-6xl w-full mt-4 mb-8">
             {/* Modal Header with Close Button */}
-            <div className="flex justify-between items-center p-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+            <div className="flex justify-between items-center p-4 md:p-6 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-xl md:text-2xl font-bold text-gray-800 dark:text-white">
                 {editingProduct ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm mới'}
               </h2>
               <button
@@ -472,9 +548,9 @@ export default function ProductManagement() {
                 </svg>
               </button>
             </div>
-            
-            <div className="p-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+            <div className="p-4 md:p-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
                 {/* Left Column - Form */}
                 <div>
                   <form onSubmit={handleSubmit} className="space-y-4">
@@ -1109,16 +1185,16 @@ Ví dụ cấu trúc JSON:
                 {/* Right Column - Preview */}
                 <div>
                   <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-4">Xem trước</h3>
-                  
+
                   {/* Product Card Preview */}
                   <div className="bg-gray-50 dark:bg-gray-900 rounded-xl p-6 space-y-4">
                     {/* Image Preview */}
                     <div className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden">
                       {formData.imageUrls.filter(url => url.trim()).length > 0 ? (
                         <div>
-                          <img 
-                            src={formData.imageUrls[0] || '/placeholder.png'} 
-                            alt="Preview" 
+                          <img
+                            src={formData.imageUrls[0] || '/placeholder.png'}
+                            alt="Preview"
                             className="w-full h-64 object-cover"
                             onError={(e) => {
                               (e.target as HTMLImageElement).src = '/placeholder.png';
@@ -1127,9 +1203,9 @@ Ví dụ cấu trúc JSON:
                           {formData.imageUrls.filter(url => url.trim()).length > 1 && (
                             <div className="grid grid-cols-4 gap-2 p-2 bg-gray-100 dark:bg-gray-700">
                               {formData.imageUrls.filter(url => url.trim()).slice(0, 4).map((url, idx) => (
-                                <img 
+                                <img
                                   key={idx}
-                                  src={url || '/placeholder.png'} 
+                                  src={url || '/placeholder.png'}
                                   alt={`Preview ${idx + 1}`}
                                   className="w-full h-16 object-cover rounded"
                                   onError={(e) => {
@@ -1157,16 +1233,15 @@ Ví dụ cấu trúc JSON:
                       <h4 className="text-xl font-bold text-gray-800 dark:text-white mb-2">
                         {formData.name || 'Tên sản phẩm'}
                       </h4>
-                      
+
                       <div className="flex items-center gap-2 mb-3">
                         <span className="px-3 py-1 bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 rounded-full text-sm font-semibold">
                           {categories.find(c => c.id === formData.categoryId)?.name || 'Danh mục'}
                         </span>
-                        <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                          formData.quantity > 10 ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' : 
-                          formData.quantity > 0 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' : 
-                          'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
-                        }`}>
+                        <span className={`px-3 py-1 rounded-full text-sm font-semibold ${formData.quantity > 10 ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300' :
+                          formData.quantity > 0 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300' :
+                            'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+                          }`}>
                           Kho: {formData.quantity}
                         </span>
                       </div>
@@ -1273,11 +1348,10 @@ Ví dụ cấu trúc JSON:
                       <span className="px-3 py-1 bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 rounded-full text-sm font-semibold">
                         {previewProduct.categoryName}
                       </span>
-                      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                        previewProduct.status === 'ACTIVE'
-                          ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
-                          : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-                      }`}>
+                      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${previewProduct.status === 'ACTIVE'
+                        ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                        : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                        }`}>
                         {previewProduct.status === 'ACTIVE' ? 'Có sẵn' : 'Không khả dụng'}
                       </span>
                     </div>
@@ -1301,13 +1375,12 @@ Ví dụ cấu trúc JSON:
                         </p>
                       </div>
                       <div className="text-right">
-                        <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg ${
-                          previewProduct.quantity > 10 
-                            ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
-                            : previewProduct.quantity > 0 
-                              ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300'
-                              : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
-                        }`}>
+                        <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg ${previewProduct.quantity > 10
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                          : previewProduct.quantity > 0
+                            ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300'
+                            : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300'
+                          }`}>
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
                           </svg>
@@ -1315,7 +1388,7 @@ Ví dụ cấu trúc JSON:
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="text-sm text-gray-500 dark:text-gray-400">
                       Người bán: <span className="font-medium text-gray-700 dark:text-gray-300">{previewProduct.sellerUsername}</span>
                     </div>
@@ -1359,7 +1432,7 @@ Ví dụ cấu trúc JSON:
 function ProductDetailsDisplay({ details }: { details: string }) {
   try {
     const parsedDetails = JSON.parse(details);
-    
+
     return (
       <div className="space-y-4">
         {/* Basic Info */}

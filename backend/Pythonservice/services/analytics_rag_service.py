@@ -5,12 +5,14 @@ Uses separate ChromaDB instance (chroma_analytics)
 """
 import uuid
 from typing import List, Dict, Optional, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 import chromadb
+import hashlib
+import json
 
 
 class AnalyticsRAGService:
-    """RAG service specifically for business analytics"""
+    """RAG service specifically for business analytics with caching"""
     
     def __init__(self, chroma_path: str = "./chroma_analytics"):
         """
@@ -24,8 +26,59 @@ class AnalyticsRAGService:
         self.orders_analytics_collection_name = "orders_analytics"
         self.trends_collection_name = "trends"
         self.business_documents_collection_name = "business_documents"
+        
+        # Add query cache for performance
+        self._query_cache = {}
+        self._cache_ttl = 300  # 5 minutes cache
+        self._max_cache_size = 100
+        
         self._init_collections()
         print(f"[Analytics RAG] Initialized with storage at: {chroma_path}")
+        print(f"[Analytics RAG] Query cache enabled (TTL: {self._cache_ttl}s, Max size: {self._max_cache_size})")
+    
+    def _get_cache_key(self, query: str, params: Dict[str, Any]) -> str:
+        """Generate cache key from query and parameters"""
+        cache_data = {
+            'query': query,
+            'params': params
+        }
+        cache_str = json.dumps(cache_data, sort_keys=True)
+        return hashlib.md5(cache_str.encode()).hexdigest()
+    
+    def _get_from_cache(self, cache_key: str) -> Optional[Any]:
+        """Get result from cache if valid"""
+        if cache_key in self._query_cache:
+            cached_item = self._query_cache[cache_key]
+            if datetime.now() < cached_item['expires_at']:
+                print(f"[Analytics RAG] Cache HIT for key: {cache_key[:16]}...")
+                return cached_item['data']
+            else:
+                # Remove expired item
+                del self._query_cache[cache_key]
+        return None
+    
+    def _add_to_cache(self, cache_key: str, data: Any) -> None:
+        """Add result to cache with expiration"""
+        # Limit cache size
+        if len(self._query_cache) >= self._max_cache_size:
+            # Remove oldest item
+            oldest_key = min(self._query_cache.keys(), 
+                           key=lambda k: self._query_cache[k]['created_at'])
+            del self._query_cache[oldest_key]
+        
+        self._query_cache[cache_key] = {
+            'data': data,
+            'created_at': datetime.now(),
+            'expires_at': datetime.now() + timedelta(seconds=self._cache_ttl)
+        }
+        print(f"[Analytics RAG] Cached result for key: {cache_key[:16]}... (cache size: {len(self._query_cache)})")
+    
+    def clear_cache(self) -> int:
+        """Clear all cached queries"""
+        count = len(self._query_cache)
+        self._query_cache.clear()
+        print(f"[Analytics RAG] Cleared {count} cached queries")
+        return count
     
     def _init_collections(self):
         """Initialize analytics-specific collections"""
@@ -264,13 +317,15 @@ Seller: {product_data.get('sellerUsername', '')}
     
     def store_multiple_products(
         self,
-        products_data: List[Dict[str, Any]]
+        products_data: List[Dict[str, Any]],
+        batch_size: int = 50
     ) -> Dict[str, Any]:
         """
-        Store multiple products at once
+        Store multiple products at once with batch processing for performance
         
         Args:
             products_data: List of product data dictionaries
+            batch_size: Number of products to process per batch
             
         Returns:
             Result summary
@@ -279,29 +334,159 @@ Seller: {product_data.get('sellerUsername', '')}
             "total_products": len(products_data),
             "products_with_details": 0,
             "products_without_details": 0,
+            "batches_processed": 0,
             "errors": []
         }
         
-        for product in products_data:
+        # Process in batches for better performance
+        for batch_start in range(0, len(products_data), batch_size):
+            batch_end = min(batch_start + batch_size, len(products_data))
+            batch = products_data[batch_start:batch_end]
+            
             try:
-                product_id = str(product.get('id', ''))
-                if not product_id:
-                    results["errors"].append("Missing product ID")
-                    continue
-                    
-                self.store_product_data(product_id, product)
+                # Prepare batch data
+                batch_documents = []
+                batch_metadatas = []
+                batch_ids = []
                 
-                if product.get('details'):
-                    results["products_with_details"] += 1
-                else:
-                    results["products_without_details"] += 1
-                    
+                for product in batch:
+                    try:
+                        product_id = str(product.get('id', ''))
+                        if not product_id:
+                            results["errors"].append("Missing product ID")
+                            continue
+                        
+                        # Build product content
+                        product_content = self._build_product_content(product, product_id)
+                        product_metadata = self._build_product_metadata(product, product_id)
+                        
+                        batch_documents.append(product_content)
+                        batch_metadatas.append(product_metadata)
+                        batch_ids.append(f"product_{product_id}")
+                        
+                        if product.get('details'):
+                            results["products_with_details"] += 1
+                        else:
+                            results["products_without_details"] += 1
+                            
+                    except Exception as e:
+                        results["errors"].append(f"Error preparing product {product.get('id', 'unknown')}: {str(e)}")
+                
+                # Batch upsert
+                if batch_documents:
+                    try:
+                        self.business_data_collection.upsert(
+                            documents=batch_documents,
+                            metadatas=batch_metadatas,
+                            ids=batch_ids
+                        )
+                        results["batches_processed"] += 1
+                        print(f"[Analytics RAG] Batch {results['batches_processed']}: Stored {len(batch_documents)} products")
+                    except Exception as e:
+                        results["errors"].append(f"Batch upsert error: {str(e)}")
+                        
             except Exception as e:
-                results["errors"].append(f"Error storing product {product.get('id', 'unknown')}: {str(e)}")
+                results["errors"].append(f"Batch processing error: {str(e)}")
         
-        print(f"[Analytics RAG] Stored {results['total_products']} products, {results['products_with_details']} with details")
+        print(f"[Analytics RAG] Stored {results['total_products']} products in {results['batches_processed']} batches, {results['products_with_details']} with details")
+        
+        # Clear cache after bulk update
+        self.clear_cache()
         
         return results
+    
+    def _build_product_content(self, product_data: Dict[str, Any], product_id: str) -> str:
+        """Build product content text for embedding"""
+        product_content = f"""
+Product ID: {product_data.get('id', product_id)}
+Name: {product_data.get('name', '')}
+Description: {product_data.get('description', '')}
+Price: {product_data.get('price', 0)} VND
+Quantity: {product_data.get('quantity', 0)}
+Status: {product_data.get('status', 'UNKNOWN')}
+Category: {product_data.get('categoryName', '')}
+Seller: {product_data.get('sellerUsername', '')}
+"""
+        
+        # Add details information if available
+        if product_data.get('details'):
+            try:
+                import json
+                details = json.loads(product_data['details']) if isinstance(product_data['details'], str) else product_data['details']
+                
+                if details:
+                    product_content += "\nProduct Details:\n"
+                    
+                    # Basic details
+                    for field in ['brand', 'model', 'color', 'warranty', 'storage', 'type']:
+                        if details.get(field):
+                            product_content += f"{field.title()}: {details[field]}\n"
+                    
+                    # Features
+                    if details.get('features') and isinstance(details['features'], list):
+                        product_content += f"Features: {', '.join(details['features'])}\n"
+                    
+                    # Specifications
+                    if details.get('specifications') and isinstance(details['specifications'], dict):
+                        product_content += "Specifications:\n"
+                        for key, value in details['specifications'].items():
+                            product_content += f"  {key}: {value}\n"
+                    
+                    # Connectivity
+                    if details.get('connectivity') and isinstance(details['connectivity'], list):
+                        product_content += f"Connectivity: {', '.join(details['connectivity'])}\n"
+                    
+                    # Accessories, Dimensions, Weight
+                    if details.get('accessories') and isinstance(details['accessories'], list):
+                        product_content += f"Accessories: {', '.join(details['accessories'])}\n"
+                    if details.get('dimensions'):
+                        product_content += f"Dimensions: {details['dimensions']}\n"
+                    if details.get('weight'):
+                        product_content += f"Weight: {details['weight']}\n"
+                        
+            except json.JSONDecodeError:
+                print(f"[Analytics RAG] Invalid JSON in product details for {product_id}")
+            except Exception as e:
+                print(f"[Analytics RAG] Error parsing product details for {product_id}: {e}")
+        
+        return product_content
+    
+    def _build_product_metadata(self, product_data: Dict[str, Any], product_id: str) -> Dict[str, Any]:
+        """Build product metadata for filtering"""
+        product_metadata = {
+            "data_type": "product",
+            "product_id": str(product_data.get('id', product_id)),
+            "name": product_data.get('name', ''),
+            "category": product_data.get('categoryName', ''),
+            "status": product_data.get('status', 'UNKNOWN'),
+            "price": float(product_data.get('price', 0)),
+            "quantity": int(product_data.get('quantity', 0)),
+            "seller": product_data.get('sellerUsername', ''),
+            "seller_id": str(product_data.get('sellerId', '')),
+            "has_details": bool(product_data.get('details')),
+            "stored_at": datetime.now().isoformat(),
+            "purpose": "analytics"
+        }
+        
+        # Add parsed details to metadata if available
+        if product_data.get('details'):
+            try:
+                import json
+                details = json.loads(product_data['details']) if isinstance(product_data['details'], str) else product_data['details']
+                if details:
+                    # Store key details in metadata for easy filtering
+                    for field in ['brand', 'model', 'color', 'warranty']:
+                        if details.get(field):
+                            product_metadata[field] = details[field]
+                    # Store full details as JSON string (truncated)
+                    details_json = json.dumps(details, ensure_ascii=False)
+                    if len(details_json) > 4000:
+                        details_json = details_json[:4000] + '...'
+                    product_metadata['details_json'] = details_json
+            except:
+                pass
+        
+        return product_metadata
     
     def store_system_data(
         self,
@@ -505,7 +690,7 @@ Daily Revenue: {overview.get('daily_revenue', 0)} VND
         n_results: int = 10
     ) -> List[Dict[str, Any]]:
         """
-        Search business data for analytics
+        Search business data for analytics with enhanced error handling and caching
         
         Args:
             query: Search query
@@ -515,16 +700,45 @@ Daily Revenue: {overview.get('daily_revenue', 0)} VND
         Returns:
             List of relevant business data
         """
+        if not query or not query.strip():
+            print("[Analytics RAG] Empty query provided")
+            return []
+        
+        # Check cache first
+        cache_key = self._get_cache_key(query, {'data_type': data_type, 'n_results': n_results})
+        cached_result = self._get_from_cache(cache_key)
+        if cached_result is not None:
+            return cached_result
+            
         try:
             data_items = []
             
             # Search in actual collections with data
             search_collections = ['products', 'orders', 'categories', 'business', 'users', 'business_documents']
             
+            # If data_type specified, prioritize that collection
+            if data_type and data_type in search_collections:
+                search_collections = [data_type] + [c for c in search_collections if c != data_type]
+            
+            successful_searches = 0
+            failed_collections = []
+            
             for collection_name in search_collections:
                 try:
-                    collection = self.chroma_client.get_collection(name=collection_name)
+                    # Check if collection exists
+                    try:
+                        collection = self.chroma_client.get_collection(name=collection_name)
+                    except Exception as e:
+                        print(f"[Analytics RAG] Collection '{collection_name}' not found, skipping")
+                        continue
                     
+                    # Check if collection has data
+                    count = collection.count()
+                    if count == 0:
+                        print(f"[Analytics RAG] Collection '{collection_name}' is empty, skipping")
+                        continue
+                    
+                    # Perform search with timeout protection
                     results = collection.query(
                         query_texts=[query],
                         n_results=min(n_results, 5)  # Limit per collection
@@ -532,27 +746,53 @@ Daily Revenue: {overview.get('daily_revenue', 0)} VND
                     
                     if results['ids'] and len(results['ids']) > 0:
                         for i, item_id in enumerate(results['ids'][0]):
+                            # Validate result data
+                            if not item_id:
+                                continue
+                                
+                            relevance = 1.0
+                            if 'distances' in results and results['distances'] and len(results['distances'][0]) > i:
+                                distance = results['distances'][0][i]
+                                relevance = max(0.0, min(1.0, 1 - distance))  # Clamp to [0, 1]
+                            
                             data_items.append({
                                 'id': item_id,
-                                'content': results['documents'][0][i],
-                                'metadata': results['metadatas'][0][i] if results['metadatas'] and results['metadatas'][0] else None,
-                                'relevance': 1 - results['distances'][0][i] if 'distances' in results and results['distances'] else 1.0,
+                                'content': results['documents'][0][i] if results['documents'] and len(results['documents'][0]) > i else '',
+                                'metadata': results['metadatas'][0][i] if results['metadatas'] and results['metadatas'][0] and len(results['metadatas'][0]) > i else {},
+                                'relevance': relevance,
                                 'collection': collection_name
                             })
+                        
+                        successful_searches += 1
                             
                 except Exception as e:
-                    print(f"[Analytics RAG] Error searching {collection_name}: {e}")
+                    failed_collections.append(collection_name)
+                    print(f"[Analytics RAG] Error searching '{collection_name}': {str(e)}")
                     continue
             
             # Sort by relevance and limit results
             data_items.sort(key=lambda x: x.get('relevance', 0), reverse=True)
             data_items = data_items[:n_results]
             
-            print(f"[Analytics RAG] Found {len(data_items)} relevant business data items from {len(search_collections)} collections")
+            # Cache the result
+            self._add_to_cache(cache_key, data_items)
+            
+            # Log search results
+            if data_items:
+                print(f"[Analytics RAG] Found {len(data_items)} relevant items from {successful_searches} collections")
+                if failed_collections:
+                    print(f"[Analytics RAG] Failed to search: {', '.join(failed_collections)}")
+            else:
+                print(f"[Analytics RAG] No results found for query: '{query[:100]}'")
+                if failed_collections:
+                    print(f"[Analytics RAG] Some collections failed: {', '.join(failed_collections)}")
+            
             return data_items
             
         except Exception as e:
-            print(f"[Analytics RAG] Search error: {e}")
+            import traceback
+            print(f"[Analytics RAG] Critical search error: {str(e)}")
+            traceback.print_exc()
             return []
     
     def search_order_patterns(

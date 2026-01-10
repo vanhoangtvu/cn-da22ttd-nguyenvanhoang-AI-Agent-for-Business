@@ -20,6 +20,13 @@ export const metadata: Metadata = {
   description: "Hệ thống AI thông minh hỗ trợ doanh nghiệp trong việc chăm sóc khách hàng, tư vấn sản phẩm và đề xuất chiến lược kinh doanh dựa trên dữ liệu nội bộ",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{

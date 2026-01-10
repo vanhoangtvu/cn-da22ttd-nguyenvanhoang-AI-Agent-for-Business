@@ -173,7 +173,7 @@ export default function OrderManagement() {
     <AdminLayout userData={userData} currentPage="orders">
       <main className="container mx-auto px-4 py-8">
         {/* Filters */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 md:p-6 mb-6">
           <div className="flex flex-col lg:flex-row gap-4">
             <input
               type="text"
@@ -182,7 +182,7 @@ export default function OrderManagement() {
               onChange={(e) => setSearchTerm(e.target.value)}
               className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-gray-700 dark:text-white"
             />
-            <div className="flex gap-2 overflow-x-auto">
+            <div className="flex gap-2 overflow-x-auto w-full pb-2">
               <button
                 onClick={() => setFilterStatus('ALL')}
                 className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-colors ${filterStatus === 'ALL'
@@ -211,68 +211,126 @@ export default function OrderManagement() {
           </div>
         </div>
 
-        {/* Orders Table */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-gray-700">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Mã đơn</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Khách hàng</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Ngày đặt</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Tổng tiền</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Trạng thái</th>
-                  <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredOrders.map(order => (
-                  <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                    <td className="px-6 py-4 font-semibold text-purple-600 dark:text-purple-400">#{order.id}</td>
-                    <td className="px-6 py-4">
-                      <div>
-                        <p className="font-semibold text-gray-800 dark:text-white">{order.customerName}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{order.customerEmail}</p>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-gray-700 dark:text-gray-300">
-                      {new Date(order.orderDate || order.createdAt).toLocaleString('vi-VN')}
-                    </td>
-                    <td className="px-6 py-4 font-semibold text-gray-800 dark:text-white">
-                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.totalAmount)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <select
-                        value={order.status}
-                        onChange={(e) => handleStatusChange(order.id, e.target.value)}
-                        className={`px-3 py-1 rounded-full text-sm font-semibold ${statusColors[order.status]} cursor-pointer focus:ring-2 focus:ring-purple-500`}
-                      >
-                        {statuses.map(status => (
-                          <option key={status} value={status}>{statusNames[status]}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => viewOrderDetail(order)}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
-                      >
-                        Chi tiết
-                      </button>
-                    </td>
+        {/* Orders List - Responsive */}
+        <div>
+          {/* Desktop Table View */}
+          <div className="hidden md:block bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Mã đơn</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Khách hàng</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Ngày đặt</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Tổng tiền</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Trạng thái</th>
+                    <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Thao tác</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {filteredOrders.length === 0 && (
-            <div className="text-center py-12">
-              <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <p className="text-gray-500 dark:text-gray-400">Không tìm thấy đơn hàng nào</p>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {filteredOrders.map(order => (
+                    <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      <td className="px-6 py-4 font-semibold text-purple-600 dark:text-purple-400">#{order.id}</td>
+                      <td className="px-6 py-4">
+                        <div>
+                          <p className="font-semibold text-gray-800 dark:text-white">{order.customerName}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{order.customerEmail}</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-gray-700 dark:text-gray-300">
+                        {new Date(order.orderDate || order.createdAt).toLocaleString('vi-VN')}
+                      </td>
+                      <td className="px-6 py-4 font-semibold text-gray-800 dark:text-white">
+                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.totalAmount)}
+                      </td>
+                      <td className="px-6 py-4">
+                        <select
+                          value={order.status}
+                          onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                          className={`px-3 py-1 rounded-full text-sm font-semibold ${statusColors[order.status]} cursor-pointer focus:ring-2 focus:ring-purple-500 border-none outline-none`}
+                        >
+                          {statuses.map(status => (
+                            <option key={status} value={status}>{statusNames[status]}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          onClick={() => viewOrderDetail(order)}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+                        >
+                          Chi tiết
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
+            {filteredOrders.length === 0 && (
+              <div className="text-center py-12">
+                <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p className="text-gray-500 dark:text-gray-400">Không tìm thấy đơn hàng nào</p>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-4">
+            {filteredOrders.map(order => (
+              <div key={order.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 overflow-hidden">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <span className="font-bold text-lg text-purple-600 dark:text-purple-400">#{order.id}</span>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      {new Date(order.orderDate || order.createdAt).toLocaleDateString('vi-VN')}
+                    </p>
+                  </div>
+                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${statusColors[order.status]}`}>
+                    {statusNames[order.status]}
+                  </span>
+                </div>
+
+                <div className="space-y-2 mb-4 text-sm">
+                  <div className="flex justify-between items-center gap-2">
+                    <span className="text-gray-500 dark:text-gray-400 shrink-0">Khách hàng:</span>
+                    <span className="font-medium text-gray-800 dark:text-white truncate text-right flex-1 min-w-0">{order.customerName}</span>
+                  </div>
+                  <div className="flex justify-between items-center gap-2">
+                    <span className="text-gray-500 dark:text-gray-400 shrink-0">Tổng tiền:</span>
+                    <span className="font-bold text-gray-800 dark:text-white">
+                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(order.totalAmount)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+                  <select
+                    value={order.status}
+                    onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                    className="w-full px-2 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+                  >
+                    {statuses.map(status => (
+                      <option key={status} value={status}>{statusNames[status]}</option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => viewOrderDetail(order)}
+                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-sm"
+                  >
+                    Chi tiết
+                  </button>
+                </div>
+              </div>
+            ))}
+            {filteredOrders.length === 0 && (
+              <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+                <p className="text-gray-500 dark:text-gray-400">Không tìm thấy đơn hàng nào</p>
+              </div>
+            )}
+          </div>
         </div>
       </main>
 

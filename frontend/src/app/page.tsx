@@ -216,7 +216,9 @@ export default function HomePage() {
 
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Element;
-      if (isMobileMenuOpen && !target.closest('.mobile-menu-container')) {
+      if (isMobileMenuOpen && 
+          !target.closest('.mobile-menu-container') && 
+          !target.closest('.mobile-menu-button')) {
         setIsMobileMenuOpen(false);
       }
     };
@@ -348,7 +350,7 @@ export default function HomePage() {
                   />
                   {searchTerm && (
                     <button
-                      onClick={() => setSearchKeyword('')}
+                      onClick={() => setSearchTerm('')}
                       className="p-2 mr-2 hover:bg-white/10 rounded-lg transition-colors"
                     >
                       <X className="w-4 h-4 text-slate-400" />
@@ -360,17 +362,10 @@ export default function HomePage() {
 
             {/* Actions */}
             <div className="flex items-center gap-3">
-              {/* Mobile Menu Button */}
-              <button
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-                className="md:hidden p-2 text-slate-300 hover:text-white transition-colors rounded-lg hover:bg-white/5"
-              >
-                <Menu className="w-6 h-6" />
-              </button>
-
               {isClient && apiClient.isAuthenticated() ? (
                 <>
-                  <div className="flex items-center gap-1 bg-white/[0.03] border border-white/5 rounded-lg p-1">
+                  {/* Desktop Icons - Hidden on Mobile */}
+                  <div className="hidden md:flex items-center gap-1 bg-white/[0.03] border border-white/5 rounded-lg p-1">
                     <Link
                       href="/ai-chat"
                       className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-md transition-all"
@@ -397,11 +392,24 @@ export default function HomePage() {
                     </Link>
                   </div>
 
+                  {/* Mobile Cart Icon - Only Show Cart */}
+                  <Link
+                    href="/cart"
+                    className="md:hidden relative p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-md transition-all"
+                    title="Cart"
+                  >
+                    <ShoppingCart className="w-5 h-5" />
+                    {cartCount > 0 && (
+                      <span className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full"></span>
+                    )}
+                  </Link>
+
                   <div className="h-8 w-[1px] bg-white/10 mx-2 hidden sm:block"></div>
 
+                  {/* User Profile - Hidden on Mobile */}
                   <Link
                     href="/profile"
-                    className="flex items-center gap-3 pl-2 pr-4 py-1.5 rounded-lg hover:bg-white/5 transition-all group"
+                    className="hidden md:flex items-center gap-3 pl-2 pr-4 py-1.5 rounded-lg hover:bg-white/5 transition-all group"
                   >
                     <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-xs ring-2 ring-[#050505] group-hover:ring-blue-500/50 transition-all overflow-hidden">
                       {currentUser?.avatarUrl ? (
@@ -421,31 +429,50 @@ export default function HomePage() {
                     </div>
                   </Link>
 
+                  {/* Logout - Hidden on Mobile */}
                   <button
                     onClick={() => apiClient.logout()}
-                    className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
+                    className="hidden md:block p-2 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
                     title="Sign Out"
                   >
                     <LogOut className="w-5 h-5" />
                   </button>
 
-                  {/* Theme Toggle */}
-                  <ThemeToggle />
+                  {/* Theme Toggle - Hidden on Mobile */}
+                  <div className="hidden md:block">
+                    <ThemeToggle />
+                  </div>
+
+                  {/* Mobile Menu Button */}
+                  <button
+                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                    className="md:hidden p-2 text-slate-300 hover:text-white transition-colors rounded-lg hover:bg-white/5 mobile-menu-button"
+                  >
+                    {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                  </button>
                 </>
               ) : isClient ? (
                 <>
                   <Link
                     href="/login"
-                    className="px-5 py-2.5 text-slate-300 hover:text-white font-medium transition-colors text-sm"
+                    className="hidden md:block px-5 py-2.5 text-slate-300 hover:text-white font-medium transition-colors text-sm"
                   >
                     Đăng nhập
                   </Link>
                   <Link
                     href="/register"
-                    className="px-5 py-2.5 bg-white text-black rounded-lg hover:bg-slate-200 transition-all font-bold text-sm shadow-lg shadow-white/5"
+                    className="hidden md:block px-5 py-2.5 bg-white text-black rounded-lg hover:bg-slate-200 transition-all font-bold text-sm shadow-lg shadow-white/5"
                   >
                     Đăng ký ngay
                   </Link>
+                  
+                  {/* Mobile Menu Button for Guest */}
+                  <button
+                    onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                    className="md:hidden p-2 text-slate-300 hover:text-white transition-colors rounded-lg hover:bg-white/5 mobile-menu-button"
+                  >
+                    {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                  </button>
                 </>
               ) : null}
             </div>
@@ -455,21 +482,125 @@ export default function HomePage() {
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="mobile-menu-container md:hidden bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50">
+        <div className="mobile-menu-container md:hidden bg-[#050505]/95 backdrop-blur-xl border-b border-white/10">
           <div className="container mx-auto px-4 py-4">
             <nav className="flex flex-col gap-4">
+              {/* Search Bar */}
               <div className="mt-4">
                 <div className="relative">
                   <input
                     type="text"
                     placeholder="Tìm kiếm sản phẩm..."
                     value={searchTerm}
-                    onChange={(e) => setSearchKeyword(e.target.value)}
-                    className="w-full px-4 py-3 pl-12 bg-gray-100/80 dark:bg-gray-700/80 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full px-4 py-3 pl-12 bg-white/[0.05] border border-white/10 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                   />
-                  <Search className="absolute left-4 top-3.5 w-5 h-5 text-gray-400" />
+                  <Search className="absolute left-4 top-3.5 w-5 h-5 text-slate-400" />
                 </div>
               </div>
+
+              {isClient && apiClient.isAuthenticated() ? (
+                <>
+                  {/* User Profile */}
+                  <Link
+                    href="/profile"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-all"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-500 flex items-center justify-center text-white font-bold text-sm overflow-hidden">
+                      {currentUser?.avatarUrl ? (
+                        <img
+                          src={currentUser.avatarUrl}
+                          alt={currentUser.fullName || currentUser.username}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span>{(currentUser?.fullName || currentUser?.username || 'U').charAt(0).toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-white">
+                        {currentUser?.fullName || currentUser?.username || 'Account'}
+                      </div>
+                      <div className="text-xs text-slate-400">Xem hồ sơ</div>
+                    </div>
+                  </Link>
+
+                  <div className="h-[1px] bg-white/10"></div>
+
+                  {/* Navigation Links */}
+                  <Link
+                    href="/ai-chat"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-all text-slate-300 hover:text-white"
+                  >
+                    <Sparkles className="w-5 h-5" />
+                    <span className="font-medium">AI Agent</span>
+                  </Link>
+
+                  <Link
+                    href="/orders"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-all text-slate-300 hover:text-white"
+                  >
+                    <FileText className="w-5 h-5" />
+                    <span className="font-medium">Đơn hàng</span>
+                  </Link>
+
+                  <Link
+                    href="/cart"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-white/5 transition-all text-slate-300 hover:text-white"
+                  >
+                    <ShoppingCart className="w-5 h-5" />
+                    <span className="font-medium">Giỏ hàng</span>
+                    {cartCount > 0 && (
+                      <span className="ml-auto px-2 py-1 bg-blue-500 text-white text-xs rounded-full">
+                        {cartCount}
+                      </span>
+                    )}
+                  </Link>
+
+                  <div className="h-[1px] bg-white/10"></div>
+
+                  {/* Theme Toggle */}
+                  <div className="flex items-center gap-3 p-3">
+                    <span className="text-slate-300 font-medium">Chế độ tối</span>
+                    <div className="ml-auto">
+                      <ThemeToggle />
+                    </div>
+                  </div>
+
+                  {/* Logout */}
+                  <button
+                    onClick={() => {
+                      apiClient.logout();
+                      setIsMobileMenuOpen(false);
+                    }}
+                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-red-400/10 transition-all text-slate-300 hover:text-red-400"
+                  >
+                    <LogOut className="w-5 h-5" />
+                    <span className="font-medium">Đăng xuất</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex items-center justify-center gap-2 p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-all text-white font-medium"
+                  >
+                    Đăng nhập
+                  </Link>
+                  <Link
+                    href="/register"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="flex items-center justify-center gap-2 p-3 rounded-lg bg-white text-black hover:bg-slate-200 transition-all font-bold"
+                  >
+                    Đăng ký ngay
+                  </Link>
+                </>
+              )}
             </nav>
           </div>
         </div>
@@ -571,7 +702,7 @@ export default function HomePage() {
                   ].map((tech, i) => (
                     <div key={i} className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.08] transition-all cursor-default group hover:scale-105 hover:border-white/10">
                       {tech.logo ? (
-                        <div className={`w-8 h-8 flex items-center justify-center transition-transform group-hover:scale-110 ${tech.invert ? 'brightness-0 invert' : ''}`}>
+                        <div className="w-8 h-8 flex items-center justify-center transition-transform group-hover:scale-110">
                           <img src={tech.logo} alt={tech.name} className="w-full h-full object-contain" />
                         </div>
                       ) : (

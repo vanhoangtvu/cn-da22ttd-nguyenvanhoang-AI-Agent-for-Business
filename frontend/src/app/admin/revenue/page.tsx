@@ -113,8 +113,8 @@ export default function RevenueManagement() {
               <button
                 onClick={() => setPeriod('daily')}
                 className={`px-6 py-2.5 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 ${period === 'daily'
-                    ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/50'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 hover:shadow-md'
+                  ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/50'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 hover:shadow-md'
                   }`}
               >
                 <div className="flex items-center gap-2">
@@ -127,8 +127,8 @@ export default function RevenueManagement() {
               <button
                 onClick={() => setPeriod('weekly')}
                 className={`px-6 py-2.5 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 ${period === 'weekly'
-                    ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/50'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 hover:shadow-md'
+                  ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/50'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 hover:shadow-md'
                   }`}
               >
                 <div className="flex items-center gap-2">
@@ -141,8 +141,8 @@ export default function RevenueManagement() {
               <button
                 onClick={() => setPeriod('monthly')}
                 className={`px-6 py-2.5 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 ${period === 'monthly'
-                    ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/50'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 hover:shadow-md'
+                  ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg shadow-purple-500/50'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600 hover:shadow-md'
                   }`}
               >
                 <div className="flex items-center gap-2">
@@ -240,7 +240,7 @@ export default function RevenueManagement() {
             </h2>
             <div className="relative overflow-x-auto pb-2">
               {/* Chart Area */}
-              <div 
+              <div
                 className="h-80 flex items-end gap-2 px-4 pb-2 border-b-2 border-gray-300 dark:border-gray-600"
                 style={{ minWidth: `${Math.max(revenueData.length * 60, 100)}px` }}
               >
@@ -250,10 +250,10 @@ export default function RevenueManagement() {
                   const heightPercentage = Math.max(percentage, 5);
                   const heightPx = (heightPercentage / 100) * 300; // 300px = h-80 - padding
                   return (
-                    <div 
-                      key={index} 
+                    <div
+                      key={index}
                       className="flex flex-col-reverse items-center group"
-                      style={{ 
+                      style={{
                         flex: revenueData.length <= 15 ? '1 1 0%' : 'none',
                         minWidth: revenueData.length > 15 ? '50px' : '40px',
                         maxWidth: revenueData.length <= 7 ? '80px' : revenueData.length <= 15 ? '60px' : '50px'
@@ -293,21 +293,21 @@ export default function RevenueManagement() {
                 })}
               </div>
               {/* Labels */}
-              <div 
+              <div
                 className="flex items-start gap-2 px-4 pt-2"
                 style={{ minWidth: `${Math.max(revenueData.length * 60, 100)}px` }}
               >
                 {revenueData.map((item, index) => (
-                  <div 
+                  <div
                     key={index}
-                    style={{ 
+                    style={{
                       flex: revenueData.length <= 15 ? '1 1 0%' : 'none',
                       minWidth: revenueData.length > 15 ? '50px' : '40px',
                       maxWidth: revenueData.length <= 7 ? '80px' : revenueData.length <= 15 ? '60px' : '50px'
                     }}
                   >
                     <div className="text-xs font-semibold text-gray-600 dark:text-gray-400 text-center hover:text-purple-600 dark:hover:text-purple-400 transition-colors break-words">
-                      {revenueData.length > 15 
+                      {revenueData.length > 15
                         ? item.period.split('-').pop() || item.period.substring(item.period.length - 2)
                         : item.period.length > 10 ? item.period.substring(0, 10) + '...' : item.period
                       }
@@ -594,7 +594,7 @@ export default function RevenueManagement() {
         `}</style>
 
         {/* Revenue Table */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden animate-fade-in">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden animate-fade-in mt-8">
           <div className="p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-gray-800 dark:to-gray-800">
             <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center gap-2">
               <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -603,7 +603,9 @@ export default function RevenueManagement() {
               Chi tiết doanh thu
             </h2>
           </div>
-          <div className="overflow-x-auto">
+
+          {/* Desktop Table View */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600">
                 <tr>
@@ -679,6 +681,67 @@ export default function RevenueManagement() {
                 })}
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile List View */}
+          <div className="md:hidden">
+            {revenueData.map((item, index) => {
+              const deliveryRate = item.totalOrders > 0 ? (item.deliveredOrders / item.totalOrders) * 100 : 0;
+              return (
+                <div
+                  key={index}
+                  className="p-4 border-b border-gray-100 dark:border-gray-700 last:border-0 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                  style={{
+                    animation: `fadeInUp 0.5s ease-out ${index * 0.05}s both`
+                  }}
+                >
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="font-bold text-gray-800 dark:text-white text-lg">{item.period}</span>
+                    <span className="font-bold text-purple-600 dark:text-purple-400 text-lg">
+                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.revenue)}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-sm mb-3">
+                    <div className="bg-gray-50 dark:bg-gray-700/50 p-2 rounded-lg">
+                      <p className="text-gray-500 dark:text-gray-400 text-xs">Tổng đơn hàng</p>
+                      <p className="font-semibold text-gray-800 dark:text-white flex items-center gap-1">
+                        {item.totalOrders}
+                        <span className="text-xs text-gray-400 font-normal">đơn</span>
+                      </p>
+                    </div>
+                    <div className="bg-gray-50 dark:bg-gray-700/50 p-2 rounded-lg">
+                      <p className="text-gray-500 dark:text-gray-400 text-xs">Đã giao hàng</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-green-600 dark:text-green-400">{item.deliveredOrders}</p>
+                        <span className="text-xs text-gray-400">({deliveryRate.toFixed(0)}%)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-100 dark:border-gray-700 border-dashed">
+                    <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                      <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                      </svg>
+                      <span>{item.productsSold} SP đã bán</span>
+                    </div>
+                    <div className="text-gray-500 dark:text-gray-400">
+                      TB/đơn: <span className="font-medium text-gray-800 dark:text-white">
+                        {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', notation: 'compact' }).format(
+                          item.deliveredOrders > 0 ? item.revenue / item.deliveredOrders : 0
+                        )}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            {revenueData.length === 0 && (
+              <div className="text-center py-8">
+                <p className="text-gray-500 dark:text-gray-400">Không có dữ liệu</p>
+              </div>
+            )}
           </div>
         </div>
 

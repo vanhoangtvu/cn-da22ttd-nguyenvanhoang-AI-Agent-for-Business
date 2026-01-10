@@ -194,8 +194,8 @@ export default function UserManagement() {
               <button
                 onClick={() => setFilterRole('ALL')}
                 className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-colors ${filterRole === 'ALL'
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
                   }`}
               >
                 Tất cả
@@ -203,8 +203,8 @@ export default function UserManagement() {
               <button
                 onClick={() => setFilterRole('ADMIN')}
                 className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-colors ${filterRole === 'ADMIN'
-                    ? roleColors.ADMIN
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                  ? roleColors.ADMIN
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
                   }`}
               >
                 Admin
@@ -212,8 +212,8 @@ export default function UserManagement() {
               <button
                 onClick={() => setFilterRole('BUSINESS')}
                 className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-colors ${filterRole === 'BUSINESS'
-                    ? roleColors.BUSINESS
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                  ? roleColors.BUSINESS
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
                   }`}
               >
                 Business
@@ -221,8 +221,8 @@ export default function UserManagement() {
               <button
                 onClick={() => setFilterRole('CUSTOMER')}
                 className={`px-4 py-2 rounded-lg font-semibold whitespace-nowrap transition-colors ${filterRole === 'CUSTOMER'
-                    ? roleColors.CUSTOMER
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                  ? roleColors.CUSTOMER
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
                   }`}
               >
                 Customer
@@ -234,114 +234,206 @@ export default function UserManagement() {
           </div>
         </div>
 
-        {/* Users Table */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-gray-700">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Người dùng</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Email</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Số điện thoại</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Vai trò</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Ngày tạo</th>
-                  <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredUsers.map(user => (
-                  <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={user.avatarUrl || '/placeholder-avatar.png'}
-                          alt={user.username}
-                          className="w-10 h-10 rounded-full object-cover"
-                        />
-                        <div>
-                          <p className="font-semibold text-gray-800 dark:text-white">{user.username}</p>
-                          {user.address && <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">{user.address}</p>}
+        {/* Users List - Responsive */}
+        <div>
+          {/* Desktop Table View */}
+          <div className="hidden md:block bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Người dùng</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Email</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Số điện thoại</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Vai trò</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Ngày tạo</th>
+                    <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {filteredUsers.map(user => (
+                    <tr key={user.id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={user.avatarUrl || '/placeholder-avatar.png'}
+                            alt={user.username}
+                            className="w-10 h-10 rounded-full object-cover"
+                          />
+                          <div>
+                            <p className="font-semibold text-gray-800 dark:text-white">{user.username}</p>
+                            {user.address && <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">{user.address}</p>}
+                          </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-gray-700 dark:text-gray-300">{user.email}</td>
-                    <td className="px-6 py-4 text-gray-700 dark:text-gray-300">{user.phoneNumber || '-'}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${roleColors[user.role]}`}>
-                        {roleNames[user.role]}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-gray-700 dark:text-gray-300">
-                      {new Date(user.createdAt).toLocaleDateString('vi-VN')}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex gap-2 justify-end">
-                        <button
-                          onClick={() => handleViewDetail(user)}
-                          className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-semibold"
-                          title="Xem chi tiết"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                        </button>
-                        {userData.role === 'ADMIN' && (
+                      </td>
+                      <td className="px-6 py-4 text-gray-700 dark:text-gray-300">{user.email}</td>
+                      <td className="px-6 py-4 text-gray-700 dark:text-gray-300">{user.phoneNumber || '-'}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${roleColors[user.role]}`}>
+                          {roleNames[user.role]}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-gray-700 dark:text-gray-300">
+                        {new Date(user.createdAt).toLocaleDateString('vi-VN')}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex gap-2 justify-end">
                           <button
-                            onClick={() => handleChangeRole(user)}
-                            disabled={user.id === userData.userId}
-                            className={`px-3 py-2 rounded-lg transition-colors text-sm font-semibold ${user.id === userData.userId
-                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                : 'bg-purple-600 text-white hover:bg-purple-700'
-                              }`}
-                            title="Đổi vai trò"
+                            onClick={() => handleViewDetail(user)}
+                            className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-semibold"
+                            title="Xem chi tiết"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
                           </button>
-                        )}
-                        <button
-                          onClick={() => handleChangeStatus(user)}
-                          disabled={user.id === userData.userId}
-                          className={`px-3 py-2 rounded-lg transition-colors text-sm font-semibold ${user.id === userData.userId
+                          {userData.role === 'ADMIN' && (
+                            <button
+                              onClick={() => handleChangeRole(user)}
+                              disabled={user.id === userData.userId}
+                              className={`px-3 py-2 rounded-lg transition-colors text-sm font-semibold ${user.id === userData.userId
+                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                : 'bg-purple-600 text-white hover:bg-purple-700'
+                                }`}
+                              title="Đổi vai trò"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                              </svg>
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleChangeStatus(user)}
+                            disabled={user.id === userData.userId}
+                            className={`px-3 py-2 rounded-lg transition-colors text-sm font-semibold ${user.id === userData.userId
                               ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                               : 'bg-yellow-600 text-white hover:bg-yellow-700'
-                            }`}
-                          title="Đổi trạng thái"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleDelete(user.id, user.username)}
-                          disabled={user.id === userData.userId}
-                          className={`px-3 py-2 rounded-lg transition-colors text-sm font-semibold ${user.id === userData.userId
+                              }`}
+                            title="Đổi trạng thái"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => handleDelete(user.id, user.username)}
+                            disabled={user.id === userData.userId}
+                            className={`px-3 py-2 rounded-lg transition-colors text-sm font-semibold ${user.id === userData.userId
                               ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                               : 'bg-red-600 text-white hover:bg-red-700'
-                            }`}
-                          title="Xóa"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {filteredUsers.length === 0 && (
-            <div className="text-center py-12">
-              <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-              </svg>
-              <p className="text-gray-500 dark:text-gray-400">Không tìm thấy người dùng nào</p>
+                              }`}
+                            title="Xóa"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
+            {filteredUsers.length === 0 && (
+              <div className="text-center py-12">
+                <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <p className="text-gray-500 dark:text-gray-400">Không tìm thấy người dùng nào</p>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-4">
+            {filteredUsers.map(user => (
+              <div key={user.id} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700">
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={user.avatarUrl || '/placeholder-avatar.png'}
+                      alt={user.username}
+                      className="w-12 h-12 rounded-full object-cover border-2 border-purple-200 dark:border-purple-800"
+                    />
+                    <div>
+                      <h3 className="font-bold text-gray-800 dark:text-white">{user.username}</h3>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
+                    </div>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${roleColors[user.role]}`}>
+                    {roleNames[user.role]}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
+                  <div className="bg-gray-50 dark:bg-gray-700/50 p-2 rounded-lg">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Số điện thoại</p>
+                    <p className="font-medium text-gray-800 dark:text-white">{user.phoneNumber || '-'}</p>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-700/50 p-2 rounded-lg">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Ngày tạo</p>
+                    <p className="font-medium text-gray-800 dark:text-white">{new Date(user.createdAt).toLocaleDateString('vi-VN')}</p>
+                  </div>
+                </div>
+
+                <div className="flex justify-between gap-2 border-t border-gray-100 dark:border-gray-700 pt-3">
+                  <button
+                    onClick={() => handleViewDetail(user)}
+                    className="flex-1 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg text-sm font-semibold hover:bg-blue-100 dark:hover:bg-blue-900/40"
+                  >
+                    Chi tiết
+                  </button>
+                  <div className="flex gap-2">
+                    {userData.role === 'ADMIN' && (
+                      <button
+                        onClick={() => handleChangeRole(user)}
+                        disabled={user.id === userData.userId}
+                        className={`p-2 rounded-lg transition-colors ${user.id === userData.userId
+                          ? 'bg-gray-100 text-gray-400'
+                          : 'bg-purple-50 text-purple-600 dark:bg-purple-900/20 dark:text-purple-400'
+                          }`}
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleChangeStatus(user)}
+                      disabled={user.id === userData.userId}
+                      className={`p-2 rounded-lg transition-colors ${user.id === userData.userId
+                        ? 'bg-gray-100 text-gray-400'
+                        : 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400'
+                        }`}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={() => handleDelete(user.id, user.username)}
+                      disabled={user.id === userData.userId}
+                      className={`p-2 rounded-lg transition-colors ${user.id === userData.userId
+                        ? 'bg-gray-100 text-gray-400'
+                        : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400'
+                        }`}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {filteredUsers.length === 0 && (
+              <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+                <p className="text-gray-500 dark:text-gray-400">Không tìm thấy người dùng nào</p>
+              </div>
+            )}
+          </div>
         </div>
       </main>
 

@@ -430,7 +430,8 @@ export default function CategoryManagement() {
                 </div>
 
                 {/* View Mode Toggle */}
-                <div className="flex items-center border border-slate-300 dark:border-slate-600 rounded-lg p-1">
+                {/* View Mode Toggle - Hidden on Mobile */}
+                <div className="hidden md:flex items-center border border-slate-300 dark:border-slate-600 rounded-lg p-1">
                   <button
                     onClick={() => setViewMode('grid')}
                     className={`p-2 rounded ${viewMode === 'grid' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'}`}
@@ -538,13 +539,13 @@ export default function CategoryManagement() {
                           className="w-4 h-4 text-blue-600 bg-slate-100 border-slate-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-slate-800 focus:ring-2 dark:bg-slate-700 dark:border-slate-600"
                         />
                         <div className={`px-2 py-1 rounded-full text-xs font-medium ${category.status === 'ACTIVE'
-                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                            : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
+                          ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                          : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
                           }`}>
                           {category.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm ngừng'}
                         </div>
                       </div>
-                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => openEditModal(category)}
                           className="p-2 text-slate-600 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors"
@@ -557,8 +558,8 @@ export default function CategoryManagement() {
                         <button
                           onClick={() => handleStatusChange(category.id, category.status)}
                           className={`p-2 transition-colors ${category.status === 'ACTIVE'
-                              ? 'text-slate-600 hover:text-orange-600 dark:text-slate-400 dark:hover:text-orange-400'
-                              : 'text-slate-600 hover:text-green-600 dark:text-slate-400 dark:hover:text-green-400'
+                            ? 'text-slate-600 hover:text-orange-600 dark:text-slate-400 dark:hover:text-orange-400'
+                            : 'text-slate-600 hover:text-green-600 dark:text-slate-400 dark:hover:text-green-400'
                             }`}
                           title={category.status === 'ACTIVE' ? 'Tạm ngừng' : 'Kích hoạt'}
                         >
@@ -698,8 +699,8 @@ export default function CategoryManagement() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${category.status === 'ACTIVE'
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                              : 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                            : 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
                             }`}>
                             {category.status === 'ACTIVE' ? 'Hoạt động' : 'Tạm ngừng'}
                           </span>
@@ -718,8 +719,8 @@ export default function CategoryManagement() {
                             <button
                               onClick={() => handleStatusChange(category.id, category.status)}
                               className={`${category.status === 'ACTIVE'
-                                  ? 'text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-300'
-                                  : 'text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300'
+                                ? 'text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-300'
+                                : 'text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300'
                                 }`}
                             >
                               {category.status === 'ACTIVE' ? 'Tạm ngừng' : 'Kích hoạt'}

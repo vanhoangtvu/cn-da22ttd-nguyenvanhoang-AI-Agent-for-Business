@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import Link from 'next/link';
 import { apiClient } from '@/lib/api';
+import ThemeToggle from '@/components/ThemeToggle';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -8,6 +10,8 @@ interface AdminLayoutProps {
 }
 
 export default function AdminLayout({ children, userData, currentPage }: AdminLayoutProps) {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
   // Handle null userData case
   if (!userData) {
     return (
@@ -20,29 +24,59 @@ export default function AdminLayout({ children, userData, currentPage }: AdminLa
     );
   }
 
+  // Close menu when clicking a link on mobile
+  const handleMobileNavClick = () => {
+    setIsMobileMenuOpen(false);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white dark:bg-gray-800 shadow-xl flex flex-col fixed h-full overflow-y-auto">
-        {/* Header */}
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+
+      {/* Mobile Overlay */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm transition-opacity"
+          onClick={() => setIsMobileMenuOpen(false)}
+        ></div>
+      )}
+
+      {/* Sidebar - Fixed on all screen sizes */}
+      <aside
+        className={`w-72 bg-white dark:bg-gray-800 shadow-xl flex flex-col fixed inset-y-0 left-0 z-50 transition-transform duration-300 ease-in-out overflow-y-auto
+          ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+        `}
+      >
+        {/* Sidebar Header */}
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="w-14 h-14 flex-shrink-0">
+            <div className="w-12 h-12 flex-shrink-0">
               <img src="/logo.png" alt="Logo" className="w-full h-full object-contain drop-shadow-md scale-110" />
             </div>
-            <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-              {userData.role === 'ADMIN' ? 'Admin Dashboard' : 'Business Dashboard'}
-            </h1>
+            <div>
+              <h1 className="text-lg font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent leading-tight">
+                {userData.role === 'ADMIN' ? 'Admin Dashboard' : 'Biz Dashboard'}
+              </h1>
+              <span className="inline-block mt-1 px-2 py-0.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-[10px] rounded-full font-semibold uppercase tracking-wider">
+                {userData.role}
+              </span>
+            </div>
           </div>
-          <span className="inline-block mt-2 px-3 py-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs rounded-full font-semibold">
-            {userData.role}
-          </span>
+          {/* Close Button Mobile */}
+          <button
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="md:hidden p-2 text-gray-500 hover:text-red-500 transition-colors"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
 
         {/* Navigation Menu */}
-        <nav className="flex-1 py-4">
+        <nav className="flex-1 py-4 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
           <Link
             href="/admin"
+            onClick={handleMobileNavClick}
             className={`flex items-center px-6 py-3 transition-colors ${currentPage === 'overview'
               ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-r-4 border-purple-600'
               : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -56,6 +90,7 @@ export default function AdminLayout({ children, userData, currentPage }: AdminLa
 
           <Link
             href="/admin/products"
+            onClick={handleMobileNavClick}
             className={`flex items-center px-6 py-3 transition-colors ${currentPage === 'products'
               ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-r-4 border-purple-600'
               : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -69,6 +104,7 @@ export default function AdminLayout({ children, userData, currentPage }: AdminLa
 
           <Link
             href="/admin/orders"
+            onClick={handleMobileNavClick}
             className={`flex items-center px-6 py-3 transition-colors ${currentPage === 'orders'
               ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-r-4 border-purple-600'
               : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -82,6 +118,7 @@ export default function AdminLayout({ children, userData, currentPage }: AdminLa
 
           <Link
             href="/admin/categories"
+            onClick={handleMobileNavClick}
             className={`flex items-center px-6 py-3 transition-colors ${currentPage === 'categories'
               ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-r-4 border-purple-600'
               : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -95,6 +132,7 @@ export default function AdminLayout({ children, userData, currentPage }: AdminLa
 
           <Link
             href="/admin/revenue"
+            onClick={handleMobileNavClick}
             className={`flex items-center px-6 py-3 transition-colors ${currentPage === 'revenue'
               ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-r-4 border-purple-600'
               : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -110,6 +148,7 @@ export default function AdminLayout({ children, userData, currentPage }: AdminLa
           {userData.role === 'ADMIN' && (
             <Link
               href="/admin/discounts"
+              onClick={handleMobileNavClick}
               className={`flex items-center px-6 py-3 transition-colors ${currentPage === 'discounts'
                 ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-r-4 border-purple-600'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -124,6 +163,7 @@ export default function AdminLayout({ children, userData, currentPage }: AdminLa
 
           <Link
             href="/admin/reports"
+            onClick={handleMobileNavClick}
             className={`flex items-center px-6 py-3 transition-colors ${currentPage === 'reports'
               ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-r-4 border-purple-600'
               : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -137,6 +177,7 @@ export default function AdminLayout({ children, userData, currentPage }: AdminLa
 
           <Link
             href="/admin/ai-insights"
+            onClick={handleMobileNavClick}
             className={`flex items-center px-6 py-3 transition-colors ${currentPage === 'ai-insights'
               ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-r-4 border-purple-600'
               : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -151,6 +192,7 @@ export default function AdminLayout({ children, userData, currentPage }: AdminLa
           {userData.role === 'ADMIN' && (
             <Link
               href="/admin/ai-agent-chat"
+              onClick={handleMobileNavClick}
               className={`flex items-center px-6 py-3 transition-colors ${currentPage === 'ai-agent-chat'
                 ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-r-4 border-purple-600'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -165,6 +207,7 @@ export default function AdminLayout({ children, userData, currentPage }: AdminLa
 
           <Link
             href="/admin/users"
+            onClick={handleMobileNavClick}
             className={`flex items-center px-6 py-3 transition-colors ${currentPage === 'users'
               ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-r-4 border-purple-600'
               : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -178,6 +221,7 @@ export default function AdminLayout({ children, userData, currentPage }: AdminLa
 
           <Link
             href="/admin/documents"
+            onClick={handleMobileNavClick}
             className={`flex items-center px-6 py-3 transition-colors ${currentPage === 'documents'
               ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-r-4 border-purple-600'
               : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50'
@@ -213,34 +257,57 @@ export default function AdminLayout({ children, userData, currentPage }: AdminLa
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <div className="ml-64 flex-1 flex flex-col min-h-screen">
+      {/* Main Content Area - Add left margin to account for fixed sidebar */}
+      <div className="flex-1 flex flex-col min-h-screen md:ml-72">
         {/* Top Bar */}
-        <header className="bg-white dark:bg-gray-800 shadow-sm px-6 py-4 sticky top-0 z-10">
+        <header className="bg-white dark:bg-gray-800 shadow-sm px-4 md:px-6 py-4 sticky top-0 z-40">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-200">
-              {currentPage === 'overview' && 'Tổng quan'}
-              {currentPage === 'products' && 'Quản lý sản phẩm'}
-              {currentPage === 'orders' && 'Quản lý đơn hàng'}
-              {currentPage === 'categories' && 'Quản lý danh mục'}
-              {currentPage === 'revenue' && 'Báo cáo doanh thu'}
-              {currentPage === 'discounts' && 'Quản lý giảm giá'}
-              {currentPage === 'reports' && 'Báo cáo tổng hợp'}
-              {currentPage === 'ai-insights' && 'AI Insights'}
-              {currentPage === 'ai-agent-chat' && 'Chat Agent'}
-              {currentPage === 'users' && (userData.role === 'ADMIN' ? 'Quản lý người dùng' : 'Quản lý khách hàng')}
-              {currentPage === 'documents' && 'Quản lý tài liệu'}
-            </h2>
             <div className="flex items-center gap-3">
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                Xin chào, <span className="font-semibold text-purple-600 dark:text-purple-400">{userData.username}</span>
+              {/* Mobile Menu Toggle Button */}
+              <button
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="md:hidden p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+
+              <h2 className="text-lg md:text-xl font-semibold text-gray-800 dark:text-gray-200 truncate max-w-[200px] md:max-w-none">
+                {currentPage === 'overview' && 'Tổng quan'}
+                {currentPage === 'products' && 'Quản lý sản phẩm'}
+                {currentPage === 'orders' && 'Quản lý đơn hàng'}
+                {currentPage === 'categories' && 'Quản lý danh mục'}
+                {currentPage === 'revenue' && 'Báo cáo doanh thu'}
+                {currentPage === 'discounts' && 'Quản lý giảm giá'}
+                {currentPage === 'reports' && 'Báo cáo tổng hợp'}
+                {currentPage === 'ai-insights' && 'AI Insights'}
+                {currentPage === 'ai-agent-chat' && 'Chat Agent'}
+                {currentPage === 'users' && (userData.role === 'ADMIN' ? 'Quản lý người dùng' : 'Quản lý khách hàng')}
+                {currentPage === 'documents' && 'Quản lý tài liệu'}
+              </h2>
+            </div>
+
+            <div className="flex items-center gap-2 md:gap-3">
+              {/* Theme Toggle */}
+              <ThemeToggle />
+              
+              <span className="hidden md:inline text-sm text-gray-600 dark:text-gray-400">
+                Xin chào,
               </span>
+              <span className="font-semibold text-purple-600 dark:text-purple-400 text-sm md:text-base truncate max-w-[100px] md:max-w-none">
+                {userData.username || 'User'}
+              </span>
+              {/* Avatar placeholder for mobile */}
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold md:hidden">
+                {(userData.username || 'U').charAt(0).toUpperCase()}
+              </div>
             </div>
           </div>
         </header>
 
         {/* Page Content */}
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-4 md:p-6 overflow-x-hidden">
           {children}
         </main>
       </div>

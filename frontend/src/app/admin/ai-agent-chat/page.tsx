@@ -632,8 +632,8 @@ export default function AIAgentChatManagementPage() {
         </div>
 
         {/* Tabs */}
-        <div className="mb-6">
-          <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700">
+        <div className="mb-6 overflow-x-auto pb-2 scrollbar-none">
+          <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700 min-w-max">
             <button
               onClick={() => setActiveTab('redis')}
               className={`px-6 py-3 font-semibold text-sm transition-colors border-b-2 ${activeTab === 'redis'
@@ -712,69 +712,135 @@ export default function AIAgentChatManagementPage() {
               </div>
             </div>
 
-            {/* Users Table */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50 dark:bg-gray-700">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ID Người Dùng</th>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Phiên</th>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Tin Nhắn</th>
-                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Hành Động</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {filteredUsers.map((user) => (
-                      <tr key={user.user_id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                        <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">{user.user_id}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">{user.total_sessions}</td>
-                        <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">{user.total_messages}</td>
-                        <td className="px-6 py-4 text-sm">
-                          <button
-                            onClick={() => setSelectedUser(selectedUser === user.user_id ? null : user.user_id)}
-                            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium mr-4"
-                          >
-                            {selectedUser === user.user_id ? '▼' : '▶'} Chi tiết
-                          </button>
-                          <button
-                            onClick={() => setShowDeleteConfirm({ type: 'user', userId: user.user_id })}
-                            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-medium"
-                          >
-                            <Trash2 size={16} className="inline-block mr-1" />
-                            Xóa
-                          </button>
-                        </td>
+            {/* Users List - Responsive */}
+            <div>
+              {/* Desktop Table View */}
+              <div className="hidden md:block bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 dark:bg-gray-700">
+                      <tr>
+                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">ID Người Dùng</th>
+                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Phiên</th>
+                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Tin Nhắn</th>
+                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Hành Động</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                      {filteredUsers.map((user) => (
+                        <tr key={user.user_id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                          <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">{user.user_id}</td>
+                          <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">{user.total_sessions}</td>
+                          <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-300">{user.total_messages}</td>
+                          <td className="px-6 py-4 text-sm">
+                            <button
+                              onClick={() => setSelectedUser(selectedUser === user.user_id ? null : user.user_id)}
+                              className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 font-medium mr-4"
+                            >
+                              {selectedUser === user.user_id ? '▼' : '▶'} Chi tiết
+                            </button>
+                            <button
+                              onClick={() => setShowDeleteConfirm({ type: 'user', userId: user.user_id })}
+                              className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 font-medium"
+                            >
+                              <Trash2 size={16} className="inline-block mr-1" />
+                              Xóa
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {filteredUsers.length === 0 && (
+                  <div className="px-6 py-16 text-center">
+                    <div className="max-w-md mx-auto">
+                      <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 rounded-full flex items-center justify-center">
+                        <MessageSquare size={40} className="text-gray-400 dark:text-gray-500" />
+                      </div>
+                      <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                        Chưa có dữ liệu chat
+                      </h3>
+                      <p className="text-gray-500 dark:text-gray-400 mb-6">
+                        Hệ thống chưa có lịch sử chat nào. Hãy tạo dữ liệu test để bắt đầu khám phá tính năng quản lý chat.
+                      </p>
+                      <button
+                        onClick={handlePopulateTestData}
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-green-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        </svg>
+                        Tạo dữ liệu test ngay
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {filteredUsers.length === 0 && (
-                <div className="px-6 py-16 text-center">
-                  <div className="max-w-md mx-auto">
-                    <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 rounded-full flex items-center justify-center">
-                      <MessageSquare size={40} className="text-gray-400 dark:text-gray-500" />
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-4">
+                {filteredUsers.map(user => (
+                  <div key={user.user_id} className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                          <Users size={20} className="text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">User ID</p>
+                          <h3 className="font-bold text-gray-800 dark:text-white break-all">{user.user_id}</h3>
+                        </div>
+                      </div>
                     </div>
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
-                      Chưa có dữ liệu chat
-                    </h3>
-                    <p className="text-gray-500 dark:text-gray-400 mb-6">
-                      Hệ thống chưa có lịch sử chat nào. Hãy tạo dữ liệu test để bắt đầu khám phá tính năng quản lý chat.
-                    </p>
+
+                    <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
+                      <div className="bg-gray-50 dark:bg-gray-700/50 p-2 rounded-lg text-center">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Tổng phiên</p>
+                        <p className="font-bold text-lg text-purple-600 dark:text-purple-400">{user.total_sessions}</p>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-gray-700/50 p-2 rounded-lg text-center">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Tổng tin nhắn</p>
+                        <p className="font-bold text-lg text-green-600 dark:text-green-400">{user.total_messages}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-between gap-3 border-t border-gray-100 dark:border-gray-700 pt-3">
+                      <button
+                        onClick={() => setSelectedUser(selectedUser === user.user_id ? null : user.user_id)}
+                        className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2 ${selectedUser === user.user_id
+                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300'
+                          : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                          }`}
+                      >
+                        {selectedUser === user.user_id ? 'Ẩn chi tiết' : 'Xem chi tiết'}
+                        {selectedUser === user.user_id ? '▲' : '▼'}
+                      </button>
+                      <button
+                        onClick={() => setShowDeleteConfirm({ type: 'user', userId: user.user_id })}
+                        className="px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors text-sm font-semibold flex items-center"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {filteredUsers.length === 0 && (
+                  <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-xl shadow-lg">
+                    <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                      <MessageSquare size={32} className="text-gray-400 dark:text-gray-500" />
+                    </div>
+                    <p className="text-gray-500 dark:text-gray-400 font-medium">Chưa có dữ liệu chat</p>
                     <button
                       onClick={handlePopulateTestData}
-                      className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-medium rounded-lg hover:from-green-600 hover:to-green-700 transition-all shadow-lg hover:shadow-xl transform hover:scale-105"
+                      className="mt-4 px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                      Tạo dữ liệu test ngay
+                      Tạo dữ liệu test
                     </button>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
 
             {/* Sessions Detail */}
@@ -1328,11 +1394,11 @@ interface ModalConfigFormProps {
 
 function ModalConfigForm({ initialData, availableModels, onSave, onCancel }: ModalConfigFormProps) {
   const [modalName, setModalName] = useState(initialData?.modal_name || '');
-  const [selectedModel, setSelectedModel] = useState(initialData?.config?.model || '');
-  const [temperature, setTemperature] = useState(initialData?.config?.temperature || 0.7);
-  const [maxTokens, setMaxTokens] = useState(initialData?.config?.max_tokens || 1000);
+  const [selectedModel, setSelectedModel] = useState(initialData?.model || '');
+  const [temperature, setTemperature] = useState(initialData?.temperature || 0.7);
+  const [maxTokens, setMaxTokens] = useState(initialData?.max_tokens || 1000);
   const [systemPrompt, setSystemPrompt] = useState(
-    initialData?.config?.system_prompt ||
+    initialData?.system_prompt ||
     "Bạn là trợ lý AI hữu ích cho một trang web thương mại điện tử. Hãy trả lời một cách thân thiện, chuyên nghiệp và hữu ích."
   );
   const [isActive, setIsActive] = useState(initialData?.is_active || false);

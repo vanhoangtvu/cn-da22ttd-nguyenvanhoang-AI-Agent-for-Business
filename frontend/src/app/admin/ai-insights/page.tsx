@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AdminLayout from '@/components/AdminLayout';
+import AnalyticsInsightsPanel from '@/components/AnalyticsInsightsPanel';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
@@ -147,7 +148,7 @@ export default function AIInsightsPage() {
       // Determine endpoint based on user role
       const userRole = getUserRole(token);
       const userId = getUserId(token);
-      
+
       let endpoint: string;
       if (userRole === 'ADMIN') {
         endpoint = `${API_BASE_URL}/admin/analytics/system-data`;
@@ -207,7 +208,7 @@ export default function AIInsightsPage() {
       // Determine endpoint based on user role
       const userRole = getUserRole(token);
       const userId = getUserId(token);
-      
+
       let endpoint: string;
       if (userRole === 'ADMIN') {
         endpoint = `${API_BASE_URL}/admin/analytics/system-data`;
@@ -726,12 +727,48 @@ export default function AIInsightsPage() {
     printWindow.document.close();
   };
 
+  const userObj = userStr ? JSON.parse(userStr) : null;
+
+  // Màu sắc cho mỗi loại phân tích
+  const analysisTypeColors: { [key: string]: { bg: string; bgActive: string; border: string; text: string; gradient: string } } = {
+    general: {
+      bg: 'bg-violet-100 dark:bg-violet-900/20',
+      bgActive: 'bg-gradient-to-r from-violet-600 to-purple-600',
+      border: 'border-violet-200 dark:border-violet-800',
+      text: 'text-violet-600 dark:text-violet-400',
+      gradient: 'from-violet-600 to-purple-600'
+    },
+    pricing: {
+      bg: 'bg-emerald-100 dark:bg-emerald-900/20',
+      bgActive: 'bg-gradient-to-r from-emerald-600 to-teal-600',
+      border: 'border-emerald-200 dark:border-emerald-800',
+      text: 'text-emerald-600 dark:text-emerald-400',
+      gradient: 'from-emerald-600 to-teal-600'
+    },
+    inventory: {
+      bg: 'bg-amber-100 dark:bg-amber-900/20',
+      bgActive: 'bg-gradient-to-r from-amber-600 to-orange-600',
+      border: 'border-amber-200 dark:border-amber-800',
+      text: 'text-amber-600 dark:text-amber-400',
+      gradient: 'from-amber-600 to-orange-600'
+    },
+    sales: {
+      bg: 'bg-blue-100 dark:bg-blue-900/20',
+      bgActive: 'bg-gradient-to-r from-blue-600 to-indigo-600',
+      border: 'border-blue-200 dark:border-blue-800',
+      text: 'text-blue-600 dark:text-blue-400',
+      gradient: 'from-blue-600 to-indigo-600'
+    }
+  };
+
+  const currentColors = analysisTypeColors[analysisType] || analysisTypeColors.general;
+
   return (
-    <AdminLayout userData={userStr} currentPage="ai-insights">
-      <div className="container mx-auto px-4 py-8">
+    <AdminLayout userData={userObj} currentPage="ai-insights">
+      <div className="container mx-auto px-2 md:px-4 py-4 md:py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Control Panel */}
-          <div className="lg:col-span-1 max-h-[calc(100vh-120px)] overflow-y-auto">
+          <div className="lg:col-span-1 h-auto lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto">
             <div className="space-y-6">
               {/* Analysis Type */}
               <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
@@ -739,9 +776,9 @@ export default function AIInsightsPage() {
                 <div className="space-y-2">
                   <button
                     onClick={() => setAnalysisType('general')}
-                    className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${analysisType === 'general'
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600'
+                    className={`w-full text-left px-4 py-3 rounded-lg transition-all transform hover:scale-[1.02] ${analysisType === 'general'
+                      ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-violet-50 dark:hover:bg-violet-900/20'
                       }`}
                   >
                     <div className="font-semibold flex items-center gap-2">
@@ -754,9 +791,9 @@ export default function AIInsightsPage() {
                   </button>
                   <button
                     onClick={() => setAnalysisType('pricing')}
-                    className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${analysisType === 'pricing'
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600'
+                    className={`w-full text-left px-4 py-3 rounded-lg transition-all transform hover:scale-[1.02] ${analysisType === 'pricing'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-emerald-50 dark:hover:bg-emerald-900/20'
                       }`}
                   >
                     <div className="font-semibold flex items-center gap-2">
@@ -769,9 +806,9 @@ export default function AIInsightsPage() {
                   </button>
                   <button
                     onClick={() => setAnalysisType('inventory')}
-                    className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${analysisType === 'inventory'
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600'
+                    className={`w-full text-left px-4 py-3 rounded-lg transition-all transform hover:scale-[1.02] ${analysisType === 'inventory'
+                      ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-lg'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-amber-50 dark:hover:bg-amber-900/20'
                       }`}
                   >
                     <div className="font-semibold flex items-center gap-2">
@@ -784,9 +821,9 @@ export default function AIInsightsPage() {
                   </button>
                   <button
                     onClick={() => setAnalysisType('sales')}
-                    className={`w-full text-left px-4 py-3 rounded-lg transition-colors ${analysisType === 'sales'
-                      ? 'bg-purple-600 text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-gray-600'
+                    className={`w-full text-left px-4 py-3 rounded-lg transition-all transform hover:scale-[1.02] ${analysisType === 'sales'
+                      ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white hover:bg-blue-50 dark:hover:bg-blue-900/20'
                       }`}
                   >
                     <div className="font-semibold flex items-center gap-2">
@@ -944,7 +981,7 @@ export default function AIInsightsPage() {
                           <p className="text-slate-400 text-xs mt-0.5">AI-Powered Analytics Database</p>
                         </div>
                       </div>
-                      
+
                       <div className="flex gap-1.5">
                         {/* Sync button - Mini */}
                         <button
@@ -970,7 +1007,7 @@ export default function AIInsightsPage() {
                             </>
                           )}
                         </button>
-                        
+
                         {/* Delete button - Mini */}
                         <button
                           onClick={deleteData}
@@ -999,95 +1036,95 @@ export default function AIInsightsPage() {
                     </div>
                   </div>
 
-                {chromaStats && (
-                  <div className="p-6 space-y-3">
-                    {/* Stats Grid - Simple Cards */}
-                    <div className="grid grid-cols-1 gap-3">
-                      {/* Collections Card */}
-                      <div className="flex items-center gap-3 p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
-                        <div className="p-2 bg-blue-500/10 rounded-lg">
-                          <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                          </svg>
+                  {chromaStats && (
+                    <div className="p-6 space-y-3">
+                      {/* Stats Grid - Simple Cards */}
+                      <div className="grid grid-cols-1 gap-3">
+                        {/* Collections Card */}
+                        <div className="flex items-center gap-3 p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                          <div className="p-2 bg-blue-500/10 rounded-lg">
+                            <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                            </svg>
+                          </div>
+                          <div className="flex-1">
+                            <div className="text-xs text-slate-400 font-medium">Collections</div>
+                            <div className="text-xl font-bold text-slate-200">{chromaStats.total_collections}</div>
+                          </div>
                         </div>
-                        <div className="flex-1">
-                          <div className="text-xs text-slate-400 font-medium">Collections</div>
-                          <div className="text-xl font-bold text-slate-200">{chromaStats.total_collections}</div>
+
+                        {/* Documents Card */}
+                        <div className="flex items-center gap-3 p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                          <div className="p-2 bg-emerald-500/10 rounded-lg">
+                            <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
+                          <div className="flex-1">
+                            <div className="text-xs text-slate-400 font-medium">Documents</div>
+                            <div className="text-xl font-bold text-slate-200">{chromaStats.total_documents}</div>
+                          </div>
+                        </div>
+
+                        {/* Last Updated Card */}
+                        <div className="flex items-center gap-3 p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
+                          <div className="p-2 bg-purple-500/10 rounded-lg">
+                            <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                          </div>
+                          <div className="flex-1">
+                            <div className="text-xs text-slate-400 font-medium">Last Updated</div>
+                            <div className="text-sm font-semibold text-slate-200 truncate">{formatDateTime(chromaStats.timestamp)}</div>
+                          </div>
                         </div>
                       </div>
 
-                      {/* Documents Card */}
-                      <div className="flex items-center gap-3 p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
-                        <div className="p-2 bg-emerald-500/10 rounded-lg">
-                          <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-xs text-slate-400 font-medium">Documents</div>
-                          <div className="text-xl font-bold text-slate-200">{chromaStats.total_documents}</div>
-                        </div>
-                      </div>
-
-                      {/* Last Updated Card */}
-                      <div className="flex items-center gap-3 p-4 bg-slate-800/50 rounded-lg border border-slate-700/50">
-                        <div className="p-2 bg-purple-500/10 rounded-lg">
-                          <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-xs text-slate-400 font-medium">Last Updated</div>
-                          <div className="text-sm font-semibold text-slate-200 truncate">{formatDateTime(chromaStats.timestamp)}</div>
-                        </div>
-                      </div>
+                      {/* Action Button */}
+                      <button
+                        onClick={loadChromaData}
+                        disabled={chromaLoading}
+                        className="w-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 px-4 py-3 rounded-lg font-medium border border-emerald-500/30 hover:border-emerald-500/50 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                      >
+                        {chromaLoading ? (
+                          <>
+                            <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span>Loading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                            <span>Xem Chi Tiết Dữ Liệu</span>
+                          </>
+                        )}
+                      </button>
                     </div>
+                  )}
 
-                    {/* Action Button */}
-                    <button
-                      onClick={loadChromaData}
-                      disabled={chromaLoading}
-                      className="w-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 px-4 py-3 rounded-lg font-medium border border-emerald-500/30 hover:border-emerald-500/50 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
-                    >
-                      {chromaLoading ? (
-                        <>
-                          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          <span>Loading...</span>
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                          <span>Xem Chi Tiết Dữ Liệu</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
-
-                {!chromaStats && !chromaLoading && (
-                  <div className="text-center py-12">
-                    <div className="relative inline-block mb-4">
-                      <div className="absolute inset-0 bg-gray-300 dark:bg-gray-600 rounded-full blur-xl opacity-30"></div>
-                      <svg className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-                      </svg>
+                  {!chromaStats && !chromaLoading && (
+                    <div className="text-center py-12">
+                      <div className="relative inline-block mb-4">
+                        <div className="absolute inset-0 bg-gray-300 dark:bg-gray-600 rounded-full blur-xl opacity-30"></div>
+                        <svg className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                        </svg>
+                      </div>
+                      <p className="text-gray-500 dark:text-gray-400 font-medium">Chưa có dữ liệu ChromaDB</p>
+                      <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Nhấn nút Đồng bộ ở trên để tải dữ liệu</p>
                     </div>
-                    <p className="text-gray-500 dark:text-gray-400 font-medium">Chưa có dữ liệu ChromaDB</p>
-                    <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Nhấn nút Đồng bộ ở trên để tải dữ liệu</p>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Insights Display */}
-          <div className="lg:col-span-2 max-h-[calc(100vh-120px)] overflow-y-auto">
+          {/* Insights Display */}
+          <div className="lg:col-span-2 h-auto lg:max-h-[calc(100vh-120px)] lg:overflow-y-auto">
             <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-2xl p-6 min-h-[600px] relative border border-white/20 dark:border-gray-700/30">
               {syncLoading && (
                 <div className="absolute inset-0 bg-white/60 dark:bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-20 rounded-2xl">
@@ -1126,7 +1163,7 @@ export default function AIInsightsPage() {
               </div>
 
               {!insights && !loading && (
-                <div className="flex flex-col items-center justify-center h-[500px] text-center px-6">
+                <div className="flex flex-col items-center justify-start text-center px-6 py-6">
                   {chromaHasData() ? (
                     // Có dữ liệu - hiển thị thông báo sẵn sàng phân tích
                     <>
@@ -1144,14 +1181,15 @@ export default function AIInsightsPage() {
                       </div>
 
                       <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-                        AI RAG Analysis
+                        AI RAG Business Analytics
                       </h3>
 
-                      <p className="text-gray-600 dark:text-gray-400 mb-4 max-w-md text-sm">
-                        Powered by Retrieval-Augmented Generation (RAG) technology, combining Large Language Models with vector databases for intelligent business analysis and strategic insights.
+                      <p className="text-gray-600 dark:text-gray-400 mb-4 max-w-2xl text-sm">
+                        Hệ thống phân tích kinh doanh thông minh kết hợp RAG (Retrieval-Augmented Generation) với các thuật toán kinh tế học hiện đại, cung cấp insights chính xác dựa trên dữ liệu thực tế và phương pháp toán học.
                       </p>
 
-                      <div className="flex flex-row items-center justify-center gap-8 w-full mb-4 flex-wrap">
+                      {/* Technology Stack Section */}
+                      <div className="flex flex-row items-center justify-center gap-8 w-full mb-6 flex-wrap">
                         <div className="flex items-center gap-4">
                           <div className="p-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
                             <svg className="w-6 h-6 text-gray-800 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1200,10 +1238,173 @@ export default function AIInsightsPage() {
                             <div className="text-sm text-gray-600 dark:text-gray-400">End-to-End Processing</div>
                           </div>
                         </div>
-                      </div>                      <div className="text-center">
+                      </div>
+
+                      <div className="text-center mb-6">
                         <p className="text-xs text-gray-500 dark:text-gray-500 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/10 dark:to-pink-900/10 px-3 py-2 rounded-lg border border-purple-100 dark:border-purple-800">
                           RAG + LLM + Vector Database - Công nghệ AI tiên tiến nhất
                         </p>
+                      </div>
+
+                      {/* Economic Algorithms Section */}
+                      <div className="w-full mb-6">
+                        <h4 className="text-base font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                          <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                          </svg>
+                          Thuật Toán Kinh Tế & Thống Kê Tích Hợp
+                        </h4>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-3">
+                          <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-4 rounded-lg shadow-sm">
+                            <div className="flex items-start gap-3">
+                              <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg flex-shrink-0">
+                                <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                                </svg>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h5 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">Dự Báo Thống Kê</h5>
+                                <ul className="text-xs text-gray-700 dark:text-gray-300 space-y-1.5">
+                                  <li className="flex items-start gap-1.5">
+                                    <span className="text-green-600 mt-0.5">•</span>
+                                    <span>Moving Average (SMA, WMA)</span>
+                                  </li>
+                                  <li className="flex items-start gap-1.5">
+                                    <span className="text-green-600 mt-0.5">•</span>
+                                    <span>Exponential Smoothing</span>
+                                  </li>
+                                  <li className="flex items-start gap-1.5">
+                                    <span className="text-green-600 mt-0.5">•</span>
+                                    <span>Linear Regression với R²</span>
+                                  </li>
+                                  <li className="flex items-start gap-1.5">
+                                    <span className="text-green-600 mt-0.5">•</span>
+                                    <span>Seasonal Decomposition</span>
+                                  </li>
+                                  <li className="flex items-start gap-1.5">
+                                    <span className="text-green-600 mt-0.5">•</span>
+                                    <span>Ensemble Forecasting</span>
+                                  </li>
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 p-4 rounded-lg shadow-sm">
+                            <div className="flex items-start gap-3">
+                              <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex-shrink-0">
+                                <svg className="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                </svg>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h5 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">Quản Lý Tồn Kho</h5>
+                                <ul className="text-xs text-gray-700 dark:text-gray-300 space-y-1.5">
+                                  <li className="flex items-start gap-1.5">
+                                    <span className="text-purple-600 mt-0.5">•</span>
+                                    <span>ABC Analysis (Pareto)</span>
+                                  </li>
+                                  <li className="flex items-start gap-1.5">
+                                    <span className="text-purple-600 mt-0.5">•</span>
+                                    <span>EOQ (Economic Order Quantity)</span>
+                                  </li>
+                                  <li className="flex items-start gap-1.5">
+                                    <span className="text-purple-600 mt-0.5">•</span>
+                                    <span>Reorder Point (ROP)</span>
+                                  </li>
+                                  <li className="flex items-start gap-1.5">
+                                    <span className="text-purple-600 mt-0.5">•</span>
+                                    <span>Safety Stock Calculation</span>
+                                  </li>
+                                  <li className="flex items-start gap-1.5">
+                                    <span className="text-purple-600 mt-0.5">•</span>
+                                    <span>Inventory Turnover Ratio</span>
+                                  </li>
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 p-4 rounded-lg shadow-sm">
+                            <div className="flex items-start gap-3">
+                              <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex-shrink-0">
+                                <svg className="w-5 h-5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h5 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">Chiến Lược Giá</h5>
+                                <ul className="text-xs text-gray-700 dark:text-gray-300 space-y-1.5">
+                                  <li className="flex items-start gap-1.5">
+                                    <span className="text-orange-600 mt-0.5">•</span>
+                                    <span>Price Elasticity Analysis</span>
+                                  </li>
+                                  <li className="flex items-start gap-1.5">
+                                    <span className="text-orange-600 mt-0.5">•</span>
+                                    <span>Psychological Pricing</span>
+                                  </li>
+                                  <li className="flex items-start gap-1.5">
+                                    <span className="text-orange-600 mt-0.5">•</span>
+                                    <span>Competitor Price Analysis</span>
+                                  </li>
+                                  <li className="flex items-start gap-1.5">
+                                    <span className="text-orange-600 mt-0.5">•</span>
+                                    <span>Dynamic Pricing Model</span>
+                                  </li>
+                                  <li className="flex items-start gap-1.5">
+                                    <span className="text-orange-600 mt-0.5">•</span>
+                                    <span>Profit Margin Optimization</span>
+                                  </li>
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-4 rounded-lg shadow-sm">
+                            <div className="flex items-start gap-3">
+                              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex-shrink-0">
+                                <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h5 className="font-semibold text-gray-900 dark:text-white text-sm mb-2">Phân Khúc Khách Hàng</h5>
+                                <ul className="text-xs text-gray-700 dark:text-gray-300 space-y-1.5">
+                                  <li className="flex items-start gap-1.5">
+                                    <span className="text-blue-600 mt-0.5">•</span>
+                                    <span>RFM Analysis (Recency, Frequency, Monetary)</span>
+                                  </li>
+                                  <li className="flex items-start gap-1.5">
+                                    <span className="text-blue-600 mt-0.5">•</span>
+                                    <span>Customer Lifetime Value (CLV)</span>
+                                  </li>
+                                  <li className="flex items-start gap-1.5">
+                                    <span className="text-blue-600 mt-0.5">•</span>
+                                    <span>Churn Prediction</span>
+                                  </li>
+                                  <li className="flex items-start gap-1.5">
+                                    <span className="text-blue-600 mt-0.5">•</span>
+                                    <span>Cohort Analysis</span>
+                                  </li>
+                                  <li className="flex items-start gap-1.5">
+                                    <span className="text-blue-600 mt-0.5">•</span>
+                                    <span>Purchase Pattern Recognition</span>
+                                  </li>
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 p-3 bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 rounded-lg">
+                          <p className="text-xs text-yellow-900 dark:text-yellow-200 flex items-start gap-2">
+                            <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span><strong>Lưu ý:</strong> Tất cả phân tích dựa trên công thức toán học chính xác, KHÔNG phải AI đoán mò. Mỗi thuật toán có độ tin cậy (confidence score) để đánh giá chất lượng dự báo.</span>
+                          </p>
+                        </div>
                       </div>
                     </>
                   ) : (
@@ -1275,124 +1476,13 @@ export default function AIInsightsPage() {
               )}
 
               {insights && !loading && (
-                <div className="animate-fade-in-up">
-                  {/* Print Button */}
-                  <div className="flex justify-end mb-4">
-                    <button
-                      onClick={printReport}
-                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl font-medium"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                      </svg>
-                      In báo cáo
-                    </button>
-                  </div>
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm] as any}
-                    rehypePlugins={[rehypeRaw] as any}
-                    components={{
-                      h1: ({ children }) => (
-                        <div className="bg-gradient-to-r from-violet-600 to-fuchsia-600 p-6 rounded-xl shadow-lg mb-8 text-white transform -rotate-1">
-                          <h1 className="text-3xl font-extrabold tracking-tight">
-                            {children}
-                          </h1>
-                        </div>
-                      ),
-                      h2: ({ children }) => (
-                        <div className="flex items-center gap-3 mt-10 mb-6 pb-2 border-b border-gray-200 dark:border-gray-700">
-                          <div className="w-10 h-10 rounded-lg bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 dark:text-violet-400">
-                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                            </svg>
-                          </div>
-                          <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                            {children}
-                          </h2>
-                        </div>
-                      ),
-                      h3: ({ children }) => (
-                        <h3 className="text-xl font-semibold text-fuchsia-600 dark:text-fuchsia-400 mb-4 mt-6 flex items-center gap-2">
-                          <span className="w-2 h-6 bg-fuchsia-500 rounded-full inline-block"></span>
-                          {children}
-                        </h3>
-                      ),
-                      p: ({ children }) => (
-                        <p className="mb-4 text-gray-700 dark:text-gray-300 leading-relaxed text-base">
-                          {children}
-                        </p>
-                      ),
-                      ul: ({ children }) => (
-                        <ul className="mb-6 space-y-3">
-                          {children}
-                        </ul>
-                      ),
-                      ol: ({ children }) => (
-                        <ol className="list-decimal list-inside mb-6 space-y-3 text-gray-700 dark:text-gray-300">
-                          {children}
-                        </ol>
-                      ),
-                      li: ({ children }) => (
-                        <li className="flex items-start gap-3 bg-gray-50 dark:bg-gray-800/50 p-3 rounded-lg border border-gray-100 dark:border-gray-700/50 hover:border-violet-200 dark:hover:border-violet-700 transition-colors">
-                          <span className="mt-1 text-violet-500 flex-shrink-0">●</span>
-                          <span className="text-gray-700 dark:text-gray-300">{children}</span>
-                        </li>
-                      ),
-                      strong: ({ children }) => (
-                        <strong className="font-bold text-violet-700 dark:text-violet-300">
-                          {children}
-                        </strong>
-                      ),
-                      table: ({ children }) => (
-                        <div className="overflow-x-auto my-8 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
-                          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                            {children}
-                          </table>
-                        </div>
-                      ),
-                      thead: ({ children }) => (
-                        <thead className="bg-gradient-to-r from-violet-600 to-fuchsia-600">
-                          {children}
-                        </thead>
-                      ),
-                      th: ({ children }) => (
-                        <th className="px-6 py-4 text-left text-sm font-bold text-white uppercase tracking-wider">
-                          {children}
-                        </th>
-                      ),
-                      tbody: ({ children }) => (
-                        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                          {children}
-                        </tbody>
-                      ),
-                      tr: ({ children, className }) => (
-                        <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                          {children}
-                        </tr>
-                      ),
-                      td: ({ children }) => (
-                        <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                          {children}
-                        </td>
-                      ),
-                      blockquote: ({ children }) => (
-                        <div className="relative p-6 my-8 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl border-l-4 border-indigo-500 shadow-sm">
-                          <svg className="absolute top-4 left-4 w-6 h-6 text-indigo-200 dark:text-indigo-800 transform -scale-x-100" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M14.017 21L14.017 18C14.017 16.8954 13.1216 16 12.017 16H9C9.00001 15 9.00001 15 9.00001 15C9.00001 10.5817 12.5817 7 17 7V5C11.4772 5 7 9.47715 7 15C7 15 7 15 7 15C7 18.3137 9.68629 21 13 21H14.017ZM21 21L21 18C21 16.8954 20.1046 16 19 16H15.9829C15.9829 15 15.9829 15 15.9829 15C15.9829 10.5817 19.5646 7 23.9829 7V5C18.4601 5 13.9829 9.47715 13.9829 15C13.9829 15 13.9829 15 13.9829 15C13.9829 18.3137 16.6692 21 19.9829 21H21Z" />
-                          </svg>
-                          <div className="relative z-10 pl-6 italic text-gray-700 dark:text-gray-300">
-                            {children}
-                          </div>
-                        </div>
-                      ),
-                      hr: () => (
-                        <hr className="my-10 border-t-2 border-gray-100 dark:border-gray-700/50" />
-                      ),
-                    }}
-                  >
-                    {insights}
-                  </ReactMarkdown>
-                </div>
+                <AnalyticsInsightsPanel
+                  insights={insights}
+                  statistics={statistics}
+                  analysisType={analysisType}
+                  onRegenerate={generateInsights}
+                  onPrint={printReport}
+                />
               )}
             </div>
           </div>
