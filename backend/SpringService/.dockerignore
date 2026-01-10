@@ -1,0 +1,14 @@
+target/
+.mvn/
+*.log
+*.pid
+*.gz
+.git/
+.gitignore
+README.md
+.env
+.env.*
+*.iml
+.idea/
+.vscode/
+.DS_Store

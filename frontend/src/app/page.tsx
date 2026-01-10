@@ -167,7 +167,7 @@ export default function HomePage() {
           router.push('/admin');
           return;
         }
-        
+
         setCurrentUser({
           username: userData.username,
           fullName: userData.fullName,
@@ -321,10 +321,9 @@ export default function HomePage() {
             {/* Logo */}
             <Link href="/" className="flex items-center gap-4 group">
               <div className="relative">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:scale-110 transition-transform duration-300">
-                  <Briefcase className="w-6 h-6 text-white" />
+                <div className="w-16 h-16 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                  <img src="/logo.png" alt="AgentBiz Logo" className="w-full h-full object-contain drop-shadow-lg scale-110" />
                 </div>
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-[#050505]"></div>
               </div>
               <div>
                 <span className="text-xl font-bold text-white tracking-tight group-hover:text-blue-400 transition-colors">

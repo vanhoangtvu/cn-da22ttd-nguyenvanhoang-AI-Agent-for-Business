@@ -13,7 +13,7 @@
 | **🏫 Trường** | Đại Học Trà Vinh |
 | **🏛️ Khoa** | Công Nghệ Thông Tin |
 | **👨‍🏫 GVHD** | ThS. TS. Nguyễn Bảo Ân |
-| **📧 Email** | nguyenvanhoang@example.com |
+| **📧 Email** | nguyenvanhoang4556z@gmail.com |
 | **💻 GitHub** | [@vanhoangtvu](https://github.com/vanhoangtvu) |
 
 ---

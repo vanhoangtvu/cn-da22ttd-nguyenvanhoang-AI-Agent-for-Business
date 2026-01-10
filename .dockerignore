@@ -1,0 +1,14 @@
+.git/
+.gitignore
+*.md
+.env
+.env.*
+*.log
+.DS_Store
+.vscode/
+.idea/
+node_modules/
+__pycache__/
+*.pyc
+target/
+.mvn/

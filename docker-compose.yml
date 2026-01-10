@@ -1,0 +1,140 @@
+version: '3.8'
+
+services:
+  # MySQL Database
+  mysql:
+    image: mysql:8.0
+    container_name: ai-agent-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-AI_Agent_db}
+      MYSQL_USER: ${MYSQL_USER:-aiagent}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-aiagentpass}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./backend/SpringService/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - ai-agent-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-rootpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: ai-agent-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redispass}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - ai-agent-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Spring Boot Backend Service
+  spring-service:
+    build:
+      context: ./backend/SpringService
+      dockerfile: Dockerfile
+    container_name: ai-agent-spring
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-AI_Agent_db}?allowPublicKeyRetrieval=true&useSSL=false
+      DATABASE_USERNAME: ${MYSQL_USER:-aiagent}
+      DATABASE_PASSWORD: ${MYSQL_PASSWORD:-aiagentpass}
+      PYTHON_SERVICE_URL: http://python-service:5000
+      SPRING_SERVICE_URL: http://spring-service:8089/api/v1
+    ports:
+      - "8089:8089"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - ai-agent-network
+    volumes:
+      - spring_logs:/app/logs
+
+  # Python AI Service
+  python-service:
+    build:
+      context: ./backend/Pythonservice
+      dockerfile: Dockerfile
+    container_name: ai-agent-python
+    restart: unless-stopped
+    environment:
+      GROQ_API_KEY: ${GROQ_API_KEY}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      SPRING_SERVICE_URL: http://spring-service:8089/api/v1
+      AI_SERVICE_URL: http://python-service:5000
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redispass}
+      REDIS_DB: 0
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-MySecretKeyForJWTTokenGenerationAndValidation123456789}
+      CHAT_HISTORY_TTL: 86400
+      CHROMA_ANALYTICS_PATH: /app/chroma_analytics
+      CHROMA_CHAT_AI_PATH: /app/chroma_chat_ai
+    ports:
+      - "5000:5000"
+    depends_on:
+      redis:
+        condition: service_healthy
+      spring-service:
+        condition: service_started
+    networks:
+      - ai-agent-network
+    volumes:
+      - chroma_analytics:/app/chroma_analytics
+      - chroma_chat_ai:/app/chroma_chat_ai
+      - python_logs:/app/logs
+
+  # Next.js Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8089/api/v1}
+        NEXT_PUBLIC_PYTHON_API_URL: ${NEXT_PUBLIC_PYTHON_API_URL:-http://localhost:5000}
+    container_name: ai-agent-frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8089/api/v1}
+      NEXT_PUBLIC_PYTHON_API_URL: ${NEXT_PUBLIC_PYTHON_API_URL:-http://localhost:5000}
+    ports:
+      - "80:80"
+    depends_on:
+      - spring-service
+      - python-service
+    networks:
+      - ai-agent-network
+
+networks:
+  ai-agent-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local
+  redis_data:
+    driver: local
+  chroma_analytics:
+    driver: local
+  chroma_chat_ai:
+    driver: local
+  spring_logs:
+    driver: local
+  python_logs:
+    driver: local

@@ -1,0 +1,32 @@
+# Development Dockerfile for Python Service
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies and dev tools
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    make \
+    libffi-dev \
+    libssl-dev \
+    curl \
+    vim \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Install development dependencies
+RUN pip install --no-cache-dir watchdog[watchmedo]
+
+# Create directories
+RUN mkdir -p /app/chroma_analytics /app/chroma_chat_ai
+
+# Expose port
+EXPOSE 5000
+
+# Development command with auto-reload
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "5000", "--reload"]
